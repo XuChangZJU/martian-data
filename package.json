@@ -1,0 +1,26 @@
+{
+  "name": "martian-data",
+  "version": "1.0.0",
+  "description": "data layer of martian",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "mongodb": "^1.3.19",
+    "mysql": "^2.0.0-alpha8",
+    "orm": "^3.1.0"
+  },
+  "devDependencies": {
+    "babel": "^6.1.18",
+    "babel-cli": "^6.2.0",
+    "babel-core": "^6.2.1",
+    "babel-eslint": "^5.0.0-beta4",
+    "babel-preset-es2015": "^6.1.18",
+    "babel-preset-stage-0": "^6.1.18",
+    "mockjs": "1.0.1-beta2",
+    "expect.js": "latest"
+  },
+  "author": "XuChang",
+  "license": "ISC"
+}
