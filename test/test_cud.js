@@ -1,0 +1,119 @@
+/**
+ * Created by Administrator on 2016/6/6.
+ */
+"use strict";
+
+
+
+
+var expect = require("expect.js");
+
+
+const uda = require("../src/UnifiedDataAccess");
+const dataSource = require("./def/dataSource");
+const schema = require("./def/schemas/schema");
+const schema2 = require("./def/schemas/schema2");
+const schema3 = require("./def/schemas/schema3");
+
+
+function insertUpdateDeleteHouse(uda) {
+    return uda.dropSchemas()
+        .then (
+            () => {
+                return uda.createSchemas()
+                    .then(
+                        () => {
+                            return uda.insert("house", {
+                                    buildAt: Date.now(),
+                                    status: "offline"
+                                })
+                                .then(
+                                    (row) => {
+                                        return uda.updateOneById("house", {
+                                               $set:{
+                                                   status: "online"
+                                               }
+                                            }, row.id)
+                                            .then(
+                                                (row) => {
+                                                    return uda.removeOneById("house", row.id);
+                                                }
+                                            )
+                                    }
+                                )
+                        }
+                    )
+            }
+        )
+}
+
+describe("test_insert_update_delete", ()=> {
+    before((done) => {
+        uda.connect(dataSource)
+            .then(
+                (result) => {
+                    done();
+                },
+                (err) => {
+                    done(err);
+                }
+            );
+    });
+
+    it("[cud1.0]cud in mongodb", (done) => {
+        let _schema = Object.assign({}, schema2);
+
+        _schema.house.source = "mongodb";
+        uda.setSchemas(_schema);
+
+        insertUpdateDeleteHouse(uda)
+            .then(
+                () => {
+                    done();
+                },
+                (err) => {
+                    done(err);
+                }
+            )
+    });
+
+    it("[cud1.1]cud in mysql", (done) => {
+        let _schema = Object.assign({}, schema2);
+
+        _schema.house.source = "mysql";
+        uda.setSchemas(_schema);
+
+        insertUpdateDeleteHouse(uda)
+            .then(
+                () => {
+                    done();
+                },
+                (err) => {
+                    done(err);
+                }
+            )
+    });
+
+    it("[cud1.2]sql in mysql", (done) => {
+        let sql = "select a as 'a.id', _b_ as 'b.id' from test";
+        let mysql = uda.getSource("mysql");
+        mysql.execSql(sql)
+            .then(
+                (result, fields) => {
+                    console.log(result);
+                    console.log(fields);
+                    done();
+                },
+                (err) => {
+                    done(err);
+                }
+            )
+    });
+
+
+    after((done) => {
+        uda.disconnect()
+            .then(done);
+    });
+
+})
