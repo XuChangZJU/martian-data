@@ -39,7 +39,7 @@ function convertExecNodeToSQL(sql, node, parentName, relName, joinInfo, projecti
     }
 
     if(joinInfo) {
-        sql.from += " join " + relName + " " + alias + " on " + parentName + "." + joinInfo.localColumnName + " = " + alias + "." + joinInfo.refColumnName;
+        sql.from += " left join " + relName + " " + alias + " on " + parentName + "." + joinInfo.localColumnName + " = " + alias + "." + joinInfo.refColumnName;
     }
 
     for(let projection in node.projection) {
@@ -71,7 +71,11 @@ function convertExecNodeToSQL(sql, node, parentName, relName, joinInfo, projecti
         }
         sql.orderBy += alias + ".";
         sql.orderBy += attr;
-        sql.orderBy += node.sort[attr] ? " ASC": " DESC";
+
+        if(typeof node.sort[attr] != "number" || node.sort[attr] === 0) {
+            throw new Error("SORT条件必须是不为0的数值，当前检测到非法值"+ node.sort[attr]);
+        }
+        sql.orderBy += node.sort[attr] > 0 ? " ASC": " DESC";
     }
 
 

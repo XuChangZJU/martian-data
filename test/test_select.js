@@ -55,7 +55,110 @@ const users = [
     }
 ];
 
-describe("test select with joins in mysql & mongodb", function() {
+function initData(uda) {
+    return uda.dropSchemas()
+        .then(
+            () => {
+                return uda.createSchemas()
+                    .then(
+                        () => {
+                            let promises = [];
+                            users.forEach(
+                                (ele, idx) => {
+                                    const idx2 = idx;
+                                    promises.push(
+                                        uda.insert("user", ele)
+                                        .then(
+                                            (result) => {
+                                                users[idx2] = result;
+                                                return Promise.resolve();
+                                            },
+                                            (err) => {
+                                                return Promise.reject(err);
+                                            }
+                                        ));
+                                }
+                            )
+                            return Promise.all(promises)
+                                .then(
+                                    ()=> {
+                                        let promises2 = [];
+                                        houseInfos.forEach(
+                                            (ele, index) => {
+                                                promises2.push(
+                                                    uda.insert("houseInfo", ele)
+                                                        .then(
+                                                            (result) => {
+                                                                houses[index].houseInfoId = result.id || result._id;
+                                                                return uda.insert("house", houses[index])
+                                                                    .then(
+                                                                        (hItem) => {
+                                                                            houses[index] = hItem;
+                                                                            let contract = {
+                                                                                owner: users[index*2],
+                                                                                renter: users[index *2 + 1],
+                                                                                price: 2000
+                                                                            };
+                                                                            return uda.insert("contract", contract)
+                                                                                .then(
+                                                                                    (result) => {
+                                                                                        return uda.updateOneById("house", {
+                                                                                                $set: {
+                                                                                                    contract: result
+                                                                                                }
+                                                                                            }, (hItem.id || hItem._id))
+                                                                                            .then(
+                                                                                                () => {
+                                                                                                    return Promise.resolve();
+                                                                                                },
+                                                                                                (err) => {
+                                                                                                    return Promise.reject(err);
+                                                                                                }
+                                                                                            )
+                                                                                    },
+                                                                                    (err) => {
+                                                                                        return Promise.reject(err);
+                                                                                    }
+                                                                                );
+                                                                        },
+                                                                        (err) => {
+                                                                            return Promise.reject();
+                                                                        }
+                                                                    );
+                                                            }
+                                                        )
+                                                );
+                                            }
+                                        );
+                                        return Promise.all(promises2)
+                                    },
+                                    (err) => {
+                                        return Promise.reject(err);
+                                    }
+                                )
+                        },
+                        (err) => {
+                            return Promise.reject(err);
+                        }
+                    )
+            },
+            (err) => {
+                return Promise.reject(err);
+            }
+        )
+}
+
+function checkResult1(result) {
+    expect(result).to.be.an("object");
+    expect(result.buildAt).to.eql(now);
+    expect(result.status).to.eql("verifying");
+    expect(result.contract.owner.name).to.eql("xiaoming");
+    expect(result.contract.renter.name).to.eql("xiaohong");
+}
+
+
+
+describe("test select with joins in mysql 1", function() {
 
     this.timeout(5000);
 
@@ -64,102 +167,15 @@ describe("test select with joins in mysql & mongodb", function() {
             .then(
                 (result) => {
                     uda.setSchemas(schema4);
-                    uda.dropSchemas()
+                    initData(uda)
                         .then(
                             () => {
-                                uda.createSchemas()
-                                    .then(
-                                        () => {
-                                            let promises = [];
-                                            users.forEach(
-                                                (ele, idx) => {
-                                                    const idx2 = idx;
-                                                    promises.push(uda.insert("user", ele)
-                                                        .then(
-                                                            (result) => {
-                                                                users[idx2].id = result.id;
-                                                                return Promise.resolve();
-                                                            },
-                                                            (err) => {
-                                                                return Promise.reject(err);
-                                                            }
-                                                        ));
-                                                }
-                                            )
-                                            Promise.all(promises)
-                                                .then(
-                                                    ()=> {
-                                                        let promises2 = [];
-                                                        houseInfos.forEach(
-                                                            (ele, index) => {
-                                                                promises2.push(
-                                                                    uda.insert("houseInfo", ele)
-                                                                        .then(
-                                                                            (result) => {
-                                                                                houses[index].houseInfoId = result.id;
-                                                                                return uda.insert("house", houses[index])
-                                                                                    .then(
-                                                                                        (hItem) => {
-                                                                                            let contract = {
-                                                                                                owner: users[index*2],
-                                                                                                renter: users[index *2 + 1],
-                                                                                                price: 2000
-                                                                                            };
-                                                                                            return uda.insert("contract", contract)
-                                                                                                .then(
-                                                                                                    (result) => {
-                                                                                                        return uda.updateOneById("house", {
-                                                                                                            $set: {
-                                                                                                                contract: result
-                                                                                                            }
-                                                                                                        }, hItem.id)
-                                                                                                            .then(
-                                                                                                                () => {
-                                                                                                                    return Promise.resolve();
-                                                                                                                },
-                                                                                                                (err) => {
-                                                                                                                    return Promise.reject(err);
-                                                                                                                }
-                                                                                                            )
-                                                                                                    },
-                                                                                                    (err) => {
-                                                                                                        return Promise.reject(err);
-                                                                                                    }
-                                                                                                );
-                                                                                        },
-                                                                                        (err) => {
-                                                                                            return Promise.reject();
-                                                                                        }
-                                                                                    );
-                                                                            }
-                                                                        )
-                                                                );
-                                                            }
-                                                        );
-                                                        Promise.all(promises2)
-                                                            .then(
-                                                                () => {
-                                                                    done()
-                                                                },
-                                                                (err) => {
-                                                                    done(err);
-                                                                }
-                                                            );
-                                                    },
-                                                    (err) => {
-                                                        done(err);
-                                                    }
-                                                )
-                                        },
-                                        (err) => {
-                                            done(err);
-                                        }
-                                    )
+                                done();
                             },
                             (err) => {
                                 done(err);
                             }
-                        )
+                        );
                 },
                 (err) => {
                     done(err);
@@ -214,7 +230,10 @@ describe("test select with joins in mysql & mongodb", function() {
         uda.find("house", projection, query, sort, indexFrom, count)
             .then(
                 (result) => {
-                    console.log(result);
+                    expect(result).to.be.an("array");
+                    expect(result).to.have.length(1);
+                    checkResult1(result[0]);
+
                     done();
                 },
                 (err) => {
@@ -240,16 +259,103 @@ describe("test select with joins in mysql & mongodb", function() {
         };
 
 
-        uda.findById("house", projection, 1)
+        uda.findById("house", projection, houses[0].id)
             .then(
                 (result) => {
-                    console.log(result);
+                    checkResult1(result);
                     done();
                 },
                 (err) => {
                     done(err);
                 }
             )
+    });
+
+
+    it("[ts0.2 orderBy]", (done) => {
+        const query = {
+            buildAt: {
+                $eq: now
+            },
+            houseInfo: {
+                area: {
+                    $gt: 44
+                }
+            },
+            contract: {
+                price: {
+                    $ne: 2001
+                }
+            }
+        };
+        const projection = {
+            _id: 1,
+            buildAt : 1,
+            status: 1,
+            contract: {
+                owner: {
+                    name: 1
+                },
+                renter: {
+                    name: 1
+                }
+            },
+            houseInfo: {
+                area: 1
+            }
+        };
+
+        const sort = {
+            houseInfo: {
+                area: -1
+            }
+        }
+        const indexFrom = 0, count = 1;
+
+
+        let promises = [];
+        promises.push(uda.find("house", projection, query, sort, indexFrom, count)
+            .then(
+                (result) => {
+                    expect(result).to.be.an("array");
+                    expect(result).to.have.length(2);
+                    checkResult1(result[0]);
+
+                    return Promise.resolve();
+                },
+                (err) => {
+                    done(err);
+                }
+            ));
+
+        const sort2 = {
+            houseInfo: {
+                area: 1
+            }
+        }
+        promises.push(uda.find("house", projection, query, sort2, indexFrom, count)
+            .then(
+                (result) => {
+                    expect(result).to.be.an("array");
+                    expect(result).to.have.length(2);
+                    checkResult1(result[1]);
+
+                    return Promise.resolve();
+                },
+                (err) => {
+                    done(err);
+                }
+            ));
+
+        Promise.all(promises)
+            .then(
+                () => {
+                    done();
+                },
+                (err) => {
+                    done(err);
+                }
+            );
     });
 
 
@@ -264,59 +370,28 @@ describe("test select with joins in mysql & mongodb", function() {
 
 
 
-describe("test select with joins in mysql", () => {
+describe("test select with joins in mongodb", function() {
+    this.timeout(5000);
+
     before((done) => {
         uda.connect(dataSource)
             .then(
                 (result) => {
-                    uda.setSchemas(schema3);
-                    uda.dropSchemas()
+                    let _schema4 = Object.assign({}, schema4);
+                    _schema4.house.source = "mongodb";
+                    _schema4.houseInfo.source = "mongodb";
+                    _schema4.contract.source = "mongodb";
+                    _schema4.user.source = "mongodb";
+                    uda.setSchemas(_schema4);
+                    initData(uda)
                         .then(
                             () => {
-                                uda.createSchemas()
-                                    .then(
-                                        () => {
-                                            let promises = [];
-                                            houseInfos.forEach(
-                                                (ele, index) => {
-                                                    promises.push(
-                                                        uda.insert("houseInfo", ele)
-                                                            .then(
-                                                                (result) => {
-                                                                    houses[index].houseInfoId = result.id;
-                                                                    uda.insert("house", houses[index])
-                                                                        .then(
-                                                                            () => {
-                                                                                return Promise.resolve();
-                                                                            },
-                                                                            (err) => {
-                                                                                return Promise.reject();
-                                                                            }
-                                                                        );
-                                                                }
-                                                            )
-                                                    );
-                                                }
-                                            );
-                                            Promise.all(promises)
-                                                .then(
-                                                    () => {
-                                                        done()
-                                                    },
-                                                    (err) => {
-                                                        done(err);
-                                                    }
-                                                );
-                                        },
-                                        (err) => {
-                                            done(err);
-                                        }
-                                    )
+                                done();
                             },
                             (err) => {
                                 done(err);
                             }
-                        )
+                        );
                 },
                 (err) => {
                     done(err);
@@ -328,17 +403,37 @@ describe("test select with joins in mysql", () => {
     it("[ts1.0]", (done) => {
         const query = {
             buildAt: {
-                $gt: now
+                $eq: now
             },
             houseInfo: {
                 area: {
                     $gt: 44
                 }
+            },
+            contract: {
+                owner: {
+                    name: "xiaoming"
+                },
+                renter: {
+                    name: "xiaohong"
+                },
+                price: {
+                    $ne: 2001
+                }
             }
         };
         const projection = {
+            _id: 1,
             buildAt : 1,
-            status: 1
+            status: 1,
+            contract: {
+                owner: {
+                    name: 1
+                },
+                renter: {
+                    name: 1
+                }
+            }
         };
 
         const sort = {
@@ -348,10 +443,135 @@ describe("test select with joins in mysql", () => {
         }
         const indexFrom = 0, count = 1;
 
-        let result = uda.find("house", projection, query, sort, indexFrom, count);
-        console.log(result);
+        uda.find("house", projection, query, sort, indexFrom, count)
+            .then(
+                (result) => {
+                    expect(result).to.be.an("array");
+                    expect(result).to.have.length(1);
+                    checkResult1(result[0]);
 
-        done();
+                    done();
+                },
+                (err) => {
+                    done(err);
+                }
+            )
+    });
+
+
+    it("[ts1.1]", (done) => {
+        const projection = {
+            _id: 1,
+            buildAt : 1,
+            status: 1,
+            contract: {
+                owner: {
+                    name: 1
+                },
+                renter: {
+                    name: 1
+                }
+            }
+        };
+
+
+        uda.findById("house", projection, houses[0].id || houses[0]._id)
+            .then(
+                (result) => {
+                    checkResult1(result);
+                    done();
+                },
+                (err) => {
+                    done(err);
+                }
+            )
+    });
+
+
+    it("[ts1.2 orderBy]", (done) => {
+        const query = {
+            buildAt: {
+                $eq: now
+            },
+            houseInfo: {
+                area: {
+                    $gt: 44
+                }
+            },
+            contract: {
+                price: {
+                    $ne: 2001
+                }
+            }
+        };
+        const projection = {
+            _id: 1,
+            buildAt : 1,
+            status: 1,
+            contract: {
+                owner: {
+                    name: 1
+                },
+                renter: {
+                    name: 1
+                }
+            },
+            houseInfo: {
+                area: 1
+            }
+        };
+
+        const sort = {
+            houseInfo: {
+                area: -1
+            }
+        }
+        const indexFrom = 0, count = 1;
+
+
+        let promises = [];
+        promises.push(uda.find("house", projection, query, sort, indexFrom, count)
+            .then(
+                (result) => {
+                    expect(result).to.be.an("array");
+                    expect(result).to.have.length(2);
+                    checkResult1(result[0]);
+
+                    return Promise.resolve();
+                },
+                (err) => {
+                    done(err);
+                }
+            ));
+
+        const sort2 = {
+            houseInfo: {
+                area: 1
+            }
+        }
+        promises.push(uda.find("house", projection, query, sort2, indexFrom, count)
+            .then(
+                (result) => {
+                    expect(result).to.be.an("array");
+                    expect(result).to.have.length(2);
+                    checkResult1(result[1]);
+
+                    return Promise.resolve();
+                },
+                (err) => {
+                    done(err);
+                }
+            ));
+
+        Promise.all(promises)
+            .then(
+                () => {
+                    done();
+                },
+                (err) => {
+                    done(err);
+                }
+            );
     });
 
 

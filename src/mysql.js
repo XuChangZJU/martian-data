@@ -351,10 +351,10 @@ class Mysql {
         let PrimaryKeyHasDefined = false;
         for(let attr in schema.attributes) {
             const attrDef = schema.attributes[attr];
-            if(attr === "id" && (attrDef.type !== "serial" || !attrDef.key)) {
+           /* if(attr === "id" && (attrDef.type !== "serial" || !attrDef.key)) {
                 throw new Error("id列如果显式定义，必须是Serial类型且必须设置为主键");
             }
-
+*/
             // 忽略所有的ref列，在传入之前UDA应该已经将之转换完毕
             if(attrDef.type === constants.typeReference) {
                 continue;
@@ -387,10 +387,10 @@ class Mysql {
                 }
             }
         }
-        if(!PrimaryKeyHasDefined) {
+       /* if(!PrimaryKeyHasDefined) {
             // 帮助定义主键
             query += "," + constants.mysqlDefaultIdColumn + " bigint primary key auto_increment";
-        }
+        }*/
 
         // 视要求建立索引
         if(schema.indexes) {

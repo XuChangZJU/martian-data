@@ -6,6 +6,8 @@
 const MongoClient = require('mongodb').MongoClient;
 const ObjectId = require("mongodb").ObjectID;
 const constants = require("./constants");
+
+const assert = require("assert");
 const merge = require("lodash").merge;
 
 
@@ -14,12 +16,13 @@ const merge = require("lodash").merge;
  * @param data
  */
 function formalizeResult(data) {
-    let data2 = Object.assign({}, data);
+   /* let data2 = Object.assign({}, data);
     if(data2._id instanceof ObjectId) {
         data2.id = data2._id.toString();
         delete data2._id;
         return data2;
-    }
+    }*/
+    return data;
 }
 
 function getCollection(name) {
@@ -44,6 +47,104 @@ function getCollection(name) {
     })
 }
 
+/**
+ * (可能有没有考虑到的情况 add by xc 20160612
+ * @param prefix
+ * @param attr
+ * @param query
+ * @returns {{}}
+ */
+function destructPrefixQuery(prefix, query) {
+    let result = {};
+    if(query.hasOwnProperty("$and")) {
+        result.$and = query.$and.map(
+            (ele, idx) => {
+                return destructPrefixQuery(prefix, ele)
+            }
+        );
+    }
+    else if(query.hasOwnProperty("$or")) {
+        result.$or = query.$or.map(
+            (ele, idx) => {
+                return destructPrefixQuery(prefix, ele)
+            }
+        );
+    }
+    else if(query.hasOwnProperty("$not")) {
+        result.$not = destructPrefixQuery(prefix, query.$not)
+    }
+    else if(query.hasOwnProperty("$nor")) {
+        result.$nor = query.$nor.map(
+            (ele, idx) => {
+                return destructPrefixQuery(prefix, ele)
+            }
+        );
+    }
+    else {
+        for(let attr in query) {
+            const attr2 = (prefix || "") + attr;
+            result[attr2] = query[attr];
+        }
+    }
+
+    return result;
+}
+
+
+function destructPrefixSort(prefix, sort) {
+    let result = {};
+
+    for(let attr in sort) {
+        const attr2 = (prefix || "") + attr;
+        result[attr2] = sort[attr];
+    }
+
+    return result;
+}
+
+
+function transformJoinToAggregate(join, aggregation, prefix, projection) {
+    let lookup = {
+        $lookup: {
+            from: join.rel,
+            localField: (prefix||"") + join.localColumnName,
+            foreignField: join.refColumnName,
+            as: (prefix||"") + join.attr
+        }
+    }
+
+    let unwind = {
+        $unwind: {
+            path: "$" + (prefix||"") + join.attr,
+            preserveNullAndEmptyArrays: true
+        }
+    };
+
+
+    aggregation.push(lookup);
+    aggregation.push(unwind);
+    
+    let node = join.node;
+    // 在mongodb中，对被连接的对象的过滤条件被忽略，只传递投影信息
+    projection[join.attr] = node.projection;
+    let newPrefix = (prefix || "") + join.attr + ".";
+
+    let match = {
+        $match: destructPrefixQuery(newPrefix, node.query)
+    };
+    aggregation.push(match);
+
+    if(Object.getOwnPropertyNames(node.sort).length > 0) {
+        let sort = {
+            $sort : destructPrefixSort(newPrefix, node.sort)
+        }
+        aggregation.push(sort);
+    }
+
+    for(let i in node.joins) {
+        transformJoinToAggregate(node.joins[i], aggregation, newPrefix, projection[join.attr]);
+    }
+}
 
 class Mongodb {
     constructor(settings) {
@@ -80,13 +181,41 @@ class Mongodb {
         })
     }
 
-
-    findById(name, execTree, id) {
-
-    }
-
     find(name, execTree, indexFrom, count) {
-        
+        return getCollection.call(this, name)
+            .then(
+                (collection) => {
+                    let aggregation = [];
+                    let projection = execTree.projection;
+                    aggregation.push({
+                        $match: execTree.query
+                    });
+                    if(Object.getOwnPropertyNames(execTree.sort).length > 0) {
+                        let sort = {
+                            $sort : execTree.sort
+                        }
+                        aggregation.push(sort);
+                    }
+                    aggregation.push({
+                        $skip: indexFrom
+                    });
+                    aggregation.push({
+                        $limit: count
+                    });
+                    for(let i in execTree.joins) {
+                        const join = execTree.joins[i];
+                        transformJoinToAggregate(join, aggregation, "", projection);
+                    }
+
+                    aggregation.push({
+                        $project: projection
+                    })
+
+                    return collection.aggregate(
+                        aggregation
+                    ).toArray();
+                }
+            )
     }
 
     insert(name, data) {
@@ -316,7 +445,7 @@ class Mongodb {
     }
 
     getDefaultKeyName() {
-        return "id";
+        return "_id";
     }
 }
 

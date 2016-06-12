@@ -25,9 +25,15 @@ function formalizeSchemasDefinition(schemas) {
             throw new Error("寻找不到相应的数据源" + schemaDef.source);
         }
         else {
+            let isMainKeyDefined = false;
+            let mainKeyColumn = connection.getDefaultKeyName();
             // 处理所有的reference列
             for(let attr in schemaDef.attributes) {
                 const attrDef = schemaDef.attributes[attr];
+
+                if(attr === mainKeyColumn) {
+                    throw new Error("请不要使用默认的主键名" + attr);
+                }
 
                 if(attrDef.type === constants.typeReference) {
                     const schemaReferenced = schemas[attrDef.ref];
@@ -74,6 +80,17 @@ function formalizeSchemasDefinition(schemas) {
                         }
                     }
                 }
+                else if(attrDef.key) {
+                    // 如果有显式定义主键，则不用增加主键列
+                    isMainKeyDefined = true;
+                }
+            }
+
+            if(!isMainKeyDefined) {
+                schemaDef.attributes[mainKeyColumn] = {
+                    key: true,
+                    type: "serial"
+                };
             }
 
             if(!isSettingTrueStrictly(this.dataSources[schemaDef.source].settings, "disableCreateAt")) {
@@ -218,7 +235,7 @@ function destructSelect(name, projection, query, sort) {
     for(let attr in schema.attributes) {
         const attrDef = schema.attributes[attr];
         if(attrDef.type === constants.typeReference) {
-            if(!projection[attr] || !query[attr] || !sort[attr]) {
+            if(projection[attr] || query[attr] || sort[attr]) {
                 let join = {
                     rel: attrDef.ref,
                     attr: attr,
