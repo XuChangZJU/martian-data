@@ -10,6 +10,8 @@ const uda = require("../src/UnifiedDataAccess");
 const dataSource = require("./def/dataSource");
 const schema = require("./def/schemas/schema");
 const schema2 = require("./def/schemas/schema2");
+const schema3 = require("./def/schemas/schema3");
+
 
 function createInsert(uda, tableName, data) {
     return uda.createSchemas()
@@ -114,7 +116,8 @@ describe('uda', () => {
             uda.connect(dataSource)
                 .then(
                     () => {
-                        uda.setSchemas(schema);
+                        let _schema = JSON.parse(JSON.stringify(schema));
+                        uda.setSchemas(_schema);
                         dropCreateInsert(uda, "house", {
                             buildAt: new Date(),
                             status: "offline"
@@ -142,7 +145,8 @@ describe('uda', () => {
             uda.connect(dataSource)
                 .then(
                     () => {
-                        uda.setSchemas(schema2);
+                        let _schema2 = JSON.parse(JSON.stringify(schema2));
+                        uda.setSchemas(_schema2);
                         dropCreateInsert(uda, "house", {
                             buildAt: new Date(),
                             status: "offline"
@@ -178,9 +182,9 @@ describe('uda', () => {
         });
 
         it("[2.0]in mysql and mongodb", (done) => {
-            let _schema = Object.assign({}, schema);
+            let _schema3 = JSON.parse(JSON.stringify(schema));
 
-            _schema.house.indexes = {
+            _schema3.house.indexes = {
                 index1: {
                     columns: {
                         status: 1
@@ -190,9 +194,9 @@ describe('uda', () => {
                     }
                 }
             };
-            _schema.houseInfo.source = "mongodb";
+            _schema3.houseInfo.source = "mongodb";
 
-            _schema.houseInfo.indexes = {
+            _schema3.houseInfo.indexes = {
                 index_area: {
                     columns: {
                         area: 1
@@ -209,7 +213,7 @@ describe('uda', () => {
                 }
             };
 
-            uda.setSchemas(_schema);
+            uda.setSchemas(_schema3);
             uda.dropSchemas()
                 .then(
                     () => {
@@ -245,16 +249,17 @@ describe('uda', () => {
         })
     });
 
-    describe("test create schema with refs", () => {
+    describe("test create schema with refs", function() {
+        this.timeout(4000);
         before((done) => {
             uda.connect(dataSource)
                 .then(done);
         });
 
         it("[3.0]master and slave are both in mysql", (done) => {
-            const schema3 = require("./def/schemas/schema3");
 
-            uda.setSchemas(schema3);
+            let _schema3 = JSON.parse(JSON.stringify(schema3));
+            uda.setSchemas(_schema3);
             uda.dropSchemas()
                 .then(
                     () => {
@@ -277,11 +282,10 @@ describe('uda', () => {
         });
 
         it("[3.1]master in mysql, slave in mongodb", (done) => {
-            const schema3 = require("./def/schemas/schema3");
-
-            let _schema = Object.assign({}, schema3);
-            _schema.houseInfo.source = "mongodb";
-            uda.setSchemas(_schema);
+            //let _schema2 = Object.assign({}, schema3);
+            let _schema2 = JSON.parse(JSON.stringify(schema3));
+            _schema2.houseInfo.source = "mongodb";
+            uda.setSchemas(_schema2);
             uda.dropSchemas()
                 .then(
                     () => {
@@ -304,9 +308,9 @@ describe('uda', () => {
         });
 
         it("[3.2]master and slave are both in mysql, insert after create", (done) => {
-            const schema3 = require("./def/schemas/schema3");
 
-            uda.setSchemas(schema3);
+            let _schema2 = JSON.parse(JSON.stringify(schema3));
+            uda.setSchemas(_schema2);
             uda.dropSchemas()
                 .then(
                     () => {
@@ -355,11 +359,10 @@ describe('uda', () => {
         });
 
         it("[3.3]master in mysql, slave in mongodb, insert after create", (done) => {
-            const schema3 = require("./def/schemas/schema3");
 
-            let _schema = Object.assign({}, schema3);
-            _schema.houseInfo.source = "mongodb";
-            uda.setSchemas(_schema);
+            let _schema2 = JSON.parse(JSON.stringify(schema3));
+            _schema2.houseInfo.source = "mongodb";
+            uda.setSchemas(_schema2);
             uda.dropSchemas()
                 .then(
                     () => {
@@ -377,8 +380,7 @@ describe('uda', () => {
                                     uda.insert("houseInfo", houseInfo)
                                         .then(
                                             (hiItem) => {
-                                                houseInfo.id = hiItem.id || hiItem._id;
-                                                house.houseInfo = houseInfo;
+                                                house.houseInfo = hiItem;
                                                 uda.insert("house",  house)
                                                     .then(
                                                         (hItem) => {
@@ -408,11 +410,10 @@ describe('uda', () => {
         });
 
         it("[3.4]master in mongodb, slave in mysql, insert after create", (done) => {
-            const schema3 = require("./def/schemas/schema3");
+            let _schema2 = JSON.parse(JSON.stringify(schema3));
 
-            let _schema = Object.assign({}, schema3);
-            _schema.house.source = "mongodb";
-            uda.setSchemas(_schema);
+            _schema2.house.source = "mongodb";
+            uda.setSchemas(_schema2);
             uda.dropSchemas()
                 .then(
                     () => {
@@ -461,9 +462,9 @@ describe('uda', () => {
         });
 
         it("[3.5]master and slave are both in mysql, insert using directId after create", (done) => {
-            const schema3 = require("./def/schemas/schema3");
+            let _schema2 = JSON.parse(JSON.stringify(schema3));
 
-            uda.setSchemas(schema3);
+            uda.setSchemas(_schema2);
             uda.dropSchemas()
                 .then(
                     () => {

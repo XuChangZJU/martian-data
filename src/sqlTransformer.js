@@ -6,6 +6,9 @@ const assert = require("assert");
 
 
 function convertValueToSQLFormat(value) {
+    if(value === null) {
+        return "NULL";
+    }
     switch(typeof value) {
         case "number":
         case "boolean":{

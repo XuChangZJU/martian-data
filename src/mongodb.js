@@ -12,17 +12,66 @@ const merge = require("lodash").merge;
 
 
 /**
- * 从mongo返回的数据，一定要把_id先强制转换成id，保持全局的统一
+ * 从mongo返回的数据，一定要把_id先强制转换成string类型，保持全局的统一
  * @param data
  */
 function formalizeResult(data) {
-   /* let data2 = Object.assign({}, data);
+    /*let data2 = Object.assign({}, data);
     if(data2._id instanceof ObjectId) {
-        data2.id = data2._id.toString();
-        delete data2._id;
+        data2._id = data2._id.toString();
         return data2;
     }*/
     return data;
+}
+
+
+function formalizeObjectIdinPredicate(obj) {
+    if(obj instanceof ObjectId) {
+        return;
+    }
+    for(let predicate in obj) {
+        if(!predicate.startsWith("$")) {
+            throw new Error("可能遇见了不能处理的语义");
+        }
+        else {
+            if(typeof obj[predicate] === "string" && query._id.length === 24) {
+                obj[predicate] = new ObjectId(obj[predicate]);
+            }
+            else if(typeof obj[predicate] === "object" && obj[predicate] instanceof Array) {
+                obj[predicate] = obj[predicate].map(
+                    (ele) => {
+                        if(typeof ele === "string" && ele.length === 24) {
+                            return new ObjectId(ele);
+                        }
+                        else {
+                            return ele;
+                        }
+                    }
+                );
+            }
+        }
+    }
+}
+
+function formalizeQuery(query) {
+    if(query.$and) {
+        formalizeQuery(query.$and);
+    }
+    if(query.$or) {
+        formalizeQuery(query.$or);
+    }
+    if(query.$nor) {
+        formalizeQuery(query.$nor);
+    }
+
+    if(query._id) {
+        if(typeof query._id === "string" && query._id.length === 24) {
+            query._id = new ObjectId(query._id);
+        }
+        else if(typeof query._id === "object") {
+            formalizeObjectIdinPredicate(query._id);
+        }
+    }
 }
 
 function getCollection(name) {
@@ -129,6 +178,7 @@ function transformJoinToAggregate(join, aggregation, prefix, projection) {
     projection[join.attr] = node.projection;
     let newPrefix = (prefix || "") + join.attr + ".";
 
+    formalizeQuery(node.query);
     let match = {
         $match: destructPrefixQuery(newPrefix, node.query)
     };
@@ -187,6 +237,7 @@ class Mongodb {
                 (collection) => {
                     let aggregation = [];
                     let projection = execTree.projection;
+                    formalizeQuery(execTree.query)
                     aggregation.push({
                         $match: execTree.query
                     });
@@ -261,6 +312,7 @@ class Mongodb {
         return getCollection.call(this, name)
             .then(
                 (collection) => {
+                    formalizeQuery(query);
                     return collection.updateMany(query, updatePart)
                         .then(
                             (results) => {
@@ -309,6 +361,7 @@ class Mongodb {
         return getCollection.call(this, name)
             .then(
                 (collection) => {
+                    formalizeQuery(query);
                     return collection.remove(
                         query
                     ).then(

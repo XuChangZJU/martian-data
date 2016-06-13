@@ -33,10 +33,10 @@ function insertUpdateDeleteHouse(uda) {
                                                $set:{
                                                    status: "online"
                                                }
-                                            }, row.id)
+                                            }, row.id || row._id)
                                             .then(
                                                 (row) => {
-                                                    return uda.removeOneById("house", row.id);
+                                                    return uda.removeOneById("house", row.id || row._id);
                                                 }
                                             )
                                     }
@@ -61,7 +61,7 @@ describe("test_insert_update_delete", ()=> {
     });
 
     it("[cud1.0]cud in mongodb", (done) => {
-        let _schema = Object.assign({}, schema2);
+        let _schema = JSON.parse(JSON.stringify(schema2));
 
         _schema.house.source = "mongodb";
         uda.setSchemas(_schema);
@@ -78,7 +78,7 @@ describe("test_insert_update_delete", ()=> {
     });
 
     it("[cud1.1]cud in mysql", (done) => {
-        let _schema = Object.assign({}, schema2);
+        let _schema = JSON.parse(JSON.stringify(schema2));
 
         _schema.house.source = "mysql";
         uda.setSchemas(_schema);

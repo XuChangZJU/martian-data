@@ -7,13 +7,13 @@
 
 var expect = require("expect.js");
 
+
 const uda = require("../src/UnifiedDataAccess");
 const dataSource = require("./def/dataSource");
-const schema3 = require("./def/schemas/schema3");
-const schema4 = require("./def/schemas/schema4");
+const schema5 = require("./def/schemas/schema5");
 const now = Date.now();
 
-const g_houseInfos = [
+const houseInfos = [
     {
         area: 145.4,
         floor: 1
@@ -24,7 +24,7 @@ const g_houseInfos = [
     }
 ];
 
-const g_houses = [
+const houses = [
     {
         buildAt: now,
         status: "verifying"
@@ -35,7 +35,7 @@ const g_houses = [
     }
 ];
 
-const g_users = [
+const users = [
     {
         name: "xiaoming",
         age: null
@@ -54,7 +54,7 @@ const g_users = [
     }
 ];
 
-function initData(uda, users, houses, houseInfos) {
+function initData(uda) {
     return uda.dropSchemas()
         .then(
             () => {
@@ -88,7 +88,7 @@ function initData(uda, users, houses, houseInfos) {
                                                     uda.insert("houseInfo", ele)
                                                         .then(
                                                             (result) => {
-                                                                houses[index].houseInfoId = result.id || result._id;
+                                                                houses[index].houseInfo = result;
                                                                 return uda.insert("house", houses[index])
                                                                     .then(
                                                                         (hItem) => {
@@ -157,21 +157,17 @@ function checkResult1(result) {
 
 
 
-describe("test select with joins in mysql 1", function() {
+describe("test select with joins over sources", function() {
 
     this.timeout(5000);
-    const houses =  JSON.parse(JSON.stringify(g_houses));
-    const users = JSON.parse(JSON.stringify(g_users));
-    const houseInfos = JSON.parse(JSON.stringify(g_houseInfos));
 
     before((done) => {
         uda.connect(dataSource)
             .then(
                 (result) => {
-
-                    let _schema4 = JSON.parse(JSON.stringify(schema4));
-                    uda.setSchemas(_schema4);
-                    initData(uda, users, houses, houseInfos)
+                    let _schema5 = JSON.parse(JSON.stringify(schema5));
+                    uda.setSchemas(_schema5);
+                    initData(uda)
                         .then(
                             () => {
                                 done();
@@ -188,7 +184,7 @@ describe("test select with joins in mysql 1", function() {
     });
 
 
-    it("[ts0.0]", (done) => {
+    it("[tsos0.0]", (done) => {
         const query = {
             buildAt: {
                 $eq: now
@@ -199,12 +195,6 @@ describe("test select with joins in mysql 1", function() {
                 }
             },
             contract: {
-                owner: {
-                    name: "xiaoming"
-                },
-                renter: {
-                    name: "xiaohong"
-                },
                 price: {
                     $ne: 2001
                 }
@@ -222,12 +212,15 @@ describe("test select with joins in mysql 1", function() {
                 renter: {
                     name: 1
                 }
+            },
+            houseInfo: {
+                area: 1
             }
         };
 
         const sort = {
             houseInfo: {
-                area: 1
+                area: -1
             }
         }
         const indexFrom = 0, count = 2;
@@ -236,19 +229,121 @@ describe("test select with joins in mysql 1", function() {
             .then(
                 (result) => {
                     expect(result).to.be.an("array");
-                    expect(result).to.have.length(1);
-                    checkResult1(result[0]);
+                    expect(result).to.have.length(2);
+                    expect(result[1].houseInfo.area).to.eql(67.0);
+                    expect(result[0].houseInfo.area).to.eql(145.4);
 
                     done();
                 },
                 (err) => {
                     done(err);
                 }
-            )
+            );
     });
 
 
-    it("[ts0.1]", (done) => {
+    it("[tsos0.1 get by id]", (done) => {
+
+        const projection = {
+            id: 1,
+            buildAt : 1,
+            status: 1,
+            contract: {
+                owner: {
+                    name: 1,
+                    age: 1
+                },
+                renter: {
+                    name: 1
+                }
+            },
+            houseInfo: {
+                area: 1
+            }
+        };
+        uda.findById("house", projection, houses[0].id || houses[0]._id)
+            .then(
+                (result) => {
+                    expect(result).to.be.an("object");
+                    expect(result.houseInfo.area).to.eql(houseInfos[0].area);
+                    expect(result.buildAt).to.eql(houses[0].buildAt);
+
+                    done();
+                },
+                (err) => {
+                    done(err);
+                }
+            );
+    });
+
+    it("[tsos0.2]", (done) => {
+        const query = {
+            buildAt: {
+                $eq: now
+            },
+            houseInfo: {
+                area: {
+                    $gt: 44
+                }
+            }
+        };
+        const projection = {
+            id: 1,
+            buildAt : 1,
+            status: 1,
+            contract: {
+                owner: {
+                    name: 1,
+                    age: 1
+                },
+                renter: {
+                    name: 1
+                }
+            },
+            houseInfo: {
+                area: 1
+            }
+        };
+
+        const sort = {
+            houseInfo: {
+                area: -1
+            }
+        }
+        const indexFrom = 0, count = 2;
+
+        let update = {
+            $set: {
+                houseInfo: null
+            }
+        };
+        uda.updateOneById("house", update, houses[0].id)
+            .then(
+                () => {
+                    uda.find("house", projection, query, sort, indexFrom, count)
+                        .then(
+                            (result) => {
+                                console.log(result);
+                                expect(result).to.be.an("array");
+                                expect(result).to.have.length(1);
+                                expect(result[0].id).to.eql(houses[1].id);
+                                expect(result[0].houseInfo.area).to.eql(houseInfos[1].area);
+
+                                done();
+                            },
+                            (err) => {
+                                done(err);
+                            }
+                        );
+                },
+                (err) => {
+                    done(err);
+                }
+            );
+    });
+
+
+ /*   it("[ts0.1]", (done) => {
         const projection = {
             id: 1,
             buildAt : 1,
@@ -315,7 +410,7 @@ describe("test select with joins in mysql 1", function() {
                 area: -1
             }
         }
-        const indexFrom = 0, count = 2;
+        const indexFrom = 0, count = 1;
 
 
         let promises = [];
@@ -404,7 +499,7 @@ describe("test select with joins in mysql 1", function() {
                 area: 1
             }
         }
-        const indexFrom = 0, count = 2;
+        const indexFrom = 0, count = 1;
 
         uda.find("house", projection, query, sort, indexFrom, count)
             .then(
@@ -417,69 +512,8 @@ describe("test select with joins in mysql 1", function() {
                     done(err);
                 }
             );
-    });
+    });*/
 
-    it("[ts0.4]", (done) => {
-        const query = {
-            buildAt: {
-                $eq: now
-            },
-            houseInfo: {
-                area: {
-                    $gt: 44
-                }
-            }
-        };
-        const projection = {
-            id: 1,
-            buildAt : 1,
-            status: 1,
-            contract: {
-                owner: {
-                    name: 1,
-                    age: 1
-                },
-                renter: {
-                    name: 1
-                }
-            },
-            houseInfo: {
-                area: 1
-            }
-        };
-
-        const sort = {
-            houseInfo: {
-                area: 1
-            }
-        }
-        const indexFrom = 0, count = 1;
-
-        let update = {
-            $set: {
-                houseInfo: null
-            }
-        };
-        uda.updateOneById("house", update, houses[1].id)
-            .then(
-                () => {
-                    uda.find("house", projection, query, sort, indexFrom, count)
-                        .then(
-                            (result) => {
-                                console.log(result);
-
-                                done();
-                            },
-                            (err) => {
-                                done(err);
-                            }
-                        );
-                },
-                (err) => {
-                    done(err);
-                }
-            );
-    });
 
 
     after((done) => {
@@ -491,25 +525,21 @@ describe("test select with joins in mysql 1", function() {
 
 
 
-
+/*
 describe("test select with joins in mongodb", function() {
     this.timeout(5000);
-
-    const houses =  JSON.parse(JSON.stringify(g_houses));
-    const users = JSON.parse(JSON.stringify(g_users));
-    const houseInfos = JSON.parse(JSON.stringify(g_houseInfos));
 
     before((done) => {
         uda.connect(dataSource)
             .then(
                 (result) => {
-                    let _schema4 = JSON.parse(JSON.stringify(schema4));
+                    let _schema4 = Object.assign({}, schema5);
                     _schema4.house.source = "mongodb";
                     _schema4.houseInfo.source = "mongodb";
                     _schema4.contract.source = "mongodb";
                     _schema4.user.source = "mongodb";
                     uda.setSchemas(_schema4);
-                    initData(uda, users, houses, houseInfos)
+                    initData(uda)
                         .then(
                             () => {
                                 done();
@@ -567,7 +597,7 @@ describe("test select with joins in mongodb", function() {
                 area: 1
             }
         }
-        const indexFrom = 0, count = 2;
+        const indexFrom = 0, count = 1;
 
         uda.find("house", projection, query, sort, indexFrom, count)
             .then(
@@ -652,7 +682,7 @@ describe("test select with joins in mongodb", function() {
                 area: -1
             }
         }
-        const indexFrom = 0, count = 2;
+        const indexFrom = 0, count = 1;
 
 
         let promises = [];
@@ -757,68 +787,6 @@ describe("test select with joins in mongodb", function() {
             );
     });
 
-    it("[ts1.4]", (done) => {
-        const query = {
-            buildAt: {
-                $eq: now
-            },
-            houseInfo: {
-                area: {
-                    $gt: 44
-                }
-            }
-        };
-        const projection = {
-            id: 1,
-            buildAt : 1,
-            status: 1,
-            contract: {
-                owner: {
-                    name: 1,
-                    age: 1
-                },
-                renter: {
-                    name: 1
-                }
-            },
-            houseInfo: {
-                area: 1
-            }
-        };
-
-        const sort = {
-            houseInfo: {
-                area: -1
-            }
-        }
-        const indexFrom = 0, count = 1;
-
-        let update = {
-            $set: {
-                houseInfo: null
-            }
-        };
-        uda.updateOneById("house", update, houses[0]._id)
-            .then(
-                () => {
-                    uda.find("house", projection, query, sort, indexFrom, count)
-                        .then(
-                            (result) => {
-                                console.log(result);
-
-                                done();
-                            },
-                            (err) => {
-                                done(err);
-                            }
-                        );
-                },
-                (err) => {
-                    done(err);
-                }
-            );
-    });
-
 
     after((done) => {
         uda.disconnect()
@@ -828,20 +796,14 @@ describe("test select with joins in mongodb", function() {
 
 describe("test select with null in mysql 1", function() {
 
-    const houses =  JSON.parse(JSON.stringify(g_houses));
-    const users = JSON.parse(JSON.stringify(g_users));
-    const houseInfos = JSON.parse(JSON.stringify(g_houseInfos));
-
-
     this.timeout(5000);
 
     before((done) => {
         uda.connect(dataSource)
             .then(
                 (result) => {
-                    let _schema4 = JSON.parse(JSON.stringify(schema4));
-                    uda.setSchemas(_schema4);
-                    initData(uda, users, houses, houseInfos)
+                    uda.setSchemas(schema5);
+                    initData(uda)
                         .then(
                             () => {
                                 // 把house 0 与 houseInfo 0的连接关系删除
@@ -941,22 +903,19 @@ describe("test select with null in mysql 1", function() {
 
 describe("test select with null in mongodb 1", function() {
 
-    const houses =  JSON.parse(JSON.stringify(g_houses));
-    const users = JSON.parse(JSON.stringify(g_users));
-    const houseInfos = JSON.parse(JSON.stringify(g_houseInfos));
     this.timeout(5000);
 
     before((done) => {
         uda.connect(dataSource)
             .then(
                 (result) => {
-                    let _schema4 = JSON.parse(JSON.stringify(schema4));
+                    let _schema4 = Object.assign({}, schema5);
                     _schema4.house.source = "mongodb";
                     _schema4.houseInfo.source = "mongodb";
                     _schema4.contract.source = "mongodb";
                     _schema4.user.source = "mongodb";
                     uda.setSchemas(_schema4);
-                    initData(uda, users, houses, houseInfos)
+                    initData(uda)
                         .then(
                             () => {
                                 // 把house 0 与 houseInfo 0的连接关系删除
@@ -1052,4 +1011,4 @@ describe("test select with null in mongodb 1", function() {
         uda.disconnect()
             .then(done);
     });
-});
+});*/

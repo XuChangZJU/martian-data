@@ -5,7 +5,13 @@
 var orm = require('orm');
 const mysql = require("./mysql");
 const mongodb = require("./mongodb");
+
+const ObjectId = require("mongodb").ObjectID;
+
+const assert = require("assert");
 const merge = require("lodash").merge;
+const get = require("lodash").get;
+const set = require("lodash").set;
 
 const constants = require("./constants");
 
@@ -156,7 +162,7 @@ function formalizeDataForUpdate(data, schema, type) {
             const refColumnName = schema.attributes[attr].refColumnName;
 
             if(!data[localColumnName]) {
-                data[localColumnName] = data[attr][refColumnName];
+                data[localColumnName] = data[attr] ? data[attr][refColumnName] : null;
             }
 
             delete data[attr];
@@ -167,19 +173,19 @@ function formalizeDataForUpdate(data, schema, type) {
                 data[attr] = data[attr].valueOf();
             }
         }
+    }
 
 
-        // 增加相应的时间列
-        if(type) {
-            switch(type) {
-                case "create": {
-                    data[constants.createAtColumn] = Date.now();
-                    break;
-                }
-                case "update": {
-                    data[constants.updateAtColumn] = Date.now();
-                    break;
-                }
+    // 增加相应的时间列
+    if(type) {
+        switch(type) {
+            case "create": {
+                data[constants.createAtColumn] = Date.now();
+                break;
+            }
+            case "update": {
+                data[constants.updateAtColumn] = Date.now();
+                break;
             }
         }
     }
@@ -201,7 +207,7 @@ function transformDateTypeInQuery(query) {
 
 
 /**
- * 将查询和投影结合降解成一棵树结构
+ * 将查询、投影和排序结合降解成一棵树结构，树中的每个结点是对于一张表的查询、投影和排序，其中的joins数组包含了对子树的连接信息
  * @param name
  * @param projection
  * @param query
@@ -262,36 +268,349 @@ function destructSelect(name, projection, query, sort) {
     return result;
 }
 
-function distributeNode(result, node, name, treeName) {
+function distributeNode(result, node, name, treeName, path) {
     const schemas = this.schemas;
+    let newJoins = [];
     for(let i = 0; i < node.joins.length; i ++) {
         let join = node.joins[i];
-        if(schemas[name].source !== schemas[join.rel].source) {
-            // 如果子表与本表非同一个源，则将子表的查询剥离
-            join.node.referencedBy = treeName;
-            result[join.rel] = join.node;
-            delete join.node;
+            if(schemas[name].source !== schemas[join.rel].source) {
+                // 如果子表与本表非同一个源，则将子表的查询剥离
+                join.node.referencedBy = treeName;
+                join.node.referenceNode = node;
+                if(result[join.rel]) {
+                    // 已经对本表有一个子树了，不能重名
+                    let alias = join.rel + "_1";
+                    while(result[alias]) {
+                        alias += "_1";
+                    }
+                    join.node.relName = join.rel;
+                    result[alias] = join.node;
+                }
+                else {
+                    result[join.rel] = join.node;
+                }
+                const localColumnName = join.localColumnName;
+                let joinInfo = {
+                    localKeyPath: path + localColumnName,
+                    localAttrPath: path + join.attr,
+                    refAttr: join.refColumnName
+                };
+                join.node.joinInfo = joinInfo;
 
-            // 此时要在本表的查询投影中加上子表的主键
-            const localColumnName = schemas[name].attributes[join.attr].localColumnName;
-            node.projection = merge({}, node.projection, {
-                [localColumnName]: 1
-            });
-            distributeNode.call(this, result, result[join.rel], join.rel, join.rel);
-        }
-        else {
-            distributeNode.call(this, result, join.node, join.rel, treeName);
-        }
+                // 在子表的查询中加上主键
+                join.node.projection = merge({}, join.node.projection, {
+                    [join.refColumnName]: 1
+                });
+
+                delete join.node;
+                node.joins
+
+                // 此时要在本表的查询投影中加上子表的外键
+                node.projection = merge({}, node.projection, {
+                    [localColumnName]: 1
+                });
+                distributeNode.call(this, result, result[join.rel], join.rel, join.rel, "");
+            }
+            else {
+                let path2 = path + join.rel + ".";
+                distributeNode.call(this, result, join.node, join.rel, treeName, path2);
+                newJoins.push(join);
+            }
     }
+    node.joins = newJoins;
 }
 
 function distributeSelect(name, tree) {
     let result = {
         [name]: tree
     };
-    distributeNode.call(this, result, tree, name, name);
+    distributeNode.call(this, result, tree, name, name, "");
     return result;
 }
+
+
+
+
+function hasOperator(node, op, num) {
+    let count = num || 0;
+    if(Object.getOwnPropertyNames(node[op]).length > count) {
+        return true;
+    }
+    else {
+        if(node.joins.length > 0) {
+            for(let i = 0; i < node.joins.length; i ++) {
+                if(node.joins[i].node && hasOperator(node.joins[i].node, op, num)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+}
+
+
+/**
+ * 处理连接的主函数
+ * @param forest      查询森林
+ * @param me        当前子树名
+ * @param result    当前子树查询结果（数组）
+ * @returns {*}
+ * @description 本函数负责将当前子树的查询结果与父树或子树连接，并在需要的时候发出新的JOIN请求。
+ *                  在两种情况下结束，1）当前子树的查询结果为空；2）当前子树是森林中的最后一棵查询子树
+ */
+function joinNext(forest, me, result) {
+    const nodeMe = forest[me];
+    let promises = [];
+    nodeMe.result = result;
+    if(nodeMe.referencedBy) {
+        const nodeParent = forest[nodeMe.referencedBy];
+        if(nodeParent.result) {
+            // 将自己的查询结果和父亲的结果进行join
+            const parentResult = nodeParent.result;
+
+           parentResult.forEach(
+                (ele, idx) => {
+                    let joinLocalValue = get(ele, nodeMe.joinInfo.localKeyPath);
+                    let i;
+                    for(i = 0; i < result.length; i ++) {
+                        let joinRefValue = result[i][nodeMe.joinInfo.refAttr];
+                        // 这里要处理mongodb的ObjectId类型，不是一个很好的方案  by xc
+                        if(joinRefValue instanceof ObjectId) {
+                            joinRefValue = joinRefValue.toString();
+                        }
+                        if(joinLocalValue instanceof ObjectId) {
+                            joinLocalValue = joinLocalValue.toString();
+                        }
+                        if(joinRefValue === joinLocalValue) {
+                            set(ele, nodeMe.joinInfo.localAttrPath, result[i]);
+                            break;
+                        }
+                    }
+
+                    if(i === result.length) {
+                        // 说明子表中没有相应的行，置undefined还是null?
+                    }
+                }
+            );
+        }
+        else {
+            if(result.length > 0) {
+                // 将自己的查询结果转换成in条件，进行父亲的查询
+                let referenceNode = nodeMe.referenceNode;
+                let joinLocalValues = result.map(
+                    (ele, idx) => {
+                        return ele[nodeMe.joinInfo.refAttr];
+                    }
+                );
+                referenceNode.query = merge({}, referenceNode.query, {
+                    [nodeMe.joinInfo.localKeyPath] : {
+                        $in: joinLocalValues
+                    }
+                });
+                let name = nodeParent.relName || nodeMe.referencedBy;
+                let connection = this.connections[this.schemas[name].source];
+
+                promises.push(
+                    connection.find(name, nodeParent, 0, result.length)
+                        .then(
+                            (result2) => {
+                                return joinNext.call(this, forest, nodeMe.referencedBy, result2);
+                            },
+                            (err) => {
+                                return Promise.reject(err);
+                            }
+                        )
+                );
+            }
+            else {
+                nodeParent.result = [];
+            }
+        }
+    }
+
+    let completed = true;
+    let root ;
+    for (let i in forest) {
+        const node = forest[i];
+
+        if(!node.result) {
+            completed = false;
+        }
+        if(!node.referencedBy) {
+            root = node;
+        }
+        else if(node.referencedBy === me) {
+            const nodeSon = node;
+            if(nodeSon.result) {
+                // 将子结点的结果与自己进行join
+                // fixed 这里由于要保持order的顺序，只能由子向父倒查寻。由于在对父亲进行查询时规定了count不大于子查询结果的count,因此这里不会有过量的问题
+                const resultSon = nodeSon.result;
+
+                let newResult = [];
+                resultSon.forEach(
+                    (ele, idx) => {
+                        let joinRefValue = ele[nodeSon.joinInfo.refAttr];
+                        let i;
+                        for(i = 0; i < result.length; i ++) {
+                            let joinLocalValue = get(result[i], nodeSon.joinInfo.localKeyPath);
+                            // 这里要处理mongodb的ObjectId类型，不是一个很好的方案  by xc
+                            if(joinRefValue instanceof ObjectId) {
+                                joinRefValue = joinRefValue.toString();
+                            }
+                            if(joinLocalValue instanceof ObjectId) {
+                                joinLocalValue = joinLocalValue.toString();
+                            }
+                            if(joinRefValue === joinLocalValue) {
+                                set(result[i], nodeSon.joinInfo.localAttrPath, ele);
+                                newResult.push(result[i]);
+                                break;
+                            }
+
+                        }
+                    }
+                );
+                nodeMe.result = newResult;
+
+                /*result.forEach(
+                    (ele, idx) => {
+                        let joinLocalValue = get(ele, nodeSon.joinInfo.localKeyPath);
+                        let i;
+                        for(i = 0; i < resultSon.length; i ++) {
+                            let joinRefValue = resultSon[i][nodeSon.joinInfo.refAttr];
+                            // 这里要处理mongodb的ObjectId类型，不是一个很好的方案  by xc
+                            if(joinRefValue instanceof ObjectId) {
+                                joinRefValue = joinRefValue.toString();
+                            }
+                            if(joinLocalValue instanceof ObjectId) {
+                                joinLocalValue = joinLocalValue.toString();
+                            }
+                            if(joinRefValue === joinLocalValue) {
+                                set(ele, nodeSon.joinInfo.localAttrPath, resultSon[i]);
+                                break;
+                            }
+                        }
+
+                        if(i === result.length) {
+                            // 说明子表中没有相应的行，置undefined还是null?
+                        }
+                    }
+                )*/
+
+            }
+            else {
+                if(result.length > 0) {
+                    // 将自己的查询结果转换成in形式，进行子孙的查询
+                    let joinLocalValues = result.map(
+                        (ele, idx) => {
+                            return get(ele, nodeSon.joinInfo.localKeyPath);
+                        }
+                    );
+                    nodeSon.query = merge({}, nodeSon.query, {
+                        [nodeSon.joinInfo.refAttr] : {
+                            $in: joinLocalValues
+                        }
+                    });
+                    let name = (nodeSon.relName || i);
+                    let connection = this.connections[this.schemas[name].source];
+
+                    promises.push(
+                        connection.find(name, nodeSon, 0, result.length)
+                            .then(
+                                (result3) => {
+                                    return joinNext.call(this, forest, i, result3);
+                                },
+                                (err) => {
+                                    return Promise.reject(err);
+                                }
+                            )
+                    );
+                }
+                else {
+                    nodeSon.result = [];
+                }
+            }
+        }
+    }
+
+    // 如果所有的查询都完成，则返回root的结果
+    if(completed || promises.length === 0) {
+        return Promise.resolve(root.result);
+    }
+    else {
+        return Promise.all(promises);
+    }
+}
+
+
+/**
+ * 执行查询森林
+ * @param forest
+ * @param indexFrom
+ * @param count
+ * @returns {Promise.<TResult>}
+ */
+function execOverSourceQuery(forest, indexFrom, count) {
+    let sortedRels = [], queriedRels = [];
+
+    let root;
+    for(let i in forest) {
+        const tree = forest[i];
+        if(hasOperator(tree, "sort")) {
+            sortedRels.push(i);
+        }
+        if(hasOperator(tree, "query", 1)) {
+            queriedRels.push(i);
+        }
+        if(!tree.referencedBy) {
+            root = tree;
+        }
+    }
+
+    let firstRelName;
+    if(sortedRels.length === 0) {
+        if(queriedRels.length === 1) {
+            // 根据ID的查询
+            firstRelName = queriedRels[0];
+            assert(forest[firstRelName] === root);
+        }
+        else {
+            throw new Error("跨源列表查询必须至少定义一个sort条件");
+        }
+    }
+    else if(sortedRels.length > 1) {
+        throw new Error("跨源列表查询不能定义超过一个源的sort条件");
+    }
+    else {
+        firstRelName = sortedRels[0];
+    }
+
+    let firstRel = forest[firstRelName];
+
+    const schema = this.schemas[firstRelName];
+    const connection = this.connections[schema.source];
+
+    return connection.find(firstRelName, firstRel, indexFrom, count)
+        .then(
+            (result) => {
+                return joinNext.call(this, forest, firstRelName, result)
+                    .then(
+                        () => {
+                            return Promise.resolve(root.result);
+                        },
+                        (err) => {
+                            return Promise.reject(err);
+                        }
+                    )
+            },
+            (err) => {
+                return Promise.reject(err);
+            }
+        );
+}
+
+
+
+
 
 class DataAccess {
 
@@ -432,20 +751,21 @@ class DataAccess {
         let trees = Object.getOwnPropertyNames(execForest);
         if(trees.length > 1) {
             // 如果查询跨越了数据源，则必须要带sort条件，否则无法进行查询
-            if(!sort) {
-                throw new Error("跨越源的列表查询必须要带上sort条件");
-            }
             if(indexFrom !== 0) {
-                throw new Error("跨越源的列表查询的indexFrom参数只能为零，通过orderBy属性来实现分页");
+                throw new Error("跨越源的列表查询的indexFrom参数只能为零，通过sort属性来实现分页");
             }
-            throw new Error("暂时还不支持跨源查询");
+            if(!sort || Object.getOwnPropertyNames(sort).length === 0) {
+                throw new Error("跨越源的列表查询必须定义sort条件");
+            }
+
+            return execOverSourceQuery.call(this, execForest, indexFrom, count);
         }
         else {
             // 单源的查询直接PUSH给相应的数据源
             let schema = this.schemas[name];
             const connection = this.connections[schema.source];
 
-            return connection.find(name, execTree, 0, 10);
+            return connection.find(name, execTree, indexFrom, count);
 
         }
 
@@ -459,45 +779,52 @@ class DataAccess {
         let schema = this.schemas[name];
         let query = {}
         const connection = this.connections[schema.source];
-        if(connection.findById && typeof connection.findById === "function") {
 
-        }
-        else {
-            const pKeyColumn = connection.getDefaultKeyName();
-            query[pKeyColumn] = id;
-        }
+        const pKeyColumn = connection.getDefaultKeyName();
+        query[pKeyColumn] = id;
 
         let execTree = destructSelect.call(this, name, projection, query);
         let execForest = distributeSelect.call(this, name, execTree);
 
         let trees = Object.getOwnPropertyNames(execForest);
         if(trees.length > 1) {
-            throw new Error("暂时还不支持跨源查询");
+
+            return execOverSourceQuery.call(this, execForest, 0, 1)
+                .then(
+                    (result) => {
+                        switch (result.length) {
+                            case 0: {
+                                return Promise.resolve(null);
+                            }
+                            case 1: {
+                                return Promise.resolve(result[0]);
+                            }
+                            case 2: {
+                                return Promise.reject(new Error("基于键值的查询返回了一个以上的结果"));
+                            }
+                        }
+                    }
+                )
         }
         else {
             // 单源的查询直接PUSH给相应的数据源
 
-            if(connection.findById && typeof connection.findById === "function") {
-                return connection.findById(name, execTree, id);
-            }
-            else {
-                return connection.find(name, execTree, 0, 1)
-                    .then(
-                        (result) => {
-                            switch (result.length) {
-                                case 0: {
-                                    return Promise.resolve(null);
-                                }
-                                case 1: {
-                                    return Promise.resolve(result[0]);
-                                }
-                                case 2: {
-                                    return Promise.reject(new Error("基于键值的查询返回了一个以上的结果"));
-                                }
+            return connection.find(name, execTree, 0, 1)
+                .then(
+                    (result) => {
+                        switch (result.length) {
+                            case 0: {
+                                return Promise.resolve(null);
+                            }
+                            case 1: {
+                                return Promise.resolve(result[0]);
+                            }
+                            case 2: {
+                                return Promise.reject(new Error("基于键值的查询返回了一个以上的结果"));
                             }
                         }
-                    )
-            }
+                    }
+                );
         }
     }
 
