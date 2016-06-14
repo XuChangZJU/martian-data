@@ -149,7 +149,7 @@ function initData(uda, users, houses, houseInfos) {
 
 function checkResult1(result) {
     expect(result).to.be.an("object");
-    expect(result.buildAt).to.eql(now);
+    expect(result.buildAt).to.eql(new Date(now));
     expect(result.status).to.eql("verifying");
     expect(result.contract.owner.name).to.eql("xiaoming");
     expect(result.contract.renter.name).to.eql("xiaohong");
@@ -419,7 +419,86 @@ describe("test select with joins in mysql 1", function() {
             );
     });
 
-    it("[ts0.4]", (done) => {
+
+    it("[ts0.4]test or on single table", (done) => {
+        const query = {
+            $or: [
+                {buildAt: now},
+                {status: "offline"}
+            ]
+        };
+        const projection = {
+            id: 1,
+            buildAt : 1,
+            status: 1
+        };
+
+        let sort ;
+        const indexFrom = 0, count = 2;
+
+        uda.find("house", projection, query, sort, indexFrom, count)
+            .then(
+                (result) => {
+                    console.log(result);
+                    expect(result).to.be.an("array");
+                    expect(result).to.have.length(2);
+
+                    done();
+                },
+                (err) => {
+                    done(err);
+                }
+            )
+    });
+
+
+
+    it("[ts0.5]test or on joined table", (done) => {
+        const query = {
+            houseInfo:{
+                $or: [
+                    {floor: {
+                        $eq: 1
+                    }},
+                    {area: {
+                        $lt: 70
+                    }}
+                ]
+            }
+        };
+        const projection = {
+            id: 1,
+            buildAt : 1,
+            status: 1,
+            contract: {
+                owner: {
+                    name: 1
+                },
+                renter: {
+                    name: 1
+                }
+            }
+        };
+
+        let sort ;
+        const indexFrom = 0, count = 2;
+
+        uda.find("house", projection, query, sort, indexFrom, count)
+            .then(
+                (result) => {
+                    console.log(result);
+                    expect(result).to.be.an("array");
+                    expect(result).to.have.length(2);
+
+                    done();
+                },
+                (err) => {
+                    done(err);
+                }
+            )
+    });
+
+    it("[ts0.10]", (done) => {
         const query = {
             buildAt: {
                 $eq: now
@@ -757,7 +836,85 @@ describe("test select with joins in mongodb", function() {
             );
     });
 
-    it("[ts1.4]", (done) => {
+
+    it("[ts1.4]test or on single table", (done) => {
+        const query = {
+            $or: [
+                {buildAt: now},
+                {status: "offline"}
+            ]
+        };
+        const projection = {
+            id: 1,
+            buildAt : 1,
+            status: 1
+        };
+
+        let sort ;
+        const indexFrom = 0, count = 2;
+
+        uda.find("house", projection, query, sort, indexFrom, count)
+            .then(
+                (result) => {
+                    console.log(result);
+                    expect(result).to.be.an("array");
+                    expect(result).to.have.length(2);
+
+                    done();
+                },
+                (err) => {
+                    done(err);
+                }
+            )
+    });
+
+
+    it("[ts1.5]test or on joined table", (done) => {
+        const query = {
+            houseInfo:{
+                $or: [
+                    {floor: {
+                        $eq: 1
+                    }},
+                    {area: {
+                        $lt: 70
+                    }}
+                ]
+            }
+        };
+        const projection = {
+            id: 1,
+            buildAt : 1,
+            status: 1,
+            contract: {
+                owner: {
+                    name: 1
+                },
+                renter: {
+                    name: 1
+                }
+            }
+        };
+
+        let sort ;
+        const indexFrom = 0, count = 2;
+
+        uda.find("house", projection, query, sort, indexFrom, count)
+            .then(
+                (result) => {
+                    console.log(result);
+                    expect(result).to.be.an("array");
+                    expect(result).to.have.length(2);
+
+                    done();
+                },
+                (err) => {
+                    done(err);
+                }
+            )
+    });
+
+    it("[ts1.10]", (done) => {
         const query = {
             buildAt: {
                 $eq: now
@@ -930,7 +1087,6 @@ describe("test select with null in mysql 1", function() {
                 }
             )
     });
-
 
 
     after((done) => {

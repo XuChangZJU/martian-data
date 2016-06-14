@@ -206,6 +206,30 @@ function transformDateTypeInQuery(query) {
 }
 
 
+function formalizeQueryValue(value) {
+    if(typeof value === "object") {
+        if(value instanceof Date) {
+            return value.valueOf();
+        }
+        else if(value instanceof Array) {
+            value = value.map(
+                (ele) => {
+                    return formalizeQueryValue(ele);
+                }
+            )
+        }
+        else {
+            for(let i in value) {
+                if(i.startsWith("$")) {
+                    value[i] = formalizeQueryValue(value[i]);
+                }
+            }
+        }
+    }
+
+    return value;
+}
+
 /**
  * 将查询、投影和排序结合降解成一棵树结构，树中的每个结点是对于一张表的查询、投影和排序，其中的joins数组包含了对子树的连接信息
  * @param name
@@ -257,7 +281,7 @@ function destructSelect(name, projection, query, sort) {
                 result.projection[attr] = projection[attr];
             }
             if(query[attr]) {
-                result.query[attr] = query[attr];
+                result.query[attr] = formalizeQueryValue(query[attr]);
             }
             if(sort[attr]) {
                 result.sort[attr] = sort[attr];
@@ -265,6 +289,55 @@ function destructSelect(name, projection, query, sort) {
         }
     }
 
+    function checkQueryIsNoRef(query, attributes) {
+        let noRef = true;
+        for(let i in query) {
+            if(attributes[i]) {
+                if(attributes[i].type === "ref") {
+                    return false;
+                }
+            }
+            else {
+                if(i.startsWith("$")) {
+                    query[i].forEach(
+                        (ele) => {
+                            if(!checkQueryIsNoRef(ele, attributes)) {
+                                noRef = false;
+                            }
+                        }
+                    );
+                    if(!noRef) {
+                        return false;
+                    }
+                }
+            }
+        }
+        return noRef;
+    }
+
+    for(let i in query) {
+        if(i.startsWith('$')) {
+            if(i === "$and" || i === "$or" || i === "$nor") {
+                const values = query[i];
+                let legal = true;
+                for(let j = 0; j < values.length; j ++){
+                    if(!checkQueryIsNoRef(values[j], schema.attributes)) {
+                        legal = false;
+                        break;
+                    }
+                }
+                if(!legal) {
+                    throw new Error("逻辑顶层算子" + i + "只能支持单表级语义");
+                }
+                else {
+                    result.query[i] = query[i];
+                }
+            }
+            else {
+                throw new Error("检测到尚未支持的顶层算子: " + i );
+            }
+        }
+    }
     return result;
 }
 
@@ -273,49 +346,49 @@ function distributeNode(result, node, name, treeName, path) {
     let newJoins = [];
     for(let i = 0; i < node.joins.length; i ++) {
         let join = node.joins[i];
-            if(schemas[name].source !== schemas[join.rel].source) {
-                // 如果子表与本表非同一个源，则将子表的查询剥离
-                join.node.referencedBy = treeName;
-                join.node.referenceNode = node;
-                if(result[join.rel]) {
-                    // 已经对本表有一个子树了，不能重名
-                    let alias = join.rel + "_1";
-                    while(result[alias]) {
-                        alias += "_1";
-                    }
-                    join.node.relName = join.rel;
-                    result[alias] = join.node;
+        if(schemas[name].source !== schemas[join.rel].source) {
+            // 如果子表与本表非同一个源，则将子表的查询剥离
+            join.node.referencedBy = treeName;
+            join.node.referenceNode = node;
+            if(result[join.rel]) {
+                // 已经对本表有一个子树了，不能重名
+                let alias = join.rel + "_1";
+                while(result[alias]) {
+                    alias += "_1";
                 }
-                else {
-                    result[join.rel] = join.node;
-                }
-                const localColumnName = join.localColumnName;
-                let joinInfo = {
-                    localKeyPath: path + localColumnName,
-                    localAttrPath: path + join.attr,
-                    refAttr: join.refColumnName
-                };
-                join.node.joinInfo = joinInfo;
-
-                // 在子表的查询中加上主键
-                join.node.projection = merge({}, join.node.projection, {
-                    [join.refColumnName]: 1
-                });
-
-                delete join.node;
-                node.joins
-
-                // 此时要在本表的查询投影中加上子表的外键
-                node.projection = merge({}, node.projection, {
-                    [localColumnName]: 1
-                });
-                distributeNode.call(this, result, result[join.rel], join.rel, join.rel, "");
+                join.node.relName = join.rel;
+                result[alias] = join.node;
             }
             else {
-                let path2 = path + join.rel + ".";
-                distributeNode.call(this, result, join.node, join.rel, treeName, path2);
-                newJoins.push(join);
+                result[join.rel] = join.node;
             }
+            const localColumnName = join.localColumnName;
+            let joinInfo = {
+                localKeyPath: path + localColumnName,
+                localAttrPath: path + join.attr,
+                refAttr: join.refColumnName
+            };
+            join.node.joinInfo = joinInfo;
+
+            // 在子表的查询中加上主键
+            join.node.projection = merge({}, join.node.projection, {
+                [join.refColumnName]: 1
+            });
+
+            delete join.node;
+            node.joins
+
+            // 此时要在本表的查询投影中加上子表的外键
+            node.projection = merge({}, node.projection, {
+                [localColumnName]: 1
+            });
+            distributeNode.call(this, result, result[join.rel], join.rel, join.rel, "");
+        }
+        else {
+            let path2 = path + join.rel + ".";
+            distributeNode.call(this, result, join.node, join.rel, treeName, path2);
+            newJoins.push(join);
+        }
     }
     node.joins = newJoins;
 }
@@ -368,7 +441,7 @@ function joinNext(forest, me, result) {
             // 将自己的查询结果和父亲的结果进行join
             const parentResult = nodeParent.result;
 
-           parentResult.forEach(
+            parentResult.forEach(
                 (ele, idx) => {
                     let joinLocalValue = get(ele, nodeMe.joinInfo.localKeyPath);
                     let i;
@@ -472,29 +545,29 @@ function joinNext(forest, me, result) {
                 nodeMe.result = newResult;
 
                 /*result.forEach(
-                    (ele, idx) => {
-                        let joinLocalValue = get(ele, nodeSon.joinInfo.localKeyPath);
-                        let i;
-                        for(i = 0; i < resultSon.length; i ++) {
-                            let joinRefValue = resultSon[i][nodeSon.joinInfo.refAttr];
-                            // 这里要处理mongodb的ObjectId类型，不是一个很好的方案  by xc
-                            if(joinRefValue instanceof ObjectId) {
-                                joinRefValue = joinRefValue.toString();
-                            }
-                            if(joinLocalValue instanceof ObjectId) {
-                                joinLocalValue = joinLocalValue.toString();
-                            }
-                            if(joinRefValue === joinLocalValue) {
-                                set(ele, nodeSon.joinInfo.localAttrPath, resultSon[i]);
-                                break;
-                            }
-                        }
+                 (ele, idx) => {
+                 let joinLocalValue = get(ele, nodeSon.joinInfo.localKeyPath);
+                 let i;
+                 for(i = 0; i < resultSon.length; i ++) {
+                 let joinRefValue = resultSon[i][nodeSon.joinInfo.refAttr];
+                 // 这里要处理mongodb的ObjectId类型，不是一个很好的方案  by xc
+                 if(joinRefValue instanceof ObjectId) {
+                 joinRefValue = joinRefValue.toString();
+                 }
+                 if(joinLocalValue instanceof ObjectId) {
+                 joinLocalValue = joinLocalValue.toString();
+                 }
+                 if(joinRefValue === joinLocalValue) {
+                 set(ele, nodeSon.joinInfo.localAttrPath, resultSon[i]);
+                 break;
+                 }
+                 }
 
-                        if(i === result.length) {
-                            // 说明子表中没有相应的行，置undefined还是null?
-                        }
-                    }
-                )*/
+                 if(i === result.length) {
+                 // 说明子表中没有相应的行，置undefined还是null?
+                 }
+                 }
+                 )*/
 
             }
             else {
@@ -609,6 +682,31 @@ function execOverSourceQuery(forest, indexFrom, count) {
 }
 
 
+
+function getRidOfResult(result, projection, name) {
+    const schemas = this.schemas;
+    const schema = schemas[name];
+    for(let attr in result) {
+        if(!projection[attr]) {
+            delete result[attr];
+        }
+        else {
+            switch(schema.attributes[attr].type) {
+                case "ref" : {
+                    getRidOfResult.call(this, result[attr], projection[attr], schema.attributes[attr].ref);
+                    break;
+                }
+                case "date":
+                case "time": {
+                    result[attr] = new Date(result[attr]);
+                    break;
+                }
+                default:
+                    break;
+            }
+        }
+    }
+}
 
 
 
@@ -758,14 +856,42 @@ class DataAccess {
                 throw new Error("跨越源的列表查询必须定义sort条件");
             }
 
-            return execOverSourceQuery.call(this, execForest, indexFrom, count);
+            return execOverSourceQuery.call(this, execForest, indexFrom, count)
+                .then(
+                    (result) => {
+                        assert(result instanceof Array);
+                        result.forEach(
+                            (ele, idx) => {
+                                getRidOfResult.call(this, ele, projection, name);
+                            }
+                        );
+                        return Promise.resolve(result);
+                    },
+                    (err) => {
+                        return Promise.reject(err);
+                    }
+                )
         }
         else {
             // 单源的查询直接PUSH给相应的数据源
             let schema = this.schemas[name];
             const connection = this.connections[schema.source];
 
-            return connection.find(name, execTree, indexFrom, count);
+            return connection.find(name, execTree, indexFrom, count)
+                .then(
+                    (result) => {
+                        assert(result instanceof Array);
+                        result.forEach(
+                            (ele, idx) => {
+                                getRidOfResult.call(this, ele, projection, name);
+                            }
+                        );
+                        return Promise.resolve(result);
+                    },
+                    (err) => {
+                        return Promise.reject(err);
+                    }
+                )
 
         }
 
@@ -797,6 +923,7 @@ class DataAccess {
                                 return Promise.resolve(null);
                             }
                             case 1: {
+                                getRidOfResult.call(this, result[0], projection, name);
                                 return Promise.resolve(result[0]);
                             }
                             case 2: {
@@ -817,6 +944,7 @@ class DataAccess {
                                 return Promise.resolve(null);
                             }
                             case 1: {
+                                getRidOfResult.call(this, result[0], projection, name);
                                 return Promise.resolve(result[0]);
                             }
                             case 2: {

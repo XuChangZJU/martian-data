@@ -11,7 +11,7 @@ var expect = require("expect.js");
 const uda = require("../src/UnifiedDataAccess");
 const dataSource = require("./def/dataSource");
 const schema5 = require("./def/schemas/schema5");
-const now = Date.now();
+const now = new Date();
 
 const houseInfos = [
     {
