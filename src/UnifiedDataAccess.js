@@ -1038,6 +1038,39 @@ class DataAccess {
         return this.connections[sourceName];
     }
 
+    startTransaction(source) {
+        const connection = this.connections[source];
+        if(connection && connection.startTransaction && typeof connection.startTransaction === "function") {
+            this.txnSource = source;
+            return connection.startTransaction();
+        }
+        else {
+            throw new Error("源" + source + "不存在，或者不支持事务操作");
+        }
+    }
+
+    commmitTransaction() {
+        const connection = this.connections[this.txnSource];
+        this.txnSource = null;
+        if(connection && connection.commmitTransaction && typeof connection.commmitTransaction === "function") {
+            return connection.commmitTransaction();
+        }
+        else {
+            throw new Error("未发现活跃事务，或者不支持事务操作");
+        }
+    }
+
+    rollbackTransaction() {
+        const connection = this.connections[this.txnSource];
+        this.txnSource = null;
+        if(connection && connection.rollbackTransaction && typeof connection.rollbackTransaction === "function") {
+            return connection.rollbackTransaction();
+        }
+        else {
+            throw new Error("未发现活跃事务，或者不支持事务操作");
+        }
+    }
+
 };
 
 

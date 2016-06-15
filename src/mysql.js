@@ -462,6 +462,52 @@ class Mysql {
             })
         })
     }
+
+
+    startTransaction() {
+        return new Promise(
+            (resolve, reject) => {
+                this.db.query("START TRANSACTION", (err, result, fields) => {
+                    if(err) {
+                        reject(err);
+                    }
+                    else {
+                        resolve(result, fields);
+                    }
+                })
+            }
+        );
+    }
+
+    commmitTransaction() {
+        return new Promise(
+            (resolve, reject) => {
+                this.db.query("COMMIT", (err, result, fields) => {
+                    if(err) {
+                        reject(err);
+                    }
+                    else {
+                        resolve(result, fields);
+                    }
+                })
+            }
+        );
+    }
+
+    rollbackTransaction() {
+        return new Promise(
+            (resolve, reject) => {
+                this.db.query("ROLLBACK", (err, result, fields) => {
+                    if(err) {
+                        reject(err);
+                    }
+                    else {
+                        resolve(result, fields);
+                    }
+                })
+            }
+        )
+    }
 }
 
 
