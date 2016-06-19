@@ -53,7 +53,15 @@ function formalizeSchemasDefinition(schemas) {
                         for(let attr2 in schemaReferenced.attributes) {
                             const attrDef2 = schemaReferenced.attributes[attr2];
                             if(attrDef2.key) {
-                                type = attrDef2.type;
+                                if(attrDef2.type === "serial") {
+                                    type = {
+                                        type: "int",
+                                        size: 8
+                                    };
+                                }
+                                else {
+                                    type = attrDef2.type;
+                                }
                                 attrDef.refColumnName = attr2;
                             }
                         }
@@ -700,6 +708,13 @@ function getRidOfResult(result, projection, name) {
                 case "time": {
                     result[attr] = new Date(result[attr]);
                     break;
+                }
+                case "object": {
+                    if(typeof result[attr] === "string") {
+                        // 从mysql中获取的object类型应该是string
+                        result[attr] = JSON.parse(result[attr]);
+                        break;
+                    }
                 }
                 default:
                     break;
