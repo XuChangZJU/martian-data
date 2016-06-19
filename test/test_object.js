@@ -64,39 +64,41 @@ describe("test save object in mysql", function() {
     	};
 
     	let _information = JSON.parse(JSON.stringify(information));
+
+
+		uda.insert("info", {
+				information
+			})
+			.then(
+				(result) => {
+					uda.findById("info", {
+							information: 1
+						}, result.id)
+						.then(
+							(result2)  => {
+								expect(result2).to.be.an("object");
+								let infoResult = result2.information;
+								expect(infoResult.name).to.eql(information.name);
+								expect(infoResult.age).to.eql(information.age);
+								expect(infoResult.skills).to.be.an("array");
+								done();
+							},
+							(err) => {
+								done(err);
+							}
+						);
+				},
+				(err) => {
+					done(err);
+				}
+			);
     });
 
-    uda.insert("info", {
-    	infomation
-    })
-    .then(
-    	(result) => {
-    		uda.findById("info", {
-    			infomation: 1
-    		}, result.id)
-    			.then(
-    				(result2)  => {
-    					expect(result2).to.be.an("object");
-    					let infoResult = result2.information;
-    					expect(infoResult.name).to.eql(information.name);
-    					expect(infoResult.age).to.eql(information.age);
-    					expect(infoResult.skills).to.be.an("array");
-    					done();
-    				},
-    				(err) => {
-    					done(err);
-    				}
-    			);
-    	},
-    	(err) => {
-    		done(err);
-    	}
-    );
 
     after((done) => {
         uda.disconnect()
             .then(done);
     });
 
-}
+});
 
