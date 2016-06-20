@@ -3,8 +3,8 @@
  */
 "use strict";
 var orm = require('orm');
-const mysql = require("./mysql");
-const mongodb = require("./mongodb");
+const mysql = require("./drivers/mysql");
+const mongodb = require("./drivers/mongodb");
 
 const ObjectId = require("mongodb").ObjectID;
 
