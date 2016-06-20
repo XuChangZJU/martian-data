@@ -15,14 +15,14 @@ function convertValueToSQLFormat(value) {
             return new String(value);
         }
         case "string": {
-            return "\"".concat(value).concat("\"");
+            return "'".concat(value).concat("'");
         }
         case "object": {
             if(value instanceof Date) {
                 return new String(value.valueOf())
             }
             else {
-                return JSON.stringify(value);
+                return "'".concat(JSON.stringify(value)).concat("'");
             }
         }
         default:

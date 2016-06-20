@@ -67,7 +67,7 @@ describe("test save object in mysql", function() {
 
 
 		uda.insert("info", {
-				information
+				information: _information
 			})
 			.then(
 				(result) => {

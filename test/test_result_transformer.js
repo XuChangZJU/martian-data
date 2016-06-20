@@ -3,7 +3,7 @@
  */
 "use strict";
 
-const resultTransformer = require("../src/resultTransformer");
+const resultTransformer = require("../src/utils/resultTransformer");
 
 var expect = require("expect.js");
 

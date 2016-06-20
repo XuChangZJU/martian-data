@@ -6,7 +6,7 @@
 
 var expect = require("expect.js");
 
-const sqlTransformer = require("../src/sqlTransformer");
+const sqlTransformer = require("../src/utils/sqlTransformer");
 
 const now = Date.now();
 

@@ -4,7 +4,7 @@ const schema = {
     info: {
         source: "mysql",
         attributes: {
-            infomation:{
+            information:{
                 type: "object"
             }
         }
@@ -12,7 +12,7 @@ const schema = {
     infoInMongodb: {
         source: "mongodb",
         attributes: {
-            infomation:{
+            information:{
                 type: "object"
             }
         }
