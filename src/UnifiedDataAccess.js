@@ -449,6 +449,7 @@ function joinNext(forest, me, result) {
             // 将自己的查询结果和父亲的结果进行join
             const parentResult = nodeParent.result;
 
+            let joinedResult = [];
             parentResult.forEach(
                 (ele, idx) => {
                     let joinLocalValue = get(ele, nodeMe.joinInfo.localKeyPath);
@@ -464,6 +465,7 @@ function joinNext(forest, me, result) {
                         }
                         if(joinRefValue === joinLocalValue) {
                             set(ele, nodeMe.joinInfo.localAttrPath, result[i]);
+                            joinedResult.push(ele);
                             break;
                         }
                     }
@@ -473,6 +475,7 @@ function joinNext(forest, me, result) {
                     }
                 }
             );
+            nodeParent.result = joinedResult;
         }
         else {
             if(result.length > 0) {

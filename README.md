@@ -49,3 +49,117 @@ martianData.connect(dataSources)
 注意martian-data的所有异步访问接口，返回的都是Promise对象。
 
 ## 定义数据模式
+
+将要访问的数据对象定义成为数据模式（schema），模式中的每个属性是一个数据对象，代表持久层的一张表或者集合
+
+```
+const schema = {
+    house: {
+        source: "mysql",    // 对应上面的dataSource数据源
+        attributes: {       // 属性
+            buildAt:{
+                type: "date",       // 类型
+                required : true,    // 是否可以为空
+                defaultValue : new Date()   // 默认值 
+            },
+            status: {
+                type: {
+                    type: "enum",
+                    values: ["verifying", "offline", "free", "inRent"]
+                },
+                required: true,
+                defaultValue: "verifying"
+            },
+            houseInfo: {
+                type: "ref",        // 引用对象
+                ref: "houseInfo",   // 指向的引用对象名
+                required: true,     // 是否可以为空
+                localColumnName: "houseInfoId"       // 列名
+                autoIndexed: false                   //  默认在外键列上会建索引，如果指定不建，这个域要加上false
+            }
+        },
+        indexes: {
+            index1: {
+                    columns: {
+                        status: 1           // 索引的键值
+                    },
+                    options : {
+                        unique: true        // 是否唯一
+                    }
+                }
+        }
+    },
+    houseInfo: {
+        source: "mysql",
+        attributes: {
+            id: {
+                type: "serial",
+                key: true           // 主键
+            },
+            area:{
+                type: "number",
+                required : true
+            },
+            floor: {
+                type: "int",
+                required: true
+            }
+        }
+    }
+};
+```
+对每个数据对象主要需要定义三个属性：
+
+### 数据源
+source指定了数据对象的源，源必须在dataSource中有相应的定义
+
+### 属性
+attribute定义了数据对象的列，对于每一列，重要的定义有：
+
+* 类型（type)，目前支持的类型包括int/integer, number, boolean, string, text, enum, date/time, serial, object, ref 对于int和number，可以定义长度：
+```
+type: {
+    type: "int",
+    size: 8
+}
+```
+对于enum对象，可以定义其枚举值：
+```
+type: {
+    type: "enum",
+    values: ["male", "female"]
+}
+```
+date/time 在存储时会被转换为毫秒数
+
+当object对象被存储在mysql中时，存储的是其JSON化的字符串。尽管mysql5.7以上支持JSON数据，但我们认为需要在上执行复杂查询的JSON数据还是应该被存放在mongodb中。
+
+serial对象是自增列，只对mysql支持，一般用用于定义主键。每个对象只能有一个自增列作为主键，如果不显式指定，则martianData会创建默认的主键值，在mysql中这列是id，在mongodb中使用其默认的主键列_id。我们推荐不要创建显式主键。不支持复合主键。
+
+ref属性是指向另一个对象的引用，相当于数据库的外键。所指向对象必须用ref属性中的ref属性来指定，此对象必须在schema中定义，但可以处于另外的源中。martian-data在创建对象时，对于ref对象会创建一列指向被引用对象的主键，还可以指定列名（localColumnName）和是否创建索引（autoIndexed），默认情况下用ref对象的对象名加上Id作为列名，并创建索引。
+
+* 是否为主键（key），只对mysql支持。mongodb的主键是其默认的主键_id
+* 是否不为空（required)
+* 默认值（defaultValue）
+
+### 索引
+indexes定义了对象上的索引，对每个索引，需要定义：
+* columns ：索引的相关列，可以定义多列上的复合索引，以及索引键值的顺序，1为升序，-1为降序
+* options：索引的属性，包括unique（是否唯一）
+
+定义了数据模式后，可以为matianData设置数据源：
+```
+martianData.setSchemas(schema);
+```
+再创建相应的数据对象：
+```
+martianData.createSchemas()
+    .then(
+        () => {
+            console.log("create schemas success");
+        },
+        (err) => {
+            console.log("create schemas fail");
+        }
+    );
+```
