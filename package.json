@@ -2,9 +2,9 @@
   "name": "martian-data",
   "version": "1.0.0",
   "description": "data layer of martian",
-  "main": "src\UnifiedDataAccess.js",
+  "main": "src\\UnifiedDataAccess.js",
   "files": [
-    "src\*"
+    "src\\*"
   ],
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
