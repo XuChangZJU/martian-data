@@ -32,7 +32,7 @@ function formalizeSchemasDefinition(schemas) {
         }
         else {
             let isMainKeyDefined = false;
-            let mainKeyColumn = connection.getDefaultKeyName();
+            let mainKeyColumn = connection.getDefaultKeyName(schema);
             // 处理所有的reference列
             for(let attr in schemaDef.attributes) {
                 const attrDef = schemaDef.attributes[attr];
@@ -49,7 +49,7 @@ function formalizeSchemasDefinition(schemas) {
                     else {
                         // 寻找被引用表是否有显式定义主键
                         const dataSource2 = this.connections[schemaReferenced.source];
-                        let type = dataSource2.getDefaultKeyType();
+                        let type = dataSource2.getDefaultKeyType(attrDef.ref);
                         for(let attr2 in schemaReferenced.attributes) {
                             const attrDef2 = schemaReferenced.attributes[attr2];
                             if(attrDef2.key) {
@@ -67,7 +67,7 @@ function formalizeSchemasDefinition(schemas) {
                         }
                         let localColumnName = attrDef.localColumnName || (attr + "Id");
                         attrDef.localColumnName = localColumnName;
-                        attrDef.refColumnName = (attrDef.refColumnName || dataSource2.getDefaultKeyName());
+                        attrDef.refColumnName = (attrDef.refColumnName || findKeyColumnName.call(this, attrDef.ref, schemaReferenced));
 
                         let attrDef3 = Object.assign({}, attrDef);
                         attrDef3.type = type;
@@ -427,6 +427,16 @@ function hasOperator(node, op, num) {
         }
         return false;
     }
+}
+
+function findKeyColumnName(tblName, schema) {
+    for(let i in schema.attributes) {
+        if(schema.attributes[i].key) {
+            return i;
+        }
+    }
+
+    return this.connections[schema.source].getDefaultKeyName(tblName);
 }
 
 
@@ -924,7 +934,7 @@ class DataAccess {
         let query = {}
         const connection = this.connections[schema.source];
 
-        const pKeyColumn = connection.getDefaultKeyName();
+        const pKeyColumn = findKeyColumnName.call(this, name, schema);
         query[pKeyColumn] = id;
 
         let execTree = destructSelect.call(this, name, projection, query);

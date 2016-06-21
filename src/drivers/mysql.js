@@ -9,7 +9,7 @@ const constants = require("./../constants");
 const sqlTransformer = require("./../utils/sqlTransformer");
 const resultTransformer = require("./../utils/resultTransformer");
 
-const _DEBUG_SQL = true;
+const _DEBUG_SQL = process.env.DEBUG;
 
 function convertTypeDefToDbFormat(typeDef) {
     if(typeof typeDef === "object") {
@@ -450,17 +450,8 @@ class Mysql {
         return "id";
     }
 
-    execSql(sql) {
-        return new Promise((resolve, reject) => {
-            this.db.query(sql, (err, result, fields) => {
-                if(err) {
-                    reject(err);
-                }
-                else {
-                    resolve(result, fields);
-                }
-            })
-        })
+    execSql(sql, transformResultToObject) {
+        return queryToPromise(this.db, sql, transformResultToObject);
     }
 
 

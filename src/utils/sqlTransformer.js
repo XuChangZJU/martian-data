@@ -3,6 +3,7 @@
  */
 "use strict";
 const assert = require("assert");
+const ObjectId = require("mongodb").ObjectID;
 
 
 function convertValueToSQLFormat(value) {
@@ -20,6 +21,9 @@ function convertValueToSQLFormat(value) {
         case "object": {
             if(value instanceof Date) {
                 return new String(value.valueOf())
+            }
+            else if(value instanceof ObjectId) {
+                return "'".concat(value.toString()).concat("'");
             }
             else {
                 return "'".concat(JSON.stringify(value)).concat("'");

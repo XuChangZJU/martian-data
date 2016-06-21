@@ -95,13 +95,12 @@ describe("test_insert_update_delete", ()=> {
     });
 
     it("[cud1.2]sql in mysql", (done) => {
-        let sql = "select a as 'a.id', _b_ as 'b.id' from test";
+        let sql = "select 1 as 'a.id', 2 as 'b.id'";
         let mysql = uda.getSource("mysql");
-        mysql.execSql(sql)
+        mysql.execSql(sql, true)
             .then(
-                (result, fields) => {
+                (result) => {
                     console.log(result);
-                    console.log(fields);
                     done();
                 },
                 (err) => {
