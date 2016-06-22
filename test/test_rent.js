@@ -193,7 +193,7 @@ function initData(uda, users, keys, houses, houseInfos) {
 }
 
 
-describe("TEST RENT", () => {
+describe("test rent", () => {
     describe("rent create schema with refs", function() {
         this.timeout(4000);
         before((done) => {
@@ -459,7 +459,7 @@ describe("TEST RENT", () => {
             };
 
             
-            uda.findById("house", projection, houses[1].id)
+            uda.findById("house", projection, houses[0].id)
                 .then(
                     (house) => {
                         console.log(house);
