@@ -9,7 +9,9 @@
 var expect = require("expect.js");
 
 
-const uda = require("../src/UnifiedDataAccess");
+const UDA = require("../src/UnifiedDataAccess");
+const uda = new UDA();
+
 const dataSource = require("./def/dataSource");
 const schema = require("./def/schemas/schema");
 const schema2 = require("./def/schemas/schema2");
@@ -29,14 +31,16 @@ function insertUpdateDeleteHouse(uda) {
                                 })
                                 .then(
                                     (row) => {
+                                        let id = row.hasOwnProperty("id") ? row.id: row._id;
                                         return uda.updateOneById("house", {
                                                $set:{
                                                    status: "online"
                                                }
-                                            }, row.id || row._id)
+                                            }, id)
                                             .then(
                                                 (row) => {
-                                                    return uda.removeOneById("house", row.id || row._id);
+                                                    let id = row.hasOwnProperty("id") ? row.id: row._id;
+                                                    return uda.removeOneById("house", id);
                                                 }
                                             )
                                     }
@@ -64,34 +68,46 @@ describe("test_insert_update_delete", ()=> {
         let _schema = JSON.parse(JSON.stringify(schema2));
 
         _schema.house.source = "mongodb";
-        uda.setSchemas(_schema);
-
-        insertUpdateDeleteHouse(uda)
+        uda.setSchemas(_schema)
             .then(
                 () => {
-                    done();
+                    insertUpdateDeleteHouse(uda)
+                        .then(
+                            () => {
+                                done();
+                            },
+                            (err) => {
+                                done(err);
+                            }
+                        )
                 },
                 (err) => {
                     done(err);
                 }
-            )
+            );
     });
 
     it("[cud1.1]cud in mysql", (done) => {
         let _schema = JSON.parse(JSON.stringify(schema2));
 
         _schema.house.source = "mysql";
-        uda.setSchemas(_schema);
-
-        insertUpdateDeleteHouse(uda)
+        uda.setSchemas(_schema)
             .then(
                 () => {
-                    done();
+                    insertUpdateDeleteHouse(uda)
+                        .then(
+                            () => {
+                                done();
+                            },
+                            (err) => {
+                                done(err);
+                            }
+                        );
                 },
                 (err) => {
                     done(err);
                 }
-            )
+            );
     });
 
     it("[cud1.2]sql in mysql", (done) => {

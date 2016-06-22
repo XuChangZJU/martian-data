@@ -46,7 +46,7 @@ function convertExecNodeToSQL(sql, node, parentName, relName, joinInfo, projecti
     }
 
     if(joinInfo) {
-        sql.from += " left join " + relName + " " + alias + " on " + parentName + "." + joinInfo.localColumnName + " = " + alias + "." + joinInfo.refColumnName;
+        sql.from += " left join `" + relName + "` " + alias + " on `" + parentName + "`.`" + joinInfo.localColumnName + "` = `" + alias + "`.`" + joinInfo.refColumnName + "`";
     }
 
     for(let projection in node.projection) {
@@ -54,8 +54,8 @@ function convertExecNodeToSQL(sql, node, parentName, relName, joinInfo, projecti
             sql.projection += ", ";
         }
 
-        sql.projection += alias + ".";
-        sql.projection += projection;
+        sql.projection += "`" + alias + "`.`";
+        sql.projection += projection + "`";
         if(projectionPrefix) {
             sql.projection += " as '" + projectionPrefix + projection + "'";
         }
@@ -76,8 +76,8 @@ function convertExecNodeToSQL(sql, node, parentName, relName, joinInfo, projecti
         if(sql.orderBy.length > 0) {
             sql.orderBy += ",";
         }
-        sql.orderBy += alias + ".";
-        sql.orderBy += attr;
+        sql.orderBy += "`" + alias + "`.`";
+        sql.orderBy += attr + "`";
 
         if(typeof node.sort[attr] != "number" || node.sort[attr] === 0) {
             throw new Error("SORT条件必须是不为0的数值，当前检测到非法值"+ node.sort[attr]);
@@ -96,15 +96,16 @@ function convertExecNodeToSQL(sql, node, parentName, relName, joinInfo, projecti
 
 class SQLTransformer {
     transformInsert(tableName, data) {
-        let sql = "insert into ";
+        let sql = "insert into `";
         sql += tableName;
+        sql += "`";
         let attributes = "(", values = "(";
 
         for(let attr in data) {
             if(!attributes.endsWith("(")) {
                 attributes += ",";
             }
-            attributes += attr;
+            attributes += "`" + attr + "`";
             if(!values.endsWith("(")) {
                 values += ",";
             }
@@ -122,8 +123,9 @@ class SQLTransformer {
     }
 
     transformUpdate(tableName, data, query) {
-        let sql = "update ";
+        let sql = "update `";
         sql += tableName;
+        sql += "`";
         sql += " set";
 
         switch(Object.getOwnPropertyNames(data).length) {
@@ -149,7 +151,7 @@ class SQLTransformer {
             else {
                 sql += " ";
             }
-            sql += attr;
+            sql += "`" + attr + "`";
             sql += "=";
             const value = convertValueToSQLFormat(data.$set[attr]);
             sql += value;
@@ -163,8 +165,9 @@ class SQLTransformer {
 
     transformDelete(name, where) {
         let sql = "";
-        sql += "delete from ";
+        sql += "delete from `";
         sql += name;
+        sql += "`";
         sql += " where ";
         sql += this.transformWhere(where);
 
@@ -257,10 +260,10 @@ class SQLTransformer {
                                 }
                                 else {
                                     if(relName) {
-                                        sql += relName;
+                                        sql += "`" + relName + "`";
                                         sql += "."
                                     }
-                                    sql += attr;
+                                    sql += "`" + attr + "`";
                                     sql += this.transformWhere(where[attr]);
                                 }
                             }
@@ -283,7 +286,7 @@ class SQLTransformer {
     transformSelect(name, execTree, indexFrom, count) {
         let sqlObj = {
             projection : "",
-            from : new String(name),
+            from : "`" + new String(name) + "`",
             where : "",
             orderBy : "",
             usedNames: {}

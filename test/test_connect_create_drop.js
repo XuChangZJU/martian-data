@@ -5,8 +5,8 @@
 
 var expect = require("expect.js");
 
-
-const uda = require("../src/UnifiedDataAccess");
+const UDA = require("../src/UnifiedDataAccess");
+const uda = new UDA();
 const dataSource = require("./def/dataSource");
 const schema = require("./def/schemas/schema");
 const schema2 = require("./def/schemas/schema2");
@@ -117,14 +117,21 @@ describe('uda', () => {
                 .then(
                     () => {
                         let _schema = JSON.parse(JSON.stringify(schema));
-                        uda.setSchemas(_schema);
-                        dropCreateInsert(uda, "house", {
-                            buildAt: new Date(),
-                            status: "offline"
-                        }, true)
+                        uda.setSchemas(_schema)
                             .then(
                                 () => {
-                                    done();
+                                    dropCreateInsert(uda, "house", {
+                                        buildAt: new Date(),
+                                        status: "offline"
+                                    }, true)
+                                        .then(
+                                            () => {
+                                                done();
+                                            },
+                                            (err) => {
+                                                done(err);
+                                            }
+                                        );
                                 },
                                 (err) => {
                                     done(err);
@@ -146,19 +153,26 @@ describe('uda', () => {
                 .then(
                     () => {
                         let _schema2 = JSON.parse(JSON.stringify(schema2));
-                        uda.setSchemas(_schema2);
-                        dropCreateInsert(uda, "house", {
-                            buildAt: new Date(),
-                            status: "offline"
-                        }, false)
+                        uda.setSchemas(_schema2)
                             .then(
                                 () => {
-                                    done();
+                                    dropCreateInsert(uda, "house", {
+                                        buildAt: new Date(),
+                                        status: "offline"
+                                    }, false)
+                                        .then(
+                                            () => {
+                                                done();
+                                            },
+                                            (err) => {
+                                                done(err);
+                                            }
+                                        );
                                 },
                                 (err) => {
                                     done(err);
                                 }
-                            )
+                            );
                     },
                     (err) => {
                         done(err);
@@ -213,15 +227,23 @@ describe('uda', () => {
                 }
             };
 
-            uda.setSchemas(_schema3);
-            uda.dropSchemas()
+            uda.setSchemas(_schema3)
                 .then(
                     () => {
-                        uda.createSchemas()
+                        uda.dropSchemas()
                             .then(
                                 () => {
-                                    console.log("!请去相应表上检查有无索引!");
-                                    done();
+                                    uda.createSchemas()
+                                        .then(
+                                            () => {
+                                                console.log("!请去相应表上检查有无索引!");
+                                                done();
+                                            },
+                                            (err) => {
+                                                done(err);
+                                            }
+                                        );
+
                                 },
                                 (err) => {
                                     done(err);
@@ -259,21 +281,28 @@ describe('uda', () => {
         it("[3.0]master and slave are both in mysql", (done) => {
 
             let _schema3 = JSON.parse(JSON.stringify(schema3));
-            uda.setSchemas(_schema3);
-            uda.dropSchemas()
+            uda.setSchemas(_schema3)
                 .then(
                     () => {
-                        uda.createSchemas()
+                        uda.dropSchemas()
                             .then(
                                 () => {
-                                    console.log("请查看house表的定义是否存在houseInfoId列");
-                                    done();
+                                    uda.createSchemas()
+                                        .then(
+                                            () => {
+                                                console.log("请查看house表的定义是否存在houseInfoId列");
+                                                done();
+                                            },
+                                            (err) => {
+                                                done(err);
+                                            }
+                                        );
+
                                 },
                                 (err) => {
                                     done(err);
                                 }
                             );
-
                     },
                     (err) => {
                         done(err);
@@ -285,21 +314,28 @@ describe('uda', () => {
             //let _schema2 = Object.assign({}, schema3);
             let _schema2 = JSON.parse(JSON.stringify(schema3));
             _schema2.houseInfo.source = "mongodb";
-            uda.setSchemas(_schema2);
-            uda.dropSchemas()
+            uda.setSchemas(_schema2)
                 .then(
                     () => {
-                        uda.createSchemas()
+                        uda.dropSchemas()
                             .then(
                                 () => {
-                                    console.log("请查看house表的定义是否存在houseInfoId列");
-                                    done();
+                                    uda.createSchemas()
+                                        .then(
+                                            () => {
+                                                console.log("请查看house表的定义是否存在houseInfoId列");
+                                                done();
+                                            },
+                                            (err) => {
+                                                done(err);
+                                            }
+                                        );
+
                                 },
                                 (err) => {
                                     done(err);
                                 }
                             );
-
                     },
                     (err) => {
                         done(err);
@@ -310,47 +346,54 @@ describe('uda', () => {
         it("[3.2]master and slave are both in mysql, insert after create", (done) => {
 
             let _schema2 = JSON.parse(JSON.stringify(schema3));
-            uda.setSchemas(_schema2);
-            uda.dropSchemas()
+            uda.setSchemas(_schema2)
                 .then(
                     () => {
-                        uda.createSchemas()
+                        uda.dropSchemas()
                             .then(
                                 () => {
-                                    let house = {
-                                        buildAt: new Date(),
-                                        status: "verifying"
-                                    };
-                                    let houseInfo = {
-                                        area: 55,
-                                        floor: 6
-                                    };
-                                    uda.insert("houseInfo", houseInfo)
+                                    uda.createSchemas()
                                         .then(
-                                            (hiItem) => {
-                                                houseInfo.id = hiItem.id || hiItem._id;
-                                                house.houseInfo = houseInfo;
-                                                uda.insert("house",  house)
+                                            () => {
+                                                let house = {
+                                                    buildAt: new Date(),
+                                                    status: "verifying"
+                                                };
+                                                let houseInfo = {
+                                                    area: 55,
+                                                    floor: 6
+                                                };
+                                                uda.insert("houseInfo", houseInfo)
                                                     .then(
-                                                        (hItem) => {
-                                                            console.log(hItem);
-                                                            done();
+                                                        (hiItem) => {
+                                                            houseInfo.id = hiItem.id || hiItem._id;
+                                                            house.houseInfo = houseInfo;
+                                                            uda.insert("house",  house)
+                                                                .then(
+                                                                    (hItem) => {
+                                                                        console.log(hItem);
+                                                                        done();
+                                                                    },
+                                                                    (err) => {
+                                                                        done(err);
+                                                                    }
+                                                                );
                                                         },
                                                         (err) => {
                                                             done(err);
                                                         }
-                                                    );
+                                                    )
                                             },
                                             (err) => {
                                                 done(err);
                                             }
-                                        )
+                                        );
+
                                 },
                                 (err) => {
                                     done(err);
                                 }
                             );
-
                     },
                     (err) => {
                         done(err);
@@ -362,46 +405,53 @@ describe('uda', () => {
 
             let _schema2 = JSON.parse(JSON.stringify(schema3));
             _schema2.houseInfo.source = "mongodb";
-            uda.setSchemas(_schema2);
-            uda.dropSchemas()
+            uda.setSchemas(_schema2)
                 .then(
                     () => {
-                        uda.createSchemas()
+                        uda.dropSchemas()
                             .then(
                                 () => {
-                                    let house = {
-                                        buildAt: new Date(),
-                                        status: "verifying"
-                                    };
-                                    let houseInfo = {
-                                        area: 55,
-                                        floor: 6
-                                    };
-                                    uda.insert("houseInfo", houseInfo)
+                                    uda.createSchemas()
                                         .then(
-                                            (hiItem) => {
-                                                house.houseInfo = hiItem;
-                                                uda.insert("house",  house)
+                                            () => {
+                                                let house = {
+                                                    buildAt: new Date(),
+                                                    status: "verifying"
+                                                };
+                                                let houseInfo = {
+                                                    area: 55,
+                                                    floor: 6
+                                                };
+                                                uda.insert("houseInfo", houseInfo)
                                                     .then(
-                                                        (hItem) => {
-                                                            console.log(hItem);
-                                                            done();
+                                                        (hiItem) => {
+                                                            house.houseInfo = hiItem;
+                                                            uda.insert("house",  house)
+                                                                .then(
+                                                                    (hItem) => {
+                                                                        console.log(hItem);
+                                                                        done();
+                                                                    },
+                                                                    (err) => {
+                                                                        done(err);
+                                                                    }
+                                                                );
                                                         },
                                                         (err) => {
                                                             done(err);
                                                         }
-                                                    );
+                                                    )
                                             },
                                             (err) => {
                                                 done(err);
                                             }
-                                        )
+                                        );
+
                                 },
                                 (err) => {
                                     done(err);
                                 }
                             );
-
                     },
                     (err) => {
                         done(err);
@@ -413,47 +463,54 @@ describe('uda', () => {
             let _schema2 = JSON.parse(JSON.stringify(schema3));
 
             _schema2.house.source = "mongodb";
-            uda.setSchemas(_schema2);
-            uda.dropSchemas()
+            uda.setSchemas(_schema2)
                 .then(
                     () => {
-                        uda.createSchemas()
+                        uda.dropSchemas()
                             .then(
                                 () => {
-                                    let house = {
-                                        buildAt: new Date(),
-                                        status: "verifying"
-                                    };
-                                    let houseInfo = {
-                                        area: 55,
-                                        floor: 6
-                                    };
-                                    uda.insert("houseInfo", houseInfo)
+                                    uda.createSchemas()
                                         .then(
-                                            (hiItem) => {
-                                                houseInfo.id = hiItem.id || hiItem._id;
-                                                house.houseInfo = houseInfo;
-                                                uda.insert("house",  house)
+                                            () => {
+                                                let house = {
+                                                    buildAt: new Date(),
+                                                    status: "verifying"
+                                                };
+                                                let houseInfo = {
+                                                    area: 55,
+                                                    floor: 6
+                                                };
+                                                uda.insert("houseInfo", houseInfo)
                                                     .then(
-                                                        (hItem) => {
-                                                            console.log(hItem);
-                                                            done();
+                                                        (hiItem) => {
+                                                            houseInfo.id = hiItem.id || hiItem._id;
+                                                            house.houseInfo = houseInfo;
+                                                            uda.insert("house",  house)
+                                                                .then(
+                                                                    (hItem) => {
+                                                                        console.log(hItem);
+                                                                        done();
+                                                                    },
+                                                                    (err) => {
+                                                                        done(err);
+                                                                    }
+                                                                );
                                                         },
                                                         (err) => {
                                                             done(err);
                                                         }
-                                                    );
+                                                    )
                                             },
                                             (err) => {
                                                 done(err);
                                             }
-                                        )
+                                        );
+
                                 },
                                 (err) => {
                                     done(err);
                                 }
                             );
-
                     },
                     (err) => {
                         done(err);
@@ -464,47 +521,54 @@ describe('uda', () => {
         it("[3.5]master and slave are both in mysql, insert using directId after create", (done) => {
             let _schema2 = JSON.parse(JSON.stringify(schema3));
 
-            uda.setSchemas(_schema2);
-            uda.dropSchemas()
+            uda.setSchemas(_schema2)
                 .then(
                     () => {
-                        uda.createSchemas()
+                        uda.dropSchemas()
                             .then(
                                 () => {
-                                    let house = {
-                                        buildAt: new Date(),
-                                        status: "verifying"
-                                    };
-                                    let houseInfo = {
-                                        area: 55,
-                                        floor: 6
-                                    };
-                                    uda.insert("houseInfo", houseInfo)
+                                    uda.createSchemas()
                                         .then(
-                                            (hiItem) => {
-                                                houseInfo.id = hiItem.id || hiItem._id;
-                                                house.houseInfoId = houseInfo.id;
-                                                uda.insert("house",  house)
+                                            () => {
+                                                let house = {
+                                                    buildAt: new Date(),
+                                                    status: "verifying"
+                                                };
+                                                let houseInfo = {
+                                                    area: 55,
+                                                    floor: 6
+                                                };
+                                                uda.insert("houseInfo", houseInfo)
                                                     .then(
-                                                        (hItem) => {
-                                                            console.log(hItem);
-                                                            done();
+                                                        (hiItem) => {
+                                                            houseInfo.id = hiItem.id || hiItem._id;
+                                                            house.houseInfoId = houseInfo.id;
+                                                            uda.insert("house",  house)
+                                                                .then(
+                                                                    (hItem) => {
+                                                                        console.log(hItem);
+                                                                        done();
+                                                                    },
+                                                                    (err) => {
+                                                                        done(err);
+                                                                    }
+                                                                );
                                                         },
                                                         (err) => {
                                                             done(err);
                                                         }
-                                                    );
+                                                    )
                                             },
                                             (err) => {
                                                 done(err);
                                             }
-                                        )
+                                        );
+
                                 },
                                 (err) => {
                                     done(err);
                                 }
                             );
-
                     },
                     (err) => {
                         done(err);

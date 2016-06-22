@@ -5,7 +5,8 @@
 
 var expect = require("expect.js");
 
-const uda = require("../src/UnifiedDataAccess");
+const UDA = require("../src/UnifiedDataAccess");
+const uda = new UDA();
 const dataSource = require("./def/dataSource");
 const schema = require("./def/schemas/schema7");
 

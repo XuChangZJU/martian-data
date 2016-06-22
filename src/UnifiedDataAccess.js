@@ -5,6 +5,7 @@
 var orm = require('orm');
 const mysql = require("./drivers/mysql");
 const mongodb = require("./drivers/mongodb");
+const remote = require("./drivers/remote");
 
 const ObjectId = require("mongodb").ObjectID;
 
@@ -24,138 +25,225 @@ function isSettingTrueStrictly(settings, option) {
  * @param schemas
  */
 function formalizeSchemasDefinition(schemas) {
-    for(let schema in schemas) {
-        const schemaDef = schemas[schema];
-        const connection = this.connections[schemaDef.source];
-        if(!connection) {
-            throw new Error("寻找不到相应的数据源" + schemaDef.source);
-        }
-        else {
-            let isMainKeyDefined = false;
-            let mainKeyColumn = connection.getDefaultKeyName(schema);
-            // 处理所有的reference列
-            for(let attr in schemaDef.attributes) {
-                const attrDef = schemaDef.attributes[attr];
+    const connections = this.connections;
+    const dataSources = this.dataSources;
 
-                if(attr === mainKeyColumn) {
-                    throw new Error("请不要使用默认的主键名" + attr);
+    return new Promise(
+        (resolve, reject) => {
+
+            let schemasPromises = [];
+            for(let schema in schemas) {
+                const schemaDef = schemas[schema];
+                const connection = connections[schemaDef.source];
+                if(!connection) {
+                    throw new Error("寻找不到相应的数据源" + schemaDef.source);
                 }
+                else {
+                    schemasPromises.push(
+                        connection.getDefaultKeyName(schema)
+                            .then(
+                                (keyName) => {
+                                    let isMainKeyDefined = false;
+                                    let mainKeyColumn = keyName;
 
-                if(attrDef.type === constants.typeReference) {
-                    const schemaReferenced = schemas[attrDef.ref];
-                    if(!schemaReferenced) {
-                        throw new Error("表"+ schema + "定义中的" + attr + "列引用了不存在的表" + attrDef.ref);
-                    }
-                    else {
-                        // 寻找被引用表是否有显式定义主键
-                        const dataSource2 = this.connections[schemaReferenced.source];
-                        let type = dataSource2.getDefaultKeyType(attrDef.ref);
-                        for(let attr2 in schemaReferenced.attributes) {
-                            const attrDef2 = schemaReferenced.attributes[attr2];
-                            if(attrDef2.key) {
-                                if(attrDef2.type === "serial") {
-                                    type = {
-                                        type: "int",
-                                        size: 8
-                                    };
-                                }
-                                else {
-                                    type = attrDef2.type;
-                                }
-                                attrDef.refColumnName = attr2;
-                            }
-                        }
-                        let localColumnName = attrDef.localColumnName || (attr + "Id");
-                        attrDef.localColumnName = localColumnName;
-                        attrDef.refColumnName = (attrDef.refColumnName || findKeyColumnName.call(this, attrDef.ref, schemaReferenced));
+                                    // 处理所有的reference列
+                                    let keyTypePromises = [];
+                                    for(let attr in schemaDef.attributes) {
+                                        const attrDef = schemaDef.attributes[attr];
 
-                        let attrDef3 = Object.assign({}, attrDef);
-                        attrDef3.type = type;
+                                        if(attr === mainKeyColumn) {
+                                            throw new Error("请不要使用默认的主键名" + attr);
+                                        }
 
-                        schemaDef.attributes[localColumnName] = attrDef3;
+                                        if(attrDef.type === constants.typeReference) {
+                                            const schemaReferenced = schemas[attrDef.ref];
+                                            if(!schemaReferenced) {
+                                                throw new Error("表"+ schema + "定义中的" + attr + "列引用了不存在的表" + attrDef.ref);
+                                            }
+                                            else {
+                                                // 寻找被引用表是否有显式定义主键
+                                                const dataSource2 = this.connections[schemaReferenced.source];
+                                                let type = dataSource2.getDefaultKeyType(attrDef.ref);
+                                                for(let attr2 in schemaReferenced.attributes) {
+                                                    const attrDef2 = schemaReferenced.attributes[attr2];
+                                                    if(attrDef2.key) {
+                                                        if(attrDef2.type === "serial") {
+                                                            type = {
+                                                                type: "int",
+                                                                size: 8
+                                                            };
+                                                        }
+                                                        else {
+                                                            type = attrDef2.type;
+                                                        }
+                                                        attrDef.refColumnName = attr2;
+                                                    }
+                                                }
+                                                let localColumnName = attrDef.localColumnName || (attr + "Id");
+                                                attrDef.localColumnName = localColumnName;
+                                                attrDef.refColumnName = (attrDef.refColumnName || findKeyColumnName.call(this, attrDef.ref, schemaReferenced));
+                                                if(attrDef.refColumnName instanceof Promise) {
+                                                    keyTypePromises.push(attrDef.refColumnName
+                                                        .then(
+                                                            (columnName) => {
+                                                                attrDef.refColumnName = columnName;
+                                                                return Promise.resolve();
+                                                            },
+                                                            (err) => {
+                                                                return Promise.reject(err);
+                                                            }
+                                                        )
+                                                    );
+                                                }
 
-                        // 外键上默认要建索引
-                        if(!attrDef3.unique && (attrDef3.autoIndexed !== false)) {
-                            const indexName = "index_" + localColumnName;
-                            const columns = {};
-                            columns[localColumnName] = 1;
-                            if(schemaDef.indexes) {
-                                schemaDef.indexes[indexName] = {
-                                    columns: columns
-                                }
-                            }
-                            else {
-                                schemaDef.indexes = {
-                                    [indexName]: {
-                                        columns: columns
+                                                let attrDef3 = Object.assign({}, attrDef);
+                                                if(type instanceof Promise) {
+                                                    // 异步获取keyType
+                                                    keyTypePromises.push(
+                                                        type
+                                                            .then(
+                                                                (keyType) => {
+                                                                    if(keyType === "serial") {
+                                                                        // 特殊处理一下serial类型，如果是serial则转成bigint
+                                                                        keyType = {
+                                                                            type: "int",
+                                                                            size: 8
+                                                                        };
+                                                                    }
+                                                                    attrDef3.type = keyType;
+                                                                    return Promise.resolve();
+                                                                },
+                                                                (err) => {
+                                                                    return Promise.reject(err);
+                                                                }
+                                                            )
+                                                    );
+                                                }
+                                                else {
+                                                    attrDef3.type = type;
+                                                }
+
+                                                schemaDef.attributes[localColumnName] = attrDef3;
+
+                                                // 外键上默认要建索引
+                                                if(!attrDef3.unique && (attrDef3.autoIndexed !== false)) {
+                                                    const indexName = "index_" + localColumnName;
+                                                    const columns = {};
+                                                    columns[localColumnName] = 1;
+                                                    if(schemaDef.indexes) {
+                                                        schemaDef.indexes[indexName] = {
+                                                            columns: columns
+                                                        }
+                                                    }
+                                                    else {
+                                                        schemaDef.indexes = {
+                                                            [indexName]: {
+                                                                columns: columns
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        else if(attrDef.key) {
+                                            // 如果有显式定义主键，则不用增加主键列
+                                            isMainKeyDefined = true;
+                                        }
                                     }
+
+                                    if(!isMainKeyDefined) {
+                                        keyTypePromises.push(
+                                            connection.getDefaultKeyType(schema)
+                                                .then(
+                                                    (keyType) => {
+                                                        schemaDef.attributes[mainKeyColumn] = {
+                                                            key: true,
+                                                            type: keyType
+                                                        };
+                                                        return Promise.resolve();
+                                                    },
+                                                    (err) => {
+                                                        return Promise.reject(err);
+                                                    }
+                                                )
+                                        );
+                                    }
+
+                                    if(!isSettingTrueStrictly(dataSources[schemaDef.source].settings, "disableCreateAt")) {
+                                        // 增加_createAt_
+                                        schemaDef.attributes[constants.createAtColumn] = {
+                                            type: "date",
+                                            required: true
+                                        };
+                                        let indexes = merge({}, schemaDef.indexes, {
+                                            index_createAt: {
+                                                columns: {
+                                                    [constants.createAtColumn]: 1
+                                                }
+                                            }
+                                        });
+                                        schemaDef.indexes = indexes;
+                                    }
+
+                                    if(!isSettingTrueStrictly(dataSources[schemaDef.source].settings, "disableUpdateAt")) {
+                                        // 增加_updateAt_
+                                        schemaDef.attributes[constants.updateAtColumn] = {
+                                            type: "date"
+                                        };
+                                        let indexes = merge({}, schemaDef.indexes, {
+                                            index_updateAt: {
+                                                columns: {
+                                                    [constants.updateAtColumn]: 1
+                                                }
+                                            }
+                                        });
+                                        schemaDef.indexes = indexes;
+                                    }
+
+                                    if(!isSettingTrueStrictly(dataSources[schemaDef.source].settings, "disableDeleteAt")) {
+                                        // 增加_deleteAt_
+                                        schemaDef.attributes[constants.deleteAtColumn] = {
+                                            type: "date"
+                                        };
+                                        let indexes = merge({}, schemaDef.indexes, {
+                                            index_deleteAt: {
+                                                columns: {
+                                                    [constants.deleteAtColumn]: 1
+                                                }
+                                            }
+                                        });
+                                        schemaDef.indexes = indexes;
+                                    }
+
+                                    if(keyTypePromises.length > 0) {
+                                        return Promise.all(keyTypePromises);
+                                    }
+                                    else {
+                                        return Promise.resolve();
+                                    }
+                                },
+                                (err) => {
+                                    return Promise.reject(err);
                                 }
-                            }
-                        }
-                    }
-                }
-                else if(attrDef.key) {
-                    // 如果有显式定义主键，则不用增加主键列
-                    isMainKeyDefined = true;
+                            )
+                    );
                 }
             }
-
-            if(!isMainKeyDefined) {
-                schemaDef.attributes[mainKeyColumn] = {
-                    key: true,
-                    type: "serial"
-                };
+            if(schemasPromises.length > 0) {
+                return Promise.all(schemasPromises)
+                    .then(
+                        resolve,
+                        reject
+                    )
+                    .catch(
+                        reject
+                    );
             }
-
-            if(!isSettingTrueStrictly(this.dataSources[schemaDef.source].settings, "disableCreateAt")) {
-                // 增加_createAt_
-                schemaDef.attributes[constants.createAtColumn] = {
-                    type: "date",
-                    required: true
-                };
-                let indexes = merge({}, schemaDef.indexes, {
-                    index_createAt: {
-                        columns: {
-                            [constants.createAtColumn]: 1
-                        }
-                    }
-                });
-                schemaDef.indexes = indexes;
+            else {
+                return resolve();
             }
-
-            if(!isSettingTrueStrictly(this.dataSources[schemaDef.source].settings, "disableUpdateAt")) {
-                // 增加_updateAt_
-                schemaDef.attributes[constants.updateAtColumn] = {
-                    type: "date"
-                };
-                let indexes = merge({}, schemaDef.indexes, {
-                    index_updateAt: {
-                        columns: {
-                            [constants.updateAtColumn]: 1
-                        }
-                    }
-                });
-                schemaDef.indexes = indexes;
-            }
-
-            if(!isSettingTrueStrictly(this.dataSources[schemaDef.source].settings, "disableDeleteAt")) {
-                // 增加_deleteAt_
-                schemaDef.attributes[constants.deleteAtColumn] = {
-                    type: "date"
-                };
-                let indexes = merge({}, schemaDef.indexes, {
-                    index_deleteAt: {
-                        columns: {
-                            [constants.deleteAtColumn]: 1
-                        }
-                    }
-                });
-                schemaDef.indexes = indexes;
-            }
-
-
         }
-    }
+    )
 }
 
 function formalizeDataForUpdate(data, schema, type) {
@@ -662,13 +750,12 @@ function execOverSourceQuery(forest, indexFrom, count) {
 
     let firstRelName;
     if(sortedRels.length === 0) {
-        if(queriedRels.length === 1) {
+        if(queriedRels.length >= 0) {
             // 根据ID的查询
             firstRelName = queriedRels[0];
-            assert(forest[firstRelName] === root);
         }
         else {
-            throw new Error("跨源列表查询必须至少定义一个sort条件");
+            throw new Error("跨源列表查询必须至少定义一个sort条件，或者查询算子都落在主表上");
         }
     }
     else if(sortedRels.length > 1) {
@@ -744,6 +831,7 @@ class DataAccess {
         this.drivers = {};
         this.drivers.mysql = mysql;
         this.drivers.mongodb = mongodb;
+        this.drivers.remote = remote;
     }
 
     connect(dataSources) {
@@ -807,10 +895,11 @@ class DataAccess {
     }
 
     setSchemas(schemas) {
-        this.schemas = Object.assign({}, schemas);
+        // 为了不改变schema本身，这里创造一个新的对象
+        this.schemas = JSON.parse(JSON.stringify(schemas));
 
         // 将schema处理成为内部格式
-        formalizeSchemasDefinition.call(this, this.schemas);
+        return formalizeSchemasDefinition.call(this, this.schemas);
     }
 
     createSchemas() {
@@ -872,57 +961,19 @@ class DataAccess {
             throw new Error("查询列表必须带indexFrom和count参数");
         }
         let execTree = destructSelect.call(this, name, projection, query, sort);
-        let execForest = distributeSelect.call(this, name, execTree);
 
-        let trees = Object.getOwnPropertyNames(execForest);
-        if(trees.length > 1) {
-            // 如果查询跨越了数据源，则必须要带sort条件，否则无法进行查询
-            if(indexFrom !== 0) {
-                throw new Error("跨越源的列表查询的indexFrom参数只能为零，通过sort属性来实现分页");
-            }
-            if(!sort || Object.getOwnPropertyNames(sort).length === 0) {
-                throw new Error("跨越源的列表查询必须定义sort条件");
-            }
-
-            return execOverSourceQuery.call(this, execForest, indexFrom, count)
-                .then(
-                    (result) => {
-                        assert(result instanceof Array);
-                        result.forEach(
-                            (ele, idx) => {
-                                getRidOfResult.call(this, ele, projection, name);
-                            }
-                        );
-                        return Promise.resolve(result);
-                    },
-                    (err) => {
-                        return Promise.reject(err);
-                    }
-                )
-        }
-        else {
-            // 单源的查询直接PUSH给相应的数据源
-            let schema = this.schemas[name];
-            const connection = this.connections[schema.source];
-
-            return connection.find(name, execTree, indexFrom, count)
-                .then(
-                    (result) => {
-                        assert(result instanceof Array);
-                        result.forEach(
-                            (ele, idx) => {
-                                getRidOfResult.call(this, ele, projection, name);
-                            }
-                        );
-                        return Promise.resolve(result);
-                    },
-                    (err) => {
-                        return Promise.reject(err);
-                    }
-                )
-
-        }
-
+        return this.findByExecTreeDirectly(name, execTree, indexFrom, count)
+            .then(
+                (result) => {
+                    assert(result instanceof Array);
+                    result.forEach(
+                        (ele, idx) => {
+                            getRidOfResult.call(this, ele, projection, name);
+                        }
+                    );
+                    return Promise.resolve(result);
+                }
+            )
     }
 
     findById(name, projection, id) {
@@ -931,56 +982,56 @@ class DataAccess {
         }
 
         let schema = this.schemas[name];
-        let query = {}
+        let query = {};
         const connection = this.connections[schema.source];
 
         const pKeyColumn = findKeyColumnName.call(this, name, schema);
+        assert (!(pKeyColumn instanceof Promise));            // 在运行中去获取主键应该不需要等待
         query[pKeyColumn] = id;
 
         let execTree = destructSelect.call(this, name, projection, query);
+        return this.findByExecTreeDirectly(name, execTree, 0, 1)
+            .then(
+                (result) => {
+                    switch (result.length) {
+                        case 0: {
+                            return Promise.resolve(null);
+                        }
+                        case 1: {
+                            let row = result[0];
+                            getRidOfResult.call(this, row, projection, name);
+                            return Promise.resolve(row);
+                        }
+                        case 2: {
+                            return Promise.reject(new Error("基于键值的查询返回了一个以上的结果"));
+                        }
+                    }
+                },
+                (err) => {
+                    return Promise.reject(err);
+                }
+            );
+    }
+
+
+    findByExecTreeDirectly(name, execTree, indexFrom, count) {
         let execForest = distributeSelect.call(this, name, execTree);
 
         let trees = Object.getOwnPropertyNames(execForest);
         if(trees.length > 1) {
+            // 如果查询跨越了数据源，则必须要带sort条件，否则无法进行查询
+            if(indexFrom !== 0) {
+                throw new Error("跨越源的列表查询的indexFrom参数只能为零，通过sort属性来实现分页");
+            }
 
-            return execOverSourceQuery.call(this, execForest, 0, 1)
-                .then(
-                    (result) => {
-                        switch (result.length) {
-                            case 0: {
-                                return Promise.resolve(null);
-                            }
-                            case 1: {
-                                getRidOfResult.call(this, result[0], projection, name);
-                                return Promise.resolve(result[0]);
-                            }
-                            case 2: {
-                                return Promise.reject(new Error("基于键值的查询返回了一个以上的结果"));
-                            }
-                        }
-                    }
-                )
+            return execOverSourceQuery.call(this, execForest, indexFrom, count);
         }
         else {
             // 单源的查询直接PUSH给相应的数据源
+            let schema = this.schemas[name];
+            const connection = this.connections[schema.source];
 
-            return connection.find(name, execTree, 0, 1)
-                .then(
-                    (result) => {
-                        switch (result.length) {
-                            case 0: {
-                                return Promise.resolve(null);
-                            }
-                            case 1: {
-                                getRidOfResult.call(this, result[0], projection, name);
-                                return Promise.resolve(result[0]);
-                            }
-                            case 2: {
-                                return Promise.reject(new Error("基于键值的查询返回了一个以上的结果"));
-                            }
-                        }
-                    }
-                );
+            return connection.find(name, execTree, indexFrom, count);
         }
     }
 
@@ -1019,6 +1070,7 @@ class DataAccess {
         formalizeDataForUpdate(data2.$set || {}, schema, update);
 
         return connection.updateOneById(name, data2, id, schema);
+
     }
 
     remove(name, query) {
@@ -1066,6 +1118,18 @@ class DataAccess {
         return this.connections[sourceName];
     }
 
+    getKeyName(tblName) {
+        let keyName = findKeyColumnName.call(this, tblName, this.schemas[tblName]);
+        assert (!(keyName instanceof Promise));            // 在运行中去获取主键应该不需要等待
+        return keyName;
+    }
+
+    getKeyType(tblName) {
+        let columnName = this.getKeyName(tblName);
+        assert (!(columnName instanceof Promise));            // 在运行中去获取主键应该不需要等待
+        return this.schemas[tblName].attributes[columnName].type;
+    }
+
     startTransaction(source) {
         const connection = this.connections[source];
         if(connection && connection.startTransaction && typeof connection.startTransaction === "function") {
@@ -1077,7 +1141,7 @@ class DataAccess {
         }
     }
 
-    commmitTransaction() {
+    commitTransaction() {
         const connection = this.connections[this.txnSource];
         this.txnSource = null;
         if(connection && connection.commmitTransaction && typeof connection.commmitTransaction === "function") {
@@ -1102,11 +1166,11 @@ class DataAccess {
 };
 
 
-const dataAccess = new DataAccess();
+// const dataAccess = new DataAccess();
 
 
 
 
 
 
-module.exports = dataAccess;
+module.exports = DataAccess;

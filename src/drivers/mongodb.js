@@ -491,14 +491,22 @@ class Mongodb {
     }
 
     getDefaultKeyType() {
-        return {
-            type: "string",
-            size: 24
-        };
+        return new Promise(
+            (resolve, reject) => {
+                resolve({
+                    type: "string",
+                    size: 24
+                });
+            }
+        );
     }
 
     getDefaultKeyName() {
-        return "_id";
+        return new Promise(
+            (resolve, reject) => {
+                resolve("_id");
+            }
+        )
     }
 }
 

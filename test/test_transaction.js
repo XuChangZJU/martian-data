@@ -8,7 +8,8 @@
 var expect = require("expect.js");
 
 
-const uda = require("../src/UnifiedDataAccess");
+const UDA = require("../src/UnifiedDataAccess");
+const uda = new UDA();
 const dataSource = require("./def/dataSource");
 const schema = require("./def/schemas/schema");
 const now = new Date();
@@ -155,14 +156,21 @@ describe("test transaction", function() {
             .then(
                 () => {
                     const _schema = JSON.parse(JSON.stringify(schema));
-                    uda.setSchemas(_schema);
-                    uda.dropSchemas()
+                    uda.setSchemas(_schema)
                         .then(
                             () => {
-                                uda.createSchemas()
+                                uda.dropSchemas()
                                     .then(
                                         () => {
-                                            done();
+                                            uda.createSchemas()
+                                                .then(
+                                                    () => {
+                                                        done();
+                                                    },
+                                                    (err) => {
+                                                        done(err);
+                                                    }
+                                                );
                                         },
                                         (err) => {
                                             done(err);
@@ -262,7 +270,7 @@ describe("test transaction", function() {
                                             expect(result[0].area).to.be.eql(houseInfo.area);
                                             expect(result[0].floor).to.be.eql(houseInfo.floor);
 
-                                            uda.commmitTransaction()
+                                            uda.commitTransaction()
                                                 .then(
                                                     () => {
                                                         uda.find("houseInfo", {

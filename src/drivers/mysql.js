@@ -147,9 +147,9 @@ function queryToPromise(db, query, transformSelectResult) {
                     console.log("err: " + err);
                 }
                 /*else {
-                    console.log("result: " + result);
-                    console.log("field: " + field);
-                }*/
+                 console.log("result: " + result);
+                 console.log("field: " + field);
+                 }*/
                 console.log("[exec sql end]");
             }
             if(err) {
@@ -345,26 +345,26 @@ class Mysql {
     }
 
     createSchema(schema, name) {
-        let query = "create table ";
+        let query = "create table `";
         query += name;
-        query += "(";
+        query += "`(";
         let PrimaryKeyHasDefined = false;
         for(let attr in schema.attributes) {
             const attrDef = schema.attributes[attr];
-           /* if(attr === "id" && (attrDef.type !== "serial" || !attrDef.key)) {
-                throw new Error("id列如果显式定义，必须是Serial类型且必须设置为主键");
-            }
-*/
+            /* if(attr === "id" && (attrDef.type !== "serial" || !attrDef.key)) {
+             throw new Error("id列如果显式定义，必须是Serial类型且必须设置为主键");
+             }
+             */
             // 忽略所有的ref列，在传入之前UDA应该已经将之转换完毕
             if(attrDef.type === constants.typeReference) {
                 continue;
             }
-            
+
             if(!query.endsWith("(")) {
                 query +=",";
             }
-            query += attr;
-            query += " ";
+            query += "`" + attr;
+            query += "` ";
             query += convertTypeDefToDbFormat(attrDef.type);
             if(attrDef.key) {
                 if(!PrimaryKeyHasDefined) {
@@ -387,10 +387,10 @@ class Mysql {
                 }
             }
         }
-       /* if(!PrimaryKeyHasDefined) {
-            // 帮助定义主键
-            query += "," + constants.mysqlDefaultIdColumn + " bigint primary key auto_increment";
-        }*/
+        /* if(!PrimaryKeyHasDefined) {
+         // 帮助定义主键
+         query += "," + constants.mysqlDefaultIdColumn + " bigint primary key auto_increment";
+         }*/
 
         // 视要求建立索引
         if(schema.indexes) {
@@ -400,8 +400,8 @@ class Mysql {
                 if(index.options && index.options.unique) {
                     query += "unique";
                 }
-                query += " index ";
-                query += index;
+                query += " index `";
+                query += index + "`";
 
                 if(indexDef.columns && typeof indexDef.columns  == "object") {
                     query += "(";
@@ -433,21 +433,27 @@ class Mysql {
     }
 
     dropSchema(schema, name) {
-        let query = "drop table if exists ";
-        query += name;
+        let query = "drop table if exists `";
+        query += name + "`";
 
         return queryToPromise(this.db, query);
     }
 
     getDefaultKeyType() {
-        return {
-            type: "int",
-            size: 8
-        };
+        return new Promise(
+            (resolve, reject) => {
+                resolve(
+                    "serial"
+                );
+            });
     }
 
     getDefaultKeyName() {
-        return "id";
+        return new Promise(
+            (resolve, reject) => {
+                resolve("id");
+            }
+        );
     }
 
     execSql(sql, transformResultToObject) {

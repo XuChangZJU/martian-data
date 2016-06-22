@@ -1,10 +1,8 @@
 "use strict";
-
-
-
 var expect = require("expect.js");
 
-const uda = require("../src/UnifiedDataAccess");
+const UDA = require("../src/UnifiedDataAccess");
+const uda = new UDA();
 const dataSource = require("./def/dataSource");
 const schema6 = require("./def/schemas/schema6.js");
 const now = Date.now();
@@ -19,24 +17,31 @@ describe("test save object in mysql", function() {
             .then(
                 (result) => {
                     let _schema6 = JSON.parse(JSON.stringify(schema6));
-                    uda.setSchemas(_schema6);
-                    uda.dropSchemas()
-                    	.then(
-                    		() => {
-                    			uda.createSchemas()
-                    				.then(
-                    					() => {
-                    						done();
-                    					},
-                    					(err) => {
-                    						done(err);
-                    					}
-                    				);
-                    		},
-                    		(err) => {
-                    			done(err);
-                    		}
-                    	)
+                    uda.setSchemas(_schema6)
+						.then(
+							() => {
+								uda.dropSchemas()
+									.then(
+										() => {
+											uda.createSchemas()
+												.then(
+													() => {
+														done();
+													},
+													(err) => {
+														done(err);
+													}
+												);
+										},
+										(err) => {
+											done(err);
+										}
+									);
+							},
+							(err) => {
+								done(err);
+							}
+						);
 
                 },
                 (err) => {
