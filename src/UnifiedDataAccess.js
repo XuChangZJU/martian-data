@@ -1163,6 +1163,10 @@ class DataAccess {
         }
     }
 
+    get constants(){
+        return constants;
+    }
+
 };
 
 

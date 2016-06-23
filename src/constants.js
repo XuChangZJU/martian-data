@@ -8,5 +8,6 @@ module.exports = {
     createAtColumn: "_createAt_",
     updateAtColumn: "_updateAt_",
     mysqlDefaultIdColumn: "id",
+    mongodbDefaultIdColumn: "_id",
     typeReference: "ref"
 };
