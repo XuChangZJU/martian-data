@@ -204,26 +204,32 @@ describe("test rent", () => {
         it("[1.0]rent create house in mysql", (done) => {
 
             let _schema = JSON.parse(JSON.stringify(schema));
-            uda.setSchemas(_schema);
-            uda.dropSchemas()
-                .then(
-                    () => {
-                        uda.createSchemas()
-                            .then(
-                                () => {
-                                    console.log("请查看表");
-                                    done();
-                                },
-                                (err) => {
-                                    done(err);
-                                }
-                            );
+            uda.setSchemas(_schema).then(
+                ()=>{
+                    uda.dropSchemas()
+                        .then(
+                            () => {
+                                uda.createSchemas()
+                                    .then(
+                                        () => {
+                                            console.log("请查看表");
+                                            done();
+                                        },
+                                        (err) => {
+                                            done(err);
+                                        }
+                                    );
 
-                    },
-                    (err) => {
-                        done(err);
-                    }
-                );
+                            },
+                            (err) => {
+                                done(err);
+                            }
+                        );
+                },
+                (err) => {
+                    done(err);
+                }
+            );
         });
     });
 
@@ -239,16 +245,22 @@ describe("test rent", () => {
                     (result) => {
 
                         let _schema = JSON.parse(JSON.stringify(schema));
-                        uda.setSchemas(_schema);
-                        initData(uda, users, keys, houses, houseInfos)
-                            .then(
-                                () => {
-                                    done();
-                                },
-                                (err) => {
-                                    done(err);
-                                }
-                            );
+                        uda.setSchemas(_schema).then(
+                            ()=>{
+                                initData(uda, users, keys, houses, houseInfos)
+                                    .then(
+                                        () => {
+                                            done();
+                                        },
+                                        (err) => {
+                                            done(err);
+                                        }
+                                    );
+                            },
+                            (err) => {
+                                done(err);
+                            }
+                        );
                     },
                     (err) => {
                         done(err);
