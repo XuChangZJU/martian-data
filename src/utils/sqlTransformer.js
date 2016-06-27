@@ -7,7 +7,7 @@ const ObjectId = require("mongodb").ObjectID;
 
 
 function convertValueToSQLFormat(value) {
-    if(!value) {
+    if(value === null || value === undefined) {
         return "NULL";
     }
     switch(typeof value) {
