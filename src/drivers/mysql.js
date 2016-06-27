@@ -79,7 +79,7 @@ function convertTypeDefToDbFormat(typeDef) {
     else if(typeof typeDef === "string") {
         let typeDef2 = {};
         typeDef2.type = typeDef;
-        typeDef2.size = 4;
+        typeDef2.size = (typeDef === "string") ? 32 : 4;
         typeDef2.M = 20;
         typeDef2.D = 4;
         return convertTypeDefToDbFormat(typeDef2);
