@@ -976,6 +976,10 @@ class DataAccess {
             )
     }
 
+    findOneById(name, projection, id) {
+        return this.findById(name, projection, id);
+    }
+
     findById(name, projection, id) {
         if(!name || !this.schemas[name]) {
             throw new Error("查询必须输入有效表名");

@@ -376,13 +376,13 @@ class Mysql {
                 }
             }
             else {
-                if(attrDef.unique) {
+                if(attrDef.hasOwnProperty("unique")) {
                     query += " unique";
                 }
-                if(attrDef.required) {
+                if(attrDef.hasOwnProperty("required")) {
                     query += " not null";
                 }
-                if(attrDef.default) {
+                if(attrDef.hasOwnProperty("default")) {
                     query += " default value " + convertValueToDbFormat(attrDef.type, attrDef.default);
                 }
             }
