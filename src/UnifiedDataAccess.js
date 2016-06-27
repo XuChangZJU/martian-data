@@ -373,13 +373,13 @@ function destructSelect(name, projection, query, sort) {
             }
         }
         else {
-            if(projection[attr]) {
+            if(projection.hasOwnProperty(attr)) {
                 result.projection[attr] = projection[attr];
             }
-            if(query[attr]) {
+            if(query.hasOwnProperty(attr)) {
                 result.query[attr] = formalizeQueryValue(query[attr]);
             }
-            if(sort[attr]) {
+            if(sort.hasOwnProperty(attr)) {
                 result.sort[attr] = sort[attr];
             }
         }
