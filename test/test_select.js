@@ -1238,6 +1238,54 @@ describe("test select with null in mongodb 1", function() {
             );
     });
 
+    it("[ts3.1]", (done) => {
+        const query = {
+            buildAt: {
+                $eq: now
+            },
+            contract: {
+                owner: {
+                    name: "xiaoming"
+                },
+                renter: {
+                    name: "xiaohong"
+                },
+                price: {
+                    $ne: 2001
+                }
+            }
+        };
+        const projection = null;
+
+        const sort = {
+            houseInfo: {
+                area: 1
+            }
+        }
+        const indexFrom = 0, count = 1;
+
+        uda.find("house", projection, query, sort, indexFrom, count)
+            .then(
+                (result) => {
+                    console.log(result);
+                    expect(result).to.be.an("array");
+                    if(result.length === 1){
+                        // 这里根据mongodb的连接算法，先实行skip + count，再进行lookup，是有可能返回0行的
+                        expect(result).to.have.length(1);
+                        checkResult1(result[0]);
+                    }
+                    else {
+                        expect(result).to.have.length(0);
+                    }
+
+                    done();
+                },
+                (err) => {
+                    done(err);
+                }
+            );
+    });
+
 
 
     after((done) => {

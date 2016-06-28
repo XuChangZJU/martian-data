@@ -326,6 +326,22 @@ function formalizeQueryValue(value) {
     return value;
 }
 
+function formalizeProjection(schema, projection) {
+    if(projection && typeof projection === "object") {
+        return projection;
+    }
+    let proj2 = {};
+    for(let i in schema.attributes) {
+        if(schema.attributes[i].type === constants.typeReference) {
+            proj2[i] = formalizeProjection.call(this, this.schemas[schema.attributes[i].ref]);
+        }
+        else {
+            proj2[i] = 1;
+        }
+    }
+    return proj2;
+}
+
 /**
  * 将查询、投影和排序结合降解成一棵树结构，树中的每个结点是对于一张表的查询、投影和排序，其中的joins数组包含了对子树的连接信息
  * @param name
@@ -342,7 +358,7 @@ function destructSelect(name, projection, query, sort) {
         sort: {}
     };
     const schema = this.schemas[name];
-    projection = projection || {};
+    projection = formalizeProjection.call(this, schema, projection);
     query = query || {};
     sort = sort || {};
 
@@ -794,6 +810,8 @@ function execOverSourceQuery(forest, indexFrom, count) {
 function getRidOfResult(result, projection, name) {
     const schemas = this.schemas;
     const schema = schemas[name];
+
+    projection = formalizeProjection.call(this, schema, projection);
     for(let attr in result) {
         if(!projection[attr]) {
             delete result[attr];
