@@ -266,7 +266,7 @@ class Mysql {
         return queryToPromise(this.db, sql)
             .then(
                 (result) => {
-                    return Promise.resolve();
+                    return Promise.resolve(result.affectedRows);
                 },
                 (err) => {
                     return Promise.reject(err);
@@ -310,7 +310,7 @@ class Mysql {
         return queryToPromise(this.db, sql)
             .then(
                 (result) => {
-                    return Promise.resolve();
+                    return Promise.resolve(result.affectedRows);
                 },
                 (err) => {
                     return Promise.reject(err);
@@ -409,7 +409,7 @@ class Mysql {
                         if(!query.endsWith("(")) {
                             query += ","
                         }
-                        query += column;
+                        query += "`" + column + "`";
                         if(indexDef.columns[column] == 1) {
                             query += " ASC";
                         }

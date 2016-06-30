@@ -698,6 +698,15 @@ function joinNext(forest, me, result) {
             else {
                 if(result.length > 0) {
                     // 将自己的查询结果转换成in形式，进行子孙的查询
+                   /* let joinLocalValues = [];
+                    result.forEach(
+                        (ele) => {
+                            const localValue = get(ele, nodeSon.joinInfo.localKeyPath);
+                            if(localValue){
+                                joinLocalValues.push(localValue);
+                            }
+                        }
+                    );*/
                     let joinLocalValues = result.map(
                         (ele, idx) => {
                             return get(ele, nodeSon.joinInfo.localKeyPath);
@@ -822,11 +831,11 @@ function getRidOfResult(result, projection, name) {
                     getRidOfResult.call(this, result[attr], projection[attr], schema.attributes[attr].ref);
                     break;
                 }
-                case "date":
+               /* case "date":
                 case "time": {
                     result[attr] = new Date(result[attr]);
                     break;
-                }
+                }*/
                 case "object": {
                     if(typeof result[attr] === "string") {
                         // 从mysql中获取的object类型应该是string
