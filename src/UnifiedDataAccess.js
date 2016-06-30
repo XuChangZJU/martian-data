@@ -333,7 +333,8 @@ function formalizeProjection(schema, projection) {
     let proj2 = {};
     for(let i in schema.attributes) {
         if(schema.attributes[i].type === constants.typeReference) {
-            proj2[i] = formalizeProjection.call(this, this.schemas[schema.attributes[i].ref]);
+            // 这里如果去将自己的ref全取出来，在自己ref自己的情况下会造成无限递归
+            // proj2[i] = formalizeProjection.call(this, this.schemas[schema.attributes[i].ref]);
         }
         else {
             proj2[i] = 1;

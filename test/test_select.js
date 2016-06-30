@@ -1238,7 +1238,7 @@ describe("test select with null in mongodb 1", function() {
             );
     });
 
-    it("[ts3.1]", (done) => {
+    it("[ts3.1] select with empty projection", (done) => {
         const query = {
             buildAt: {
                 $eq: now
@@ -1272,7 +1272,9 @@ describe("test select with null in mongodb 1", function() {
                     if(result.length === 1){
                         // 这里根据mongodb的连接算法，先实行skip + count，再进行lookup，是有可能返回0行的
                         expect(result).to.have.length(1);
-                        checkResult1(result[0]);
+                        expect(result[0]).to.be.an("object");
+                        expect(result[0].buildAt).to.eql(new Date(now));
+                        expect(result[0].status).to.eql("verifying");
                     }
                     else {
                         expect(result).to.have.length(0);
