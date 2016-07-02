@@ -20,7 +20,7 @@ const merge = require("lodash/merge");
 
 
 function init(schemaRemote) {
-// 1.开一个进程先启动远程服务器
+    // 1.开一个进程先启动远程服务器
     // 这里如果加上"--debug-brk"参数，可以调远程服务器！！！ by xc
     let server = spawn("node", ["./test/testRemote/server/app.js"], {
         stdio: [0, 1, 2, 'ipc']

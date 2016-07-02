@@ -2,7 +2,8 @@
  * Created by Administrator on 2016/6/1.
  */
 "use strict";
-var orm = require('orm');
+
+const EventEmitter = require("events");
 const mysql = require("./drivers/mysql");
 const mongodb = require("./drivers/mongodb");
 const remote = require("./drivers/remote");
@@ -15,6 +16,7 @@ const get = require("lodash").get;
 const set = require("lodash").set;
 
 const constants = require("./constants");
+const events = require("./events");
 
 function isSettingTrueStrictly(settings, option) {
     return settings && (settings[option] === true)
@@ -853,9 +855,10 @@ function getRidOfResult(result, projection, name) {
 
 
 
-class DataAccess {
+class DataAccess extends EventEmitter{
 
     constructor() {
+        super();
         this.drivers = {};
         this.drivers.mysql = mysql;
         this.drivers.mongodb = mongodb;
@@ -1197,6 +1200,10 @@ class DataAccess {
 
     get constants(){
         return constants;
+    }
+    
+    get events() {
+        return events;
     }
 
 };
