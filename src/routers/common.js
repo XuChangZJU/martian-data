@@ -13,7 +13,7 @@ class Common {
     }
 
     init(uda, originSchema) {
-        this._router.post("/find", (req, res, next) => {
+        this._router.post(apis.urlFind, (req, res, next) => {
             let data = req.body;
             uda.findByExecTreeDirectly(data.name, data.execTree, data.indexFrom, data.count)
                 .then(
@@ -116,7 +116,7 @@ class Common {
         });
 
         this._router.get(apis.urlSchemas, (req, res, next) => {
-            
+
             res.json(originSchema);
         });
 
