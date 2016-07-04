@@ -7,6 +7,8 @@ const merge = require("lodash/merge");
 
 require('isomorphic-fetch');
 
+const constants = require('../constants');
+
 function replicateExecTree(execTree) {
     let newTree = {};
     newTree.query = execTree.query;
@@ -29,13 +31,19 @@ function replicateExecTree(execTree) {
 
 class Remote {
     constructor(settings) {
-        this.settings = settings;
+        let defaultSettings = {
+            apis: constants.defaultRemoteApis,
+            resolveResponse: (res) => {
+                return new Promise.resolve(res);
+            }
+        };
+        this.settings = merge({}, defaultSettings, settings);
     }
 
 
     accessRemoteApi(url, init) {
         let init2;
-        if(this.loginToken) {
+        if(this.headers) {
             init2 = merge({}, init, {
                 headers: this.headers
             });
@@ -227,7 +235,7 @@ class Remote {
             },
             body: JSON.stringify(body)
         }
-        return this.accessRemoteApi(this.apis.urlGetDefaultKeyType, init);
+        return this.accessRemoteApi(this.apis.urlKeyType, init);
 
     }
 
@@ -242,30 +250,11 @@ class Remote {
             },
             body: JSON.stringify(body)
         }
-        return this.accessRemoteApi(this.apis.urlGetDefaultKeyName, init);
+        return this.accessRemoteApi(this.apis.urlKeyName, init);
     }
 
-    login(data) {
-        let init ={
-            method: "POST",
-            headers: {
-                "Content-type": "application/json"
-            },
-            body: JSON.stringify(data)
-        };
-        return this.accessRemoteApi(this.apis.urlLogin, init);
-
-    }
-
-
-    logout() {
-        let init ={
-            method: "POST",
-            headers: {
-                "Content-type": "application/json"
-            }
-        };
-        return this.accessRemoteApi(this.apis.urlLogout, init);
+    getSchemas() {
+        return this.accessRemoteApi(this.apis.urlSchemas);
     }
 }
 

@@ -22,7 +22,7 @@ const merge = require("lodash/merge");
 function init(schemaRemote) {
     // 1.开一个进程先启动远程服务器
     // 这里如果加上"--debug-brk"参数，可以调远程服务器！！！ by xc
-    let server = spawn("node", ["./test/testRemote/server/app.js"], {
+    let server = spawn("node", [/*"--debug-brk", */ "./test/testRemote/server/app.js"], {
         stdio: [0, 1, 2, 'ipc']
     });
 
@@ -38,45 +38,34 @@ function init(schemaRemote) {
                                         method: "POST",
                                         headers: {
                                             "Content-type": "application/json"
-                                        },
-                                        body: JSON.stringify(["user", "account"])
+                                        }
                                     }
-                                    uda.getSource("remote").accessRemoteApi("/schemas", init)
+                                    return uda.getSource("remote").getSchemas()
                                         .then(
                                             (result) => {
                                                 // 3. 设置本地的Schema
                                                 let schema = merge({}, result, schemaRemote);
-                                                uda.setSchemas(schema)
+                                                return uda.setSchemas(schema)
                                                     .then(
                                                         () => {
-                                                            uda.dropSchemas()
+                                                            return uda.dropSchemas()
                                                                 .then(
                                                                     () => {
-                                                                        uda.createSchemas()
+                                                                        return uda.createSchemas()
                                                                             .then(
                                                                                 () => {
                                                                                     resolve(server);;
-                                                                                },
-                                                                                (err) => {
-                                                                                    done(err);
                                                                                 }
-                                                                            )
-                                                                    },
-                                                                    (err) => {
-                                                                        done(err);
+                                                                            );
                                                                     }
                                                                 )
-                                                        },
-                                                        (err) => {
-                                                            done(err);
                                                         }
                                                     );
-                                            },
-                                            (err) => {
-                                                reject(err);
                                             }
                                         )
-                                },
+                                }
+                            )
+                            .catch(
                                 (err) => {
                                     reject(err);
                                 }

@@ -4,21 +4,14 @@
 "use strict";
 
 let sha1 = require('sha1');
+const remoteConfig = require("../server/config");
 
 module.exports = {
     remote: {
         type: "remote",
-        url: "http://localhost:3003/api/1/client",
+        url: "http://localhost" + ":" + remoteConfig.port + remoteConfig.url,
         settings: {
             apis: {
-                urlFind: "/find",
-                urlInsert: "/insert",
-                urlUpdate: "/update",
-                urlUpdateOneById: "/updateOneById",
-                urlRemove: "/remove",
-                urlRemoveOneById: "/removeOneById",
-                urlGetDefaultKeyName: "/keyName",
-                urlGetDefaultKeyType: "/keyType"
             },
             resolveResponse: function(res) {
                 if(res.ok) {

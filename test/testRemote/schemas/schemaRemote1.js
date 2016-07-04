@@ -5,9 +5,29 @@
 
 module.exports = {
     user: {
-        source: "remote"
+        source: "remote",
+        attributes: {
+            name: {
+                type: "string",
+                required: true
+            },
+            age: {
+                type: "int"
+            }
+        }
     },
     account: {
-        source: "remote"
+        source: "remote",
+        attributes: {
+            owner: {
+                type: "ref",
+                ref: "user",
+                required: true
+            },
+            deposit: {
+                type: "number",
+                required: true
+            }
+        }
     }
 };

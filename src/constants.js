@@ -9,5 +9,16 @@ module.exports = {
     updateAtColumn: "_updateAt_",
     mysqlDefaultIdColumn: "id",
     mongodbDefaultIdColumn: "_id",
-    typeReference: "ref"
+    typeReference: "ref",
+    defaultRemoteApis: {
+        urlFind: "/find",
+        urlInsert: "/insert",
+        urlUpdate: "/update",
+        urlUpdateOneById: "/updateOneById",
+        urlRemove: "/remove",
+        urlRemoveOneById: "/removeOneById",
+        urlKeyName: "/keyName",
+        urlKeyType: "/keyType",
+        urlSchemas: "/schemas"
+    }
 };

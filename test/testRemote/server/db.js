@@ -35,62 +35,9 @@ function destroy() {
     return uda.disconnect();
 }
 
-function insert(name, data) {
-    return uda.insert(name, data);
-}
-
-function update(name, updatePart, query) {
-    return uda.update(name, updatePart, query);
-}
-
-function updateOneById(name, updatePart, id) {
-    return uda.updateOneById(name, updatePart, id);
-}
-
-function remove(name, query) {
-    return uda.remove(name, query);
-}
-
-function removeOneById(name, id) {
-    return uda.removeOneById(name, id);
-}
-
-function find(name, projection, query, sort, indexFrom, count) {
-    return uda.find(name, projection, query, sort, indexFrom, count);
-}
-
-function findOneById(name, projection, id) {
-    return uda.findOneById(name, projection, id);
-}
-
-function findByExecTreeDirectly(name, execTree, indexFrom, count) {
-    return uda.findByExecTreeDirectly(name, execTree, indexFrom, count);
-}
-
-function getSchemas(names) {
-    return pick(schema, names);
-}
-
-function getKeyName(tblName) {
-    return uda.getKeyName(tblName);
-}
-
-function getKeyType(tblName) {
-    return uda.getKeyType((tblName));
-}
-
 module.exports = {
     initialize,
     destroy,
-    insert,
-    update,
-    updateOneById,
-    remove,
-    removeOneById,
-    find,
-    findOneById,
-    findByExecTreeDirectly,
-    getSchemas,
-    getKeyName,
-    getKeyType
+    uda,
+    schema
 }
