@@ -279,6 +279,7 @@ function formalizeDataForUpdate(data, schema, type) {
         switch(type) {
             case "create": {
                 data[constants.createAtColumn] = Date.now();
+                data[constants.updateAtColumn] = Date.now();
                 break;
             }
             case "update": {
