@@ -3,6 +3,29 @@
  */
 "use strict";
 
+const apis = {
+    urlFind: "/find",
+    urlInsert: "/insert",
+    urlUpdate: "/update",
+    urlUpdateOneById: "/updateOneById",
+    urlRemove: "/remove",
+    urlRemoveOneById: "/removeOneById",
+    urlKeyName: "/keyName",
+    urlKeyType: "/keyType",
+    urlSchemas: "/schemas"
+};
+
+let urls = [];
+
+for(let i in apis) {
+    urls.push({
+        url: apis[i],
+        methods: {
+            "POST": 1
+        }
+    });
+}
+
 module.exports = {
     deleteAtColumn: "_deleteAt_",
     createAtColumn: "_createAt_",
@@ -10,15 +33,6 @@ module.exports = {
     mysqlDefaultIdColumn: "id",
     mongodbDefaultIdColumn: "_id",
     typeReference: "ref",
-    defaultRemoteApis: {
-        urlFind: "/find",
-        urlInsert: "/insert",
-        urlUpdate: "/update",
-        urlUpdateOneById: "/updateOneById",
-        urlRemove: "/remove",
-        urlRemoveOneById: "/removeOneById",
-        urlKeyName: "/keyName",
-        urlKeyType: "/keyType",
-        urlSchemas: "/schemas"
-    }
+    defaultRemoteApis: apis,
+    defaultRemoteUrls: urls
 };

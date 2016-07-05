@@ -125,6 +125,10 @@ class Common {
     get router() {
         return this._router;
     }
+
+    get urls() {
+        return constants.defaultRemoteUrls;
+    }
 }
 
 const common = new Common();
