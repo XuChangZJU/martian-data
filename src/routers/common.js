@@ -115,7 +115,7 @@ class Common {
             }
         });
 
-        this._router.get(apis.urlSchemas, (req, res, next) => {
+        this._router.post(apis.urlSchemas, (req, res, next) => {
 
             res.json(originSchema);
         });
