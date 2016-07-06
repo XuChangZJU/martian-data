@@ -249,12 +249,18 @@ class Remote {
                 "Content-type": "application/json"
             },
             body: JSON.stringify(body)
-        }
+        };
         return this.accessRemoteApi(this.apis.urlKeyName, init);
     }
 
     getSchemas() {
-        return this.accessRemoteApi(this.apis.urlSchemas);
+        let init = {
+            method: "POST",
+            headers: {
+                "Content-type": "application/json"
+            }
+        };
+        return this.accessRemoteApi(this.apis.urlSchemas, init);
     }
 }
 
