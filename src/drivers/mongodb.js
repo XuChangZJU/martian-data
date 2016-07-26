@@ -403,7 +403,7 @@ class Mongodb {
     }
 
     createSchema(schema, name) {
-        return this.db.createCollection(name, {strict: true})
+        return this.db.createCollection(name, {strict: false})
             .then(
                 (collection) => {
                     this.collections[name] = collection;

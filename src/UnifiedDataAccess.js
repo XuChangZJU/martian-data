@@ -964,7 +964,10 @@ class DataAccess extends EventEmitter{
 				throw new Error("寻找不到相应的数据源" + schemaDef.source);
 			}
 			else {
-				promises.push(connection.dropSchema(schemaDef, schema));
+				// 这里增加需求，可以指定某张表在Drop时不删除，可能有问题  by xc!
+				if(!schemaDef.static) {
+					promises.push(connection.dropSchema(schemaDef, schema));
+				}
 			}
 		}
 		return Promise.all(promises);

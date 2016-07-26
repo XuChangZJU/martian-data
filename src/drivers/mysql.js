@@ -345,7 +345,7 @@ class Mysql {
     }
 
     createSchema(schema, name) {
-        let query = "create table `";
+        let query = "create table if not exists `";
         query += name;
         query += "`(";
         let PrimaryKeyHasDefined = false;
