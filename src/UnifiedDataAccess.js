@@ -339,7 +339,7 @@ function formalizeProjection(schema, projection, ignoreRef) {
 			// 这里如果去将自己的ref全取出来，在自己ref自己的情况下会造成无限递归
 			// 更新，这里上层需求取一层出来
 			if(!ignoreRef) {
-				proj2[i] = formalizeProjection.call(this, this.schemas[schema.attributes[i].ref], true);
+				proj2[i] = formalizeProjection.call(this, this.schemas[schema.attributes[i].ref], null,  true);
 			}
 		}
 		else {
