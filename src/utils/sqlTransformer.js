@@ -283,7 +283,7 @@ class SQLTransformer {
     }
 
 
-    transformSelect(name, execTree, indexFrom, count) {
+    transformSelect(name, execTree, indexFrom, count, isCounting) {
         let sqlObj = {
             projection : "",
             from : "`" + new String(name) + "`",
@@ -293,6 +293,10 @@ class SQLTransformer {
         };
 
         convertExecNodeToSQL.call(this, sqlObj, execTree, null, name);
+
+        if(isCounting) {
+            sqlObj.projection = "count(1) as `count`";
+        }
 
         let sql = "select ";
         sql += sqlObj.projection;

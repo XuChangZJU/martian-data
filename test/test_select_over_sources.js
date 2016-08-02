@@ -160,7 +160,7 @@ function checkResult1(result) {
 
 describe("test select with joins over sources", function() {
 
-    this.timeout(5000);
+    this.timeout(8000);
 
     before((done) => {
         uda.connect(dataSource)

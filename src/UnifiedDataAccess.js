@@ -329,13 +329,13 @@ function formalizeQueryValue(value) {
 	return value;
 }
 
-function formalizeProjection(schema, projection, ignoreRef) {
+function formalizeProjection(schema, projection, ignoreRef, isCounting) {
 	if(projection && typeof projection === "object") {
 		return projection;
 	}
 	let proj2 = {};
 	for(let i in schema.attributes) {
-		if(schema.attributes[i].type === constants.typeReference) {
+		if(schema.attributes[i].type === constants.typeReference && !isCounting) {
 			// 这里如果去将自己的ref全取出来，在自己ref自己的情况下会造成无限递归
 			// 更新，这里上层需求取一层出来
 			if(!ignoreRef) {
@@ -357,7 +357,7 @@ function formalizeProjection(schema, projection, ignoreRef) {
  * @param sort
  * @returns {{joins: Array, projection: {}, query: {}}}
  */
-function destructSelect(name, projection, query, sort) {
+function destructSelect(name, projection, query, sort, isCounting) {
 	let result = {
 		joins: [],
 		projection: {},
@@ -365,7 +365,7 @@ function destructSelect(name, projection, query, sort) {
 		sort: {}
 	};
 	const schema = this.schemas[name];
-	projection = formalizeProjection.call(this, schema, projection);
+	projection = formalizeProjection.call(this, schema, projection, isCounting);
 	query = query || {};
 	sort = sort || {};
 
@@ -1011,7 +1011,17 @@ class DataAccess extends EventEmitter{
 					);
 					return Promise.resolve(result);
 				}
-			)
+			);
+	}
+
+	count(name, query) {
+		if(!name || !this.schemas[name]) {
+			throw new Error("查询必须输入有效表名");
+		}
+
+		let execTree = destructSelect.call(this, name, null, query, null, true);
+		return this.findByExecTreeDirectly(name, execTree, undefined, undefined, true);
+
 	}
 
 	findOneById(name, projection, id) {
@@ -1056,12 +1066,15 @@ class DataAccess extends EventEmitter{
 	}
 
 
-	findByExecTreeDirectly(name, execTree, indexFrom, count) {
+	findByExecTreeDirectly(name, execTree, indexFrom, count, isCounting) {
 		let execForest = distributeSelect.call(this, name, execTree);
 
 		let trees = Object.getOwnPropertyNames(execForest);
 		if(trees.length > 1) {
 			// 如果查询跨越了数据源，则必须要带sort条件，否则无法进行查询
+			if(isCounting) {
+				throw new Error("当前不支持")
+			}
 			if(indexFrom !== 0) {
 				throw new Error("跨越源的列表查询的indexFrom参数只能为零，通过sort属性来实现分页");
 			}
@@ -1073,7 +1086,7 @@ class DataAccess extends EventEmitter{
 			let schema = this.schemas[name];
 			const connection = this.connections[schema.source];
 
-			return connection.find(name, execTree, indexFrom, count);
+			return connection.find(name, execTree, indexFrom, count, isCounting);
 		}
 	}
 

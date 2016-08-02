@@ -299,9 +299,9 @@ describe("test remote 2", function() {
                         .then(
                             (row2) => {
                                 uda.insert("order", {
-                                    account: row2,
-                                    time: now
-                                })
+                                        account: row2,
+                                        time: now
+                                    })
                                     .then(
                                         (row3) => {
                                             let projection =  {
@@ -328,7 +328,17 @@ describe("test remote 2", function() {
                                                         expect(result).to.be.an("array");
                                                         expect(result).to.have.length(1);
                                                         expect(result[0].time).to.eql(now);
-                                                        done();
+
+                                                        // 加上count查询
+                                                        uda.count("order", {time: now})
+                                                            .then(
+                                                                (result2) => {
+                                                                    expect(result2).to.be.an("object");
+                                                                    expect(result2.count).to.be.eql(1);
+
+                                                                    done();
+                                                                }
+                                                            )
                                                     },
                                                     (err) =>{
                                                         done(err);

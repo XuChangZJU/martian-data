@@ -15,7 +15,7 @@ class Common {
     init(uda, originSchema) {
         this._router.post(apis.urlFind, (req, res, next) => {
             let data = req.body;
-            uda.findByExecTreeDirectly(data.name, data.execTree, data.indexFrom, data.count)
+            uda.findByExecTreeDirectly(data.name, data.execTree, data.indexFrom, data.count, data.isCounting)
                 .then(
                     (result) => {
                         res.json(result);

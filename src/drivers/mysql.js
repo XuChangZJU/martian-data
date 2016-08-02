@@ -219,10 +219,18 @@ class Mysql {
         })
     }
 
-    find(name, execTree, indexFrom, count) {
-        const sql = sqlTransformer.transformSelect(name, execTree, indexFrom, count);
+    find(name, execTree, indexFrom, count, isCounting) {
+        const sql = sqlTransformer.transformSelect(name, execTree, indexFrom, count, isCounting);
 
-        return queryToPromise(this.db, sql, true);
+        return queryToPromise(this.db, sql, true)
+            .then(
+                (result) => {
+                    if(isCounting) {
+                        return Promise.resolve(result[0]);
+                    }
+                    return Promise.resolve(result);
+                }
+            )
     }
 
     insert(name, data, schema) {

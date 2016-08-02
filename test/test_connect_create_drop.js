@@ -53,8 +53,10 @@ function dropCreateInsert(uda, tableName, data, needCreateBeforeInsert) {
                                 // 如果是mongo这种不需要先创建表的，可以插入成功，但此时再创建表肯定要失败
                                 return createInsert(uda, tableName, data)
                                     .then(
-                                        () => {
-                                            return Promise.reject(new Error("不应该能执行到这里"));
+                                        (result) => {
+                                            // 现在允许不删除表了，所以这个判断不再成立
+                                            return Promise.resolve(result);
+                                            // return Promise.reject(new Error("不应该能执行到这里"));
                                         },
                                         (err) => {
                                             return uda.dropSchemas()

@@ -230,7 +230,7 @@ describe("test rent", () => {
     });
 
     describe("rent select ", function() {
-        this.timeout(5000);
+        this.timeout(8000);
         const houses =  JSON.parse(JSON.stringify(g_houses));
         const users = JSON.parse(JSON.stringify(g_users));
         const houseInfos = JSON.parse(JSON.stringify(g_houseInfos));
