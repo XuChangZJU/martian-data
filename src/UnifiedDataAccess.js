@@ -14,6 +14,7 @@ const assert = require("assert");
 const merge = require("lodash").merge;
 const get = require("lodash").get;
 const set = require("lodash").set;
+const assign = require("lodash/assign");
 
 const constants = require("./constants");
 const events = require("./events");
@@ -385,12 +386,15 @@ function destructSelect(name, projection, query, sort, isCounting) {
 		const attrDef = schema.attributes[attr];
 		if(attrDef.type === constants.typeReference) {
 			if(projection[attr] || query[attr] || sort[attr]) {
+				let refProjection = assign({}, projection[attr], {
+						[attrDef.refColumnName]: 1
+					});
 				let join = {
 					rel: attrDef.ref,
 					attr: attr,
 					refColumnName: attrDef.refColumnName,
 					localColumnName: attrDef.localColumnName,
-					node: destructSelect.call(this, schema.attributes[attr].ref, projection[attr], query[attr], sort[attr])
+					node: destructSelect.call(this, schema.attributes[attr].ref, refProjection, query[attr], sort[attr])
 				}
 				result.joins.push(join);
 			}
