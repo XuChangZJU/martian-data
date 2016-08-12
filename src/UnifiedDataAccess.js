@@ -854,6 +854,23 @@ function getRidOfResult(result, projection, name) {
 						break;
 					}
 				}
+				case "bool":
+				case "boolean": {
+					switch(typeof result[attr]) {
+						case "boolean": {
+							result[attr] =  result[attr];
+							break;
+						}
+						case "number": {
+							result[attr] =  (result[attr] === 0) ? false : true;
+							break;
+						}
+						case "string": {
+							result[attr] =  (result[attr] === "0" || result[attr] === "false") ? false: true;
+							break;
+						}
+					}
+				}
 				default:
 					break;
 			}
@@ -1037,7 +1054,7 @@ class DataAccess extends EventEmitter{
 			throw new Error("查询必须输入有效表名");
 		}
 
-		if(typeof id !=== "number" && typeof id !== "string") {
+		if(typeof id !== "number" && typeof id !== "string") {
 			throw new Error("查询必须输入有效id")
 		}
 
