@@ -1037,6 +1037,10 @@ class DataAccess extends EventEmitter{
 			throw new Error("查询必须输入有效表名");
 		}
 
+		if(typeof id !=== "number" && typeof id !== "string") {
+			throw new Error("查询必须输入有效id")
+		}
+
 		let schema = this.schemas[name];
 		let query = {};
 		const connection = this.connections[schema.source];
