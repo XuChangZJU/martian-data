@@ -534,4 +534,69 @@ describe("test subquery", function() {
 				}
 			)
 	});
+
+	it("{tsub0.6}", (done) => {
+		const query = {
+			buildAt: {
+				$eq: now
+			},
+			houseInfo: {
+				area: {
+					$gt: 70
+				}
+			}
+		};
+
+		query.$has = {
+			name: "house",
+			projection: {
+				buildAt: 1
+			},
+			query: {
+				buildAt: {
+					$lt: {
+						$ref: query,
+						$attr: "buildAt"
+					}
+				}
+			}
+		};
+		const projection = {
+			id: 1,
+			buildAt : 1,
+			status: 1,
+			contract: {
+				owner: {
+					name: 1,
+					age: 1
+				},
+				renter: {
+					name: 1
+				}
+			},
+			houseInfo: {
+				area: 1
+			}
+		};
+
+		const sort = {
+			houseInfo: {
+				area: 1
+			}
+		}
+		const indexFrom = 0, count = 2;
+
+		uda.find("house", projection, query, sort, indexFrom, count)
+			.then(
+				(result) => {
+					expect(result).to.be.an("array");
+					expect(result).to.have.length(0);
+
+					done();
+				},
+				(err) => {
+					done(err);
+				}
+			)
+	});
 })
