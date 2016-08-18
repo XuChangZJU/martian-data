@@ -5,6 +5,8 @@
 const assert = require("assert");
 const ObjectId = require("mongodb").ObjectID;
 
+const assign = require("lodash/assign");
+
 
 function convertValueToSQLFormat(value) {
 	if(value === null || value === undefined) {
@@ -25,6 +27,21 @@ function convertValueToSQLFormat(value) {
 			else if(value instanceof ObjectId) {
 				return "'".concat(value.toString()).concat("'");
 			}
+			else if(value.hasOwnProperty("$ref")) {
+				/**
+				 *	处理一种特殊情况，在$has这样的subquery中，用
+				 *		{
+			 *			$ref: Object
+			 *			$attr: "id"
+			 *		}
+				 *	这样的格式来传属性
+				 */
+				assert (Object.getOwnPropertyNames(value).length === 2 && value.hasOwnProperty("$attr"));
+				let result = "`" + value["$ref"]["#execNode#"]["alias"] + "`";
+				result +=".";
+				result += value["$attr"];
+				return result;
+			}
 			else {
 				return "'".concat(JSON.stringify(value)).concat("'");
 			}
@@ -44,9 +61,16 @@ function convertExecNodeToSQL(sql, node, parentName, relName, joinInfo, projecti
 	else {
 		sql.usedNames[relName] = 1;
 	}
+	node.alias = alias;
 
 	if(joinInfo) {
-		sql.from += " left join `" + relName + "` " + alias + " on `" + parentName + "`.`" + joinInfo.localColumnName + "` = `" + alias + "`.`" + joinInfo.refColumnName + "`";
+		sql.from += " left join `" + relName + "` `" + alias + "` on `" + parentName + "`.`" + joinInfo.localColumnName + "` = `" + alias + "`.`" + joinInfo.refColumnName + "`";
+	}
+	else {
+		sql.from += " `" + relName + "` ";
+		if(alias !== relName) {
+			sql.from += " `" + alias + "` ";
+		}
 	}
 
 	for(let projection in node.projection) {
@@ -62,6 +86,25 @@ function convertExecNodeToSQL(sql, node, parentName, relName, joinInfo, projecti
 	}
 
 	if(node.query) {
+		// 对subquery作特殊处理
+		if(node.query.$has) {
+			if(sql.subquery && sql.subquery.$has) {
+				throw new Error("查询中最多只能有一个$has");
+			}
+			sql.subquery = assign(sql.subquery, {
+				$has: node.query.$has
+			});
+			delete node.query.$has;
+		}
+		if(node.query.$hasnot) {
+			if(sql.subquery && sql.subquery.$hasnot) {
+				throw new Error("查询中最多只能有一个$hasnot");
+			}
+			sql.subquery = assign(sql.subquery, {
+				$hasnot: node.query.$hasnot
+			});
+			delete node.query.$hasnot;
+		}
 		let where = this.transformWhere(node.query, undefined, alias);
 		if(where.length > 0) {
 			if(sql.where.length > 0) {
@@ -174,15 +217,34 @@ class SQLTransformer {
 		return sql;
 	}
 
+	transformSubQuery(subquery) {
+
+	}
+
 
 	transformWhere(where, subject, relName) {
 		let sql = "";
 		if(typeof where === "object" && Object.getOwnPropertyNames(where).length > 1) {
-			for(let field in where) {
-				if(sql.length > 0) {
-					sql += " AND ";
+			if(where.hasOwnProperty("$ref")) {
+				/**
+				 *	处理一种特殊情况，在$has这样的subquery中，用
+				 *		{
+			 *			$ref: Object
+			 *			$attr: "id"
+			 *		}
+				 *	这样的格式来传属性
+				 */
+				assert (Object.getOwnPropertyNames(where).length === 2 && where.hasOwnProperty("$attr"));
+				sql += " = ";
+				sql += convertValueToSQLFormat(where);
+			}
+			else {
+				for(let field in where) {
+					if(sql.length > 0) {
+						sql += " AND ";
+					}
+					sql += "(" + this.transformWhere({[field]: where[field]}, subject, relName) + ")";
 				}
-				sql += "(" + this.transformWhere({[field]: where[field]}, subject, relName) + ")";
 			}
 		}
 		else {
@@ -283,13 +345,13 @@ class SQLTransformer {
 	}
 
 
-	transformSelect(name, execTree, indexFrom, count, isCounting) {
+	transformSelect(name, execTree, indexFrom, count, isCounting, usedNames) {
 		let sqlObj = {
 			projection : "",
-			from : "`" + new String(name) + "`",
+			from: "",
 			where : "",
 			orderBy : "",
-			usedNames: {}
+			usedNames: usedNames || {}
 		};
 
 		convertExecNodeToSQL.call(this, sqlObj, execTree, null, name);
@@ -302,9 +364,40 @@ class SQLTransformer {
 		sql += sqlObj.projection;
 		sql += " from ";
 		sql += sqlObj.from;
+
+		let hasWhere = false;
 		if(sqlObj.where.length > 0) {
+			hasWhere = true;
 			sql += " where ";
 			sql += sqlObj.where;
+		}
+		if(sqlObj.subquery) {
+			// 如果有子查询在这里处理
+			if(sqlObj.subquery["$has"]) {
+				if(hasWhere) {
+					sql += " and ";
+				}
+				else {
+					sql += " where ";
+				}
+				hasWhere = true;
+				sql += " exists (";
+				sql += this.transformSelect(sqlObj.subquery["$has"].name, sqlObj.subquery["$has"].execTree, undefined, undefined, undefined, sqlObj.usedNames);
+				sql += ")";
+			}
+
+			if(sqlObj.subquery["$hasnot"]) {
+				if(hasWhere) {
+					sql += " and ";
+				}
+				else {
+					sql += " where ";
+				}
+				hasWhere = true;
+				sql += " not exists (";
+				sql += this.transformSelect(sqlObj.subquery["$hasnot"].name, sqlObj.subquery["$hasnot"].execTree, undefined, undefined, undefined, sqlObj.usedNames);
+				sql += ")";
+			}
 		}
 		if(sqlObj.orderBy) {
 			sql += " order by ";

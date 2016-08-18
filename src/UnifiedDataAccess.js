@@ -387,8 +387,8 @@ function destructSelect(name, projection, query, sort, isCounting) {
 		if(attrDef.type === constants.typeReference) {
 			if(projection[attr] || query[attr] || sort[attr]) {
 				let refProjection = assign({}, projection[attr], {
-						[attrDef.refColumnName]: 1
-					});
+					[attrDef.refColumnName]: 1
+				});
 				let join = {
 					rel: attrDef.ref,
 					attr: attr,
@@ -456,11 +456,19 @@ function destructSelect(name, projection, query, sort, isCounting) {
 					result.query[i] = query[i];
 				}
 			}
+			else if(i === "$has" || i === "$hasnot") {
+				// exists / not exists 查询
+				result.query[i] = {
+					name: query[i].name,
+					execTree: destructSelect.call(this, query[i].name, query[i].projection, query[i].query, null)
+				};
+			}
 			else {
 				throw new Error("检测到尚未支持的顶层算子: " + i );
 			}
 		}
 	}
+	query["#execNode#"] = result;		// 这个指针为subquery未来找到所指向的execNode所使用
 	return result;
 }
 
@@ -1054,7 +1062,7 @@ class DataAccess extends EventEmitter{
 			throw new Error("查询必须输入有效表名");
 		}
 
-		if(typeof id !== "number" && typeof id !== "string") {
+		if(typeof id !== "number" && typeof id !== "string" && ! id instanceof ObjectId) {
 			throw new Error("查询必须输入有效id")
 		}
 
