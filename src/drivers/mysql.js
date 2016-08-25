@@ -92,6 +92,77 @@ function convertTypeDefToDbFormat(typeDef) {
 	}
 }
 
+const GeoTypes = [
+	{
+		name: "Point"
+	},
+	{
+		name: "LineString",
+		element: "Point"
+	},
+	{
+		name: "MultiLineString",
+		element: "LineString"
+	},
+	{
+		name: "Polygon",
+		element: "LineString"
+	},
+	{
+		name: "MultiPoint",
+		element: "Point"
+	},
+	{
+		name: "MultiPolygon",
+		element: "Polygon"
+	}
+];
+
+function transformGeoData(data) {
+	if(data.type.toLowerCase() === "geometrycollection") {
+		let result = "GeometryCollection(";
+		data.coordinates.forEach(
+			(ele, idx) => {
+				if(idx > 0) {
+					result += ",";
+				}
+				result += transFormGeoData(ele);
+			}
+		);
+		result += ")";
+		return result;
+	}
+	else {
+		let type = GeoTypes.find(
+			(ele) => {
+				return ele.name.toLowerCase() === data.type.toLowerCase()
+			}
+		);
+		if(!type) {
+			throw new Error("不能识别的地理格式[" + data.type + "]");
+		}
+		let result = type.name + "(";
+		data.coordinates.forEach(
+			(ele, idx) => {
+				if(idx > 0){
+					result += ",";
+				}
+				if(type.element) {
+					result += transformGeoData({
+						type: type.element,
+						coordinates: ele
+					});
+				}
+				else {
+					result += new String(ele);
+				}
+			}
+		);
+		result += ")";
+		return result;
+	}
+}
+
 function convertValueToDbFormat(value, type) {
 	if(typeof type === "object") {
 		type = type.type;
@@ -162,6 +233,12 @@ function convertValueToDbFormat(value, type) {
 		}
 		case "object": {
 			return "'".concat(JSON.stringify(value)).concat("'")
+		}
+		case "loc":
+		case "geo":
+		case "geometry": {
+			// 这里将GeoJson类型的数据转换为Mysql的SQL格式
+			return transformGeoData(value);
 		}
 		default: {
 			throw new Error("不能识别的类型[" + type + "]");

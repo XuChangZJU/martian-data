@@ -3,6 +3,7 @@
  */
 "use strict";
 const assert = require("assert");
+const util = require("util");
 const ObjectId = require("mongodb").ObjectID;
 
 const assign = require("lodash/assign");
@@ -51,6 +52,28 @@ function convertValueToSQLFormat(value) {
 	}
 }
 
+function convertFnCallToSQLFormat(alias, fnCall, projectionPrefix) {
+	let attrs = fnCall.$arguments.map(
+		(ele) => {
+			return alias + "." + ele;
+		}
+	);
+	let args = [fnCall.$format].concat(attrs);
+	let result = util.format.apply(null, args);
+	if(fnCall.hasOwnProperty("$as")) {
+		let as = projectionPrefix ? projectionPrefix + "." + fnCall.$as : fnCall.$as;
+		result += " as ";
+		result += as;
+	}
+	if(fnCall.hasOwnProperty("$order")) {
+		if(fnCall.$order === 0) {
+			throw new Error("SORT条件必须是不为0的数值，当前检测到非法值"+ fnCall.$order);
+		}
+		let order = fnCall.$order > 0 ? " ASC": " DESC";
+		result += order;
+	}
+	return result;
+}
 
 function convertExecNodeToSQL(sql, node, parentName, relName, joinInfo, projectionPrefix) {
 	let alias = relName;
@@ -78,10 +101,16 @@ function convertExecNodeToSQL(sql, node, parentName, relName, joinInfo, projecti
 			sql.projection += ", ";
 		}
 
-		sql.projection += "`" + alias + "`.`";
-		sql.projection += projection + "`";
-		if(projectionPrefix) {
-			sql.projection += " as '" + projectionPrefix + projection + "'";
+		if(projection.toLowerCase().startsWith("$fncall")) {
+			// 处理函数调用的projection
+			sql.projection += convertFnCallToSQLFormat(alias, node.projection[projection], projectionPrefix);
+		}
+		else {
+			sql.projection += "`" + alias + "`.`";
+			sql.projection += projection + "`";
+			if(projectionPrefix) {
+				sql.projection += " as '" + projectionPrefix + projection + "'";
+			}
 		}
 	}
 
@@ -119,13 +148,21 @@ function convertExecNodeToSQL(sql, node, parentName, relName, joinInfo, projecti
 		if(sql.orderBy.length > 0) {
 			sql.orderBy += ",";
 		}
-		sql.orderBy += "`" + alias + "`.`";
-		sql.orderBy += attr + "`";
-
-		if(typeof node.sort[attr] != "number" || node.sort[attr] === 0) {
-			throw new Error("SORT条件必须是不为0的数值，当前检测到非法值"+ node.sort[attr]);
+		if(attr.toLowerCase().startsWith("$fncall")) {
+			// 处理函数调用的projection
+			sql.orderBy += convertFnCallToSQLFormat(alias, node.sort[attr], projectionPrefix);
 		}
-		sql.orderBy += node.sort[attr] > 0 ? " ASC": " DESC";
+		else {
+			if(projectionPrefix) {
+				sql.orderBy += "`" + alias + "`.";
+			}
+			sql.orderBy += "`" + attr + "`";
+
+			if(typeof node.sort[attr] != "number" || node.sort[attr] === 0) {
+				throw new Error("SORT条件必须是不为0的数值，当前检测到非法值"+ node.sort[attr]);
+			}
+			sql.orderBy += node.sort[attr] > 0 ? " ASC": " DESC";
+		}
 	}
 
 
@@ -235,6 +272,10 @@ class SQLTransformer {
 
 	transformWhere(where, attr, alias, relName) {
 		let sql = "";
+		let type;
+		if(relName && this.schemas[relName] && attr && this.schemas[relName].attributes[attr]) {
+			type = this.schemas[relName].attributes[attr].type;
+		}
 		if(typeof where === "object" && Object.getOwnPropertyNames(where).length > 1) {
 			if(where.hasOwnProperty("$ref")) {
 				/**
@@ -250,19 +291,21 @@ class SQLTransformer {
 				sql += this.typeConvertor(where);
 			}
 			else {
-				for(let field in where) {
-					if(sql.length > 0) {
-						sql += " AND ";
+				if(type === undefined) {
+					for(let field in where) {
+						if(sql.length > 0) {
+							sql += " AND ";
+						}
+						sql += "(" + this.transformWhere({[field]: where[field]}, field, alias, relName) + ")";
 					}
-					sql += "(" + this.transformWhere({[field]: where[field]}, field, alias, relName) + ")";
+				}
+				else {
+					sql += "=";
+					sql += this.typeConvertor(where, type);
 				}
 			}
 		}
 		else {
-			let type;
-			if(relName && this.schemas[relName] && attr && this.schemas[relName].attributes[attr]) {
-				type = this.schemas[relName].attributes[attr].type;
-			}
 			if(where.hasOwnProperty("$or")) {
 				(where.$or).forEach((ele, index) => {
 					if(index > 0) {
@@ -332,7 +375,10 @@ class SQLTransformer {
 					case "object": {
 						if(Object.getOwnPropertyNames(where).length === 1) {
 							for(let attr2 in where) {
-								if(attr2.startsWith("$")) {
+								if(attr2.toLowerCase().startsWith("$fncall")) {
+									sql += convertFnCallToSQLFormat(alias, where[attr2], undefined);
+								}
+								else if(attr2.startsWith("$")) {
 									throw new Error("不支持算子"+ attr2 + "向SQL的转化");
 								}
 								else {

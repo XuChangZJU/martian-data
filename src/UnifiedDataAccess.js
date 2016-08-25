@@ -412,6 +412,21 @@ function destructSelect(name, projection, query, sort, isCounting) {
 		}
 	}
 
+	// 处理projection、query和sort中的fnCall
+	for(let attr in projection) {
+		if(attr.toLowerCase().startsWith("$fncall")) {
+			result.projection[attr] = projection[attr];
+		}
+	}
+	// sort可能按照函数调用结果的重命名列排序，所以把所有的项都传进去
+	for(let attr in sort) {
+		if(!result.sort.hasOwnProperty(attr)) {
+			if(typeof sort[attr] === "number" || attr.toLowerCase().startsWith("$fncall")) {
+				result.sort[attr] = sort[attr];
+			}
+		}
+	}
+
 	function checkQueryIsNoRef(query, attributes) {
 		let noRef = true;
 		for(let i in query) {
@@ -462,6 +477,9 @@ function destructSelect(name, projection, query, sort, isCounting) {
 					name: query[i].name,
 					execTree: destructSelect.call(this, query[i].name, query[i].projection, query[i].query, null)
 				};
+			}
+			else if(i.toLowerCase().startsWith("$fncall")) {
+				result.query[i] = query[i];
 			}
 			else {
 				throw new Error("检测到尚未支持的顶层算子: " + i );
@@ -842,7 +860,8 @@ function getRidOfResult(result, projection, name) {
 	projection = formalizeProjection.call(this, schema, projection);
 	for(let attr in result) {
 		if(!projection[attr]) {
-			delete result[attr];
+			// delete result[attr];
+			continue;
 		}
 		else {
 			switch(schema.attributes[attr].type) {
