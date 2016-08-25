@@ -34,7 +34,7 @@ function insertUpdateDeleteHouse(uda) {
                                         let id = row.hasOwnProperty("id") ? row.id: row._id;
                                         return uda.updateOneById("house", {
                                                $set:{
-                                                   status: "online"
+                                                   status: "free"
                                                }
                                             }, id)
                                             .then(

@@ -105,7 +105,7 @@ function convertExecNodeToSQL(sql, node, parentName, relName, joinInfo, projecti
 			});
 			delete node.query.$hasnot;
 		}
-		let where = this.transformWhere(node.query, undefined, alias);
+		let where = this.transformWhere(node.query, undefined, alias, relName);
 		if(where.length > 0) {
 			if(sql.where.length > 0) {
 				sql.where += " AND ";
@@ -138,6 +138,15 @@ function convertExecNodeToSQL(sql, node, parentName, relName, joinInfo, projecti
 }
 
 class SQLTransformer {
+	constructor(schemas, typeConvertor) {
+		this.schemas = schemas;
+		this.typeConvertor = typeConvertor || convertValueToSQLFormat;
+	}
+
+	setSchemas(schemas) {
+		this.schemas = schemas;
+	}
+
 	transformInsert(tableName, data) {
 		let sql = "insert into `";
 		sql += tableName;
@@ -153,7 +162,8 @@ class SQLTransformer {
 				values += ",";
 			}
 			const value = data[attr];
-			values += convertValueToSQLFormat(value);
+			const type = this.schemas[tableName].attributes[attr].type;
+			values += this.typeConvertor(value, type);
 		}
 		attributes += ")";
 		values += ")";
@@ -196,12 +206,13 @@ class SQLTransformer {
 			}
 			sql += "`" + attr + "`";
 			sql += "=";
-			const value = convertValueToSQLFormat(data.$set[attr]);
+			const type = this.schemas[tableName].attributes[attr].type;
+			const value = this.typeConvertor(data.$set[attr], type);
 			sql += value;
 		}
 
 		sql += " where ";
-		sql += this.transformWhere(query);
+		sql += this.transformWhere(query, undefined, undefined, tableName);
 
 		return sql;
 	}
@@ -212,7 +223,7 @@ class SQLTransformer {
 		sql += name;
 		sql += "`";
 		sql += " where ";
-		sql += this.transformWhere(where);
+		sql += this.transformWhere(where, undefined, undefined, name);
 
 		return sql;
 	}
@@ -222,7 +233,7 @@ class SQLTransformer {
 	}
 
 
-	transformWhere(where, subject, relName) {
+	transformWhere(where, attr, alias, relName) {
 		let sql = "";
 		if(typeof where === "object" && Object.getOwnPropertyNames(where).length > 1) {
 			if(where.hasOwnProperty("$ref")) {
@@ -236,24 +247,28 @@ class SQLTransformer {
 				 */
 				assert (Object.getOwnPropertyNames(where).length === 2 && where.hasOwnProperty("$attr"));
 				sql += " = ";
-				sql += convertValueToSQLFormat(where);
+				sql += this.typeConvertor(where);
 			}
 			else {
 				for(let field in where) {
 					if(sql.length > 0) {
 						sql += " AND ";
 					}
-					sql += "(" + this.transformWhere({[field]: where[field]}, subject, relName) + ")";
+					sql += "(" + this.transformWhere({[field]: where[field]}, field, alias, relName) + ")";
 				}
 			}
 		}
 		else {
+			let type;
+			if(relName && this.schemas[relName] && attr && this.schemas[relName].attributes[attr]) {
+				type = this.schemas[relName].attributes[attr].type;
+			}
 			if(where.hasOwnProperty("$or")) {
 				(where.$or).forEach((ele, index) => {
 					if(index > 0) {
 						sql += " OR ";
 					}
-					sql += "(" + this.transformWhere(ele, subject, relName) + ")";
+					sql += "(" + this.transformWhere(ele, undefined, alias, relName) + ")";
 				});
 			}
 			else if(where.hasOwnProperty("$and")) {
@@ -261,32 +276,32 @@ class SQLTransformer {
 					if(index > 0) {
 						sql += " AND ";
 					}
-					sql += "(" + this.transformWhere(ele, subject, relName) + ")";
+					sql += "(" + this.transformWhere(ele, undefined, alias, relName) + ")";
 				});
 			}
 			else if(where.hasOwnProperty("$eq")) {
 				sql += "=";
-				sql += convertValueToSQLFormat(where.$eq);
+				sql += this.typeConvertor(where.$eq, type);
 			}
 			else if(where.hasOwnProperty("$gt")) {
 				sql += ">";
-				sql += convertValueToSQLFormat(where.$gt);
+				sql += this.typeConvertor(where.$gt, type);
 			}
 			else if(where.hasOwnProperty("$gte")) {
 				sql += ">=";
-				sql += convertValueToSQLFormat(where.$gte);
+				sql += this.typeConvertor(where.$gte, type);
 			}
 			else if(where.hasOwnProperty("$lt")) {
 				sql += "<";
-				sql += convertValueToSQLFormat(where.$lt);
+				sql += this.typeConvertor(where.$lt, type);
 			}
 			else if(where.hasOwnProperty("$lte")) {
 				sql += "<=";
-				sql += convertValueToSQLFormat(where.$lte);
+				sql += this.typeConvertor(where.$lte, type);
 			}
 			else if(where.hasOwnProperty("$ne")) {
 				sql += "<>";
-				sql += convertValueToSQLFormat(where.$ne);
+				sql += this.typeConvertor(where.$ne, type);
 			}
 			else if(where.hasOwnProperty("$in")) {
 				sql += " in (";
@@ -294,7 +309,7 @@ class SQLTransformer {
 					if(index > 0) {
 						sql += ",";
 					}
-					sql += convertValueToSQLFormat(ele);
+					sql += this.typeConvertor(ele, type);
 				});
 				sql += ")";
 			}
@@ -304,7 +319,7 @@ class SQLTransformer {
 					if(index > 0) {
 						sql += ",";
 					}
-					sql += convertValueToSQLFormat(ele);
+					sql += this.typeConvertor(ele, type);
 				});
 				sql += ")";
 			}
@@ -316,17 +331,17 @@ class SQLTransformer {
 				switch(typeof where) {
 					case "object": {
 						if(Object.getOwnPropertyNames(where).length === 1) {
-							for(let attr in where) {
-								if(attr.startsWith("$")) {
-									throw new Error("不支持算子"+ attr + "向SQL的转化");
+							for(let attr2 in where) {
+								if(attr2.startsWith("$")) {
+									throw new Error("不支持算子"+ attr2 + "向SQL的转化");
 								}
 								else {
-									if(relName) {
-										sql += "`" + relName + "`";
+									if(alias) {
+										sql += "`" + alias + "`";
 										sql += "."
 									}
-									sql += "`" + attr + "`";
-									sql += this.transformWhere(where[attr]);
+									sql += "`" + attr2 + "`";
+									sql += this.transformWhere(where[attr2], attr2, alias, relName);
 								}
 							}
 						}
@@ -335,7 +350,7 @@ class SQLTransformer {
 					default: {
 						// 此时应该是“=”算子
 						sql += "=";
-						sql += convertValueToSQLFormat(where);
+						sql += this.typeConvertor(where, type);
 					}
 				}
 			}
@@ -412,7 +427,4 @@ class SQLTransformer {
 	}
 }
 
-
-let sqlTransformer = new SQLTransformer();
-
-module.exports = sqlTransformer;
+module.exports = SQLTransformer;

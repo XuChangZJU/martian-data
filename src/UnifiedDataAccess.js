@@ -963,7 +963,19 @@ class DataAccess extends EventEmitter{
 		this.schemas = JSON.parse(JSON.stringify(schemas));
 
 		// 将schema处理成为内部格式
-		return formalizeSchemasDefinition.call(this, this.schemas);
+		return formalizeSchemasDefinition.call(this, this.schemas)
+			.then(
+				() => {
+					for(let conn in this.connections) {
+						if(this.connections[conn].setSchemas && typeof this.connections[conn].setSchemas === "function") {
+							this.connections[conn].setSchemas(this.schemas);
+						}
+					}
+
+					return Promise.resolve();
+				}
+			)
+
 	}
 
 	createSchemas() {

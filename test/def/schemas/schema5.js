@@ -22,8 +22,8 @@ const schema = {
             },
             houseInfo: {
                 type: "ref",
-                ref: "houseInfo",
-                required: true/*,
+                ref: "houseInfo"/*,
+                required: true,
                 localColumnName: "houseInfoId"                                         // 列名
                 autoIndexed: false                                                      //  默认在外键列上会建索引，如果指定不建，这个域要加上false
                 */
