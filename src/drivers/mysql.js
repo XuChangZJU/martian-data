@@ -231,7 +231,10 @@ function convertValueToDbFormat(value, type) {
 		case "boolean": {
 			return new String(value);
 		}
-		case "object": {
+		case "object":
+		case "file":
+		case "image":
+		case "img": {
 			return "'".concat(JSON.stringify(value)).concat("'")
 		}
 		case "loc":
