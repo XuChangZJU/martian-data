@@ -48,7 +48,10 @@ function convertTypeDefToDbFormat(typeDef) {
 			case "time": {
 				return "bigint";
 			}
-			case "object": {
+			case "object":
+			case "file":
+			case "image":
+			case "img": {
 				return "text";
 			}
 			case "serial": {
