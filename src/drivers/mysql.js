@@ -195,7 +195,10 @@ function convertValueToDbFormat(value, type) {
 	switch (type) {
 		case "string":
 		case "text":
-		case "enum":{
+		case "enum":
+		case "file":
+		case "image":
+		case "img": {
 			if(typeof value === "string") {
 				return "'".concat(value).concat("'");
 			}
@@ -234,10 +237,7 @@ function convertValueToDbFormat(value, type) {
 		case "boolean": {
 			return new String(value);
 		}
-		case "object":
-		case "file":
-		case "image":
-		case "img": {
+		case "object":{
 			return "'".concat(JSON.stringify(value)).concat("'")
 		}
 		case "loc":
