@@ -233,20 +233,23 @@ describe("test select with joins over sources", function() {
         }
         const indexFrom = 0, count = 2;
 
-        uda.find("house", projection, query, sort, indexFrom, count)
-            .then(
-                (result) => {
-                    expect(result).to.be.an("array");
-                    expect(result).to.have.length(2);
-                    expect(result[1].houseInfo.area).to.eql(67.0);
-                    expect(result[0].houseInfo.area).to.eql(145.4);
-
-                    done();
-                },
-                (err) => {
-                    done(err);
-                }
-            );
+        try {
+            uda.find("house", projection, query, sort, indexFrom, count)
+                .then(
+                    (result) => {
+                        console.log(result);
+                        done("跨源查询的sort算子落在非主表上但查询完成");
+                    },
+                    (err) => {
+                        console.log(err);
+                        done();
+                    }
+                );
+        }
+        catch(err) {
+            console.log(err);
+            done();
+        }
     });
 
 
@@ -328,21 +331,24 @@ describe("test select with joins over sources", function() {
         uda.updateOneById("house", update, houses[0].id)
             .then(
                 () => {
-                    uda.find("house", projection, query, sort, indexFrom, count)
-                        .then(
-                            (result) => {
-                                console.log(result);
-                                expect(result).to.be.an("array");
-                                expect(result).to.have.length(1);
-                                expect(result[0].id).to.eql(houses[1].id);
-                                expect(result[0].houseInfo.area).to.eql(houseInfos[1].area);
-
-                                done();
-                            },
-                            (err) => {
-                                done(err);
-                            }
-                        );
+                    try {
+                        uda.find("house", projection, query, sort, indexFrom, count)
+                            .then(
+                                (result) => {
+                                    done("跨源查询的sort算子落在非主表上但查询完成");
+                                }
+                            )
+                            .catch(
+                                (err) => {
+                                    console.log(err);
+                                    done();
+                                }
+                            );
+                    }
+                    catch(err) {
+                        console.log(err);
+                        done();
+                    }
                 },
                 (err) => {
                     done(err);

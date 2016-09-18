@@ -290,16 +290,25 @@ describe("test rent", () => {
             };
             const indexFrom = 0, count = 2;
 
-            uda.find("house", projection, query, sort, indexFrom, count)
-                .then(
-                    (result) => {
-                        console.log(result);
-                        done();
-                    },
-                    (err) => {
-                        done(err);
-                    }
-                )
+            try {
+                uda.find("house", projection, query, sort, indexFrom, count)
+                    .then(
+                        (result) => {
+                            console.log(result);
+                            done("跨源查询的sort算子落在非主表上但查询完成");
+                        }
+                    )
+                    .catch(
+                        (err) => {
+                            console.log(err);
+                            done();
+                        }
+                    )
+            }
+            catch(err) {
+                console.log(err);
+                done();
+            }
         });
 
         it("[1.1]rent select house by ownerId in mysql", (done) => {
@@ -326,16 +335,25 @@ describe("test rent", () => {
             };
             const indexFrom = 0, count = 2;
 
-            uda.find("house", projection, query, sort, indexFrom, count)
-                .then(
-                    (result) => {
-                        console.log(result);
-                        done();
-                    },
-                    (err) => {
-                        done(err);
-                    }
-                )
+            try{
+                uda.find("house", projection, query, sort, indexFrom, count)
+                    .then(
+                        (result) => {
+                            console.log(result);
+                            done("跨源查询的sort算子落在非主表上但查询完成");
+                        }
+                    )
+                    .catch(
+                        (err) => {
+                            console.log(err);
+                            done();
+                        }
+                    );
+            }
+            catch (err) {
+                console.log(err);
+                done();
+            }
         });
 
         it("[1.2]rent select house by id in mysql", (done) => {
@@ -418,16 +436,25 @@ describe("test rent", () => {
                                                 ).then(
                                                     (result)=>{
                                                         console.log(result);
-                                                        uda.find("house", projection2, query2, sort2, indexFrom2, count2)
-                                                            .then(
-                                                                (result) => {
-                                                                    console.log(result);
-                                                                    done();
-                                                                },
-                                                                (err) => {
-                                                                    done(err);
-                                                                }
-                                                            )
+                                                        try {
+                                                            uda.find("house", projection2, query2, sort2, indexFrom2, count2)
+                                                                .then(
+                                                                    (result) => {
+                                                                        done("跨源查询的sort算子落在非主表上但查询完成");
+                                                                    }
+                                                                )
+                                                                .catch(
+                                                                    (err) => {
+                                                                        console.log(err);
+                                                                        done();
+                                                                    }
+                                                                );
+                                                        }
+                                                        catch(err) {
+                                                            console.log(err);
+                                                            done();
+
+                                                        }
                                                     },
                                                     (err)=>{
                                                         done(err);
