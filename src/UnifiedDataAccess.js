@@ -623,6 +623,9 @@ function joinNext(forest, me, result) {
 
                     if(i === result.length) {
                         // 说明子表中没有相应的行，置undefined还是null?
+                        // 左连接，先置null返回，by xc
+                        set(ele, nodeMe.joinInfo.localAttrPath, null);
+                        joinedResult.push(ele);
                     }
                 }
             );
