@@ -580,6 +580,56 @@ function findKeyColumnName(tblName, schema) {
     return this.connections[schema.source].getDefaultKeyName(tblName);
 }
 
+/**
+ * 检查一颗查询树中所有的算子是否满足这颗树本身为NULL
+ * @param node
+ */
+function checkRightNodeQuerySatisfyNull(node, root) {
+    function checkQuerySatisfied(query) {
+        if(!query || Object.getOwnPropertyNames(query).length === 0) {
+            return true;
+        }
+
+        for(let i in query) {
+            if(i === "$and") {
+                let j = query[i].find(
+                    (ele) => {
+                        return (checkQuerySatisfied(ele) === false);
+                    }
+                );
+                if(j) {
+                    return false;
+                }
+            }
+            else if(i.startsWith("$")) {
+                // 除了and的一切一级算子直接报错
+                return false;
+            }
+            else if(!query[i].hasOwnProperty("$exists") || query[i].$exists !== false) {
+                // 如果用户显式地传了右子树的“id in”这样的查询，这里逻辑上会出错，不过这种概率极低
+                if(!root || i !== node.joinInfo.refAttr || !query[i].hasOwnProperty("$in") || !(query[i].$in instanceof Array)) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+    let query = node.query;
+    if(!checkQuerySatisfied(query)) {
+        return false;
+    }
+
+    if(node.joins.length > 0) {
+        for(let i = 0; i < node.joins.length; i ++) {
+            if(node.joins[i].node && !checkRightNodeQuerySatisfyNull(node.joins[i].node, false)) {
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+
 
 /**
  * 处理连接的主函数
@@ -623,9 +673,20 @@ function joinNext(forest, me, result) {
 
                     if(i === result.length) {
                         // 说明子表中没有相应的行，置undefined还是null?
-                        // 左连接，先置null返回，by xc
-                        set(ele, nodeMe.joinInfo.localAttrPath, null);
-                        joinedResult.push(ele);
+                        /**
+                         * 左连逻辑：
+                         *      正确的左连逻辑应该是：根据键值找到右表上的项进行连接，如果没有则为NULL，再将右表上的过滤条件下降到右项上进行过滤（此时如果这些过滤条件是IS NULL，是可以通过的）
+                         *
+                         *      代码运行到这里，连接键值和右项上的过滤条件已经全部下降到右表的查询中进行了过滤，所以检查右表中的查询算子，如果全部是：
+                         *      1）is null
+                         *      或2）is not deleted
+                         *      则返回此项，否则不返回此项
+                         *      by xc 20160911
+                         */
+                        if(checkRightNodeQuerySatisfyNull(nodeMe, true)) {
+                            set(ele, nodeMe.joinInfo.localAttrPath, null);
+                            joinedResult.push(ele);
+                        }
                     }
                 }
             );
@@ -752,11 +813,32 @@ function joinNext(forest, me, result) {
                             return get(ele, nodeSon.joinInfo.localKeyPath);
                         }
                     );
-                    nodeSon.query = merge({}, nodeSon.query, {
-                        [nodeSon.joinInfo.refAttr] : {
-                            $in: joinLocalValues
+
+                    /*// 又要处理 mongodb _id的特殊情况
+                    if(nodeSon.joinInfo.refAttr === "_id") {
+                        try{
+                            let joinLocalValues2 = joinLocalValues.map(
+                                (ele) => {
+                                    return new ObjectId(ele);
+                                }
+                            );
+                            joinLocalValues = joinLocalValues2;
                         }
-                    });
+                        catch(e) {
+                            console.log("跨库连接出现了_id关键字，但相应的值未能成功转化成ObjectId类型")
+                        }
+                    }*/
+                    let query = {
+                        $and: [
+                            nodeSon.query,
+                            {
+                                [nodeSon.joinInfo.refAttr]: {
+                                    $in: joinLocalValues
+                                }
+                            }
+                        ]
+                    };
+                    nodeSon.query = query;
                     let name = (nodeSon.relName || i);
                     let connection = this.connections[this.schemas[name].source];
 

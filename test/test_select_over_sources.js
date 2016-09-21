@@ -89,6 +89,7 @@ function initData(uda) {
                                                     uda.insert("houseInfo", ele)
                                                         .then(
                                                             (result) => {
+                                                                houseInfos[index] = result;
                                                                 houses[index].houseInfo = result;
                                                                 return uda.insert("house", houses[index])
                                                                     .then(
@@ -225,31 +226,16 @@ describe("test select with joins over sources", function() {
                 area: 1
             }
         };
-
-        const sort = {
-            houseInfo: {
-                area: -1
-            }
-        }
         const indexFrom = 0, count = 2;
 
-        try {
-            uda.find("house", projection, query, sort, indexFrom, count)
-                .then(
-                    (result) => {
-                        console.log(result);
-                        done("跨源查询的sort算子落在非主表上但查询完成");
-                    },
-                    (err) => {
-                        console.log(err);
-                        done();
-                    }
-                );
-        }
-        catch(err) {
-            console.log(err);
-            done();
-        }
+        uda.find("house", projection, query, null, indexFrom, count)
+            .then(
+                (result) => {
+                    expect(result).to.have.length(2);
+                    done();
+                },
+                done
+            );
     });
 
 
@@ -575,6 +561,104 @@ describe("test left joins over sources", function() {
                                                                             (results) => {
                                                                                 expect(results).to.have.length(1);
                                                                                 expect(results[0].houseInfo).to.eql(null);
+                                                                                return uda.find("house", {
+                                                                                        buildAt: 1,
+                                                                                        houseInfo: {
+                                                                                            area: 1,
+                                                                                            floor: 1
+                                                                                        }
+                                                                                    }, {
+                                                                                        houseInfo: {
+                                                                                            area: {
+                                                                                                $exists: true
+                                                                                            }
+                                                                                        }
+                                                                                    }, null, 0, 100)
+                                                                                    .then(
+                                                                                        (results2) => {
+                                                                                            expect(results2).to.have.length(0);
+                                                                                            return Promise.resolve();
+                                                                                        }
+                                                                                    )
+                                                                            }
+                                                                        );
+                                                                }
+                                                            );
+                                                    }
+                                                );
+                                        }
+                                    );
+                            }
+                        );
+                }
+            );
+    });
+
+
+
+    it("[tleftos1.1]", () => {
+        return uda.connect(dataSource)
+            .then(
+                () => {
+                    let _schema5 = JSON.parse(JSON.stringify(schema5));
+                    return uda.setSchemas(_schema5)
+                        .then(
+                            () => {
+                                return initData(uda)
+                                    .then(
+                                        () => {
+                                            const query = {
+                                                id: houses[0].id,
+                                                houseInfo: {
+                                                    _id: houseInfos[0]._id
+                                                }
+                                            };
+                                            return uda.find("house",
+                                                {
+                                                    id: 1
+                                                }, query, null, 0, 100
+                                                )
+                                                .then(
+                                                    (result) => {
+                                                        expect(result).to.be.an("array");
+                                                        expect(result).to.have.length(1);
+
+                                                        // 若右表上的过滤条件不满足，则没有返回的值
+                                                        const query2 = {
+                                                            id: houses[0].id,
+                                                            houseInfo: {
+                                                                _id: houseInfos[1]._id
+                                                            }
+                                                        };
+                                                        return uda.find("house",
+                                                            {
+                                                                id: 1
+                                                            },
+                                                            query2, null, 0, 100
+                                                            )
+                                                            .then(
+                                                                (result2) => {
+                                                                    expect(result2).to.be.an("array");
+                                                                    expect(result2).to.have.length(0);
+
+                                                                    // 若右表上的过滤条件是is null，仍然有返回的值
+                                                                    const query3 = {
+                                                                        id: houses[0].id,
+                                                                        houseInfo: {
+                                                                            area: {
+                                                                                $exists: false
+                                                                            }
+                                                                        }
+                                                                    };
+
+                                                                    return uda.find("house", {
+                                                                        id: 1
+                                                                    },
+                                                                    query3, null, 0, 100)
+                                                                        .then(
+                                                                            (result3) => {
+                                                                                expect(result3).to.be.an("array");
+                                                                                expect(result3).to.have.length(1);
                                                                                 return Promise.resolve();
                                                                             }
                                                                         );
@@ -588,65 +672,7 @@ describe("test left joins over sources", function() {
                         );
                 }
             );
-        const query = {
-            buildAt: {
-                $eq: now
-            },
-            houseInfo: {
-                area: {
-                    $gt: 44
-                }
-            },
-            contract: {
-                price: {
-                    $ne: 2001
-                }
-            }
-        };
-        const projection = {
-            id: 1,
-            buildAt : 1,
-            status: 1,
-            contract: {
-                owner: {
-                    name: 1,
-                    age: 1
-                },
-                renter: {
-                    name: 1
-                }
-            },
-            houseInfo: {
-                area: 1
-            }
-        };
-
-        const sort = {
-            houseInfo: {
-                area: -1
-            }
-        }
-        const indexFrom = 0, count = 2;
-
-        try {
-            uda.find("house", projection, query, sort, indexFrom, count)
-                .then(
-                    (result) => {
-                        console.log(result);
-                        done("跨源查询的sort算子落在非主表上但查询完成");
-                    },
-                    (err) => {
-                        console.log(err);
-                        done();
-                    }
-                );
-        }
-        catch(err) {
-            console.log(err);
-            done();
-        }
     });
-
 
 
     after(() => {

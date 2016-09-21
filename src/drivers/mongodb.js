@@ -55,13 +55,25 @@ function formalizeObjectIdinPredicate(obj) {
 
 function formalizeQuery(query) {
 	if(query.$and) {
-		formalizeQuery(query.$and);
+		query.$and.map(
+			(ele) => {
+				formalizeQuery(ele);
+			}
+		);
 	}
 	if(query.$or) {
-		formalizeQuery(query.$or);
+        query.$or.map(
+            (ele) => {
+                formalizeQuery(ele);
+            }
+        );
 	}
 	if(query.$nor) {
-		formalizeQuery(query.$nor);
+        query.$nor.map(
+            (ele) => {
+                formalizeQuery(ele);
+            }
+        );
 	}
 
 	if(query._id) {
