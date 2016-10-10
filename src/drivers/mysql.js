@@ -200,10 +200,10 @@ function convertValueToDbFormat(value, type) {
 		case "image":
 		case "img": {
 			if(typeof value === "string") {
-				return "'".concat(value).concat("'");
+				return this.db.escape(value);
 			}
 			else if(typeof value.toString === "function") {
-				return "'".concat(value.toString()).concat("'");
+				return this.db.escape(value.toString());
 			}
 			else {
 				throw new Error("错误的" + type + "类型");
@@ -238,7 +238,7 @@ function convertValueToDbFormat(value, type) {
 			return new String(value);
 		}
 		case "object":{
-			return "'".concat(JSON.stringify(value)).concat("'")
+			return this.db.escape(JSON.stringify(value));
 		}
 		case "loc":
 		case "geo":
@@ -302,7 +302,7 @@ class Mysql {
 	constructor(settings, schemas) {
 		this.settings = settings;
 		this.schemas = schemas;
-		this.sqlTransformer = new SQLTransformer(schemas, convertValueToDbFormat);
+		this.sqlTransformer = new SQLTransformer(schemas, convertValueToDbFormat.bind(this));
 	}
 
 
