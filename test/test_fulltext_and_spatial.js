@@ -290,7 +290,7 @@ describe("{tfas3}测试地理信息的查询", function() {
                                 $as: "distance"
                             }
                         }, undefined, {
-                            distance: 1
+                            distance: 10        // 这里用虚拟的列排序，不能用1和-1，否则会加上表名前缀
                         }, 0, 100)
                         .then(
                             (list2) => {

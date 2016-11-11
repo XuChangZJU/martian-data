@@ -153,8 +153,15 @@ function convertExecNodeToSQL(sql, node, parentName, relName, joinInfo, projecti
 			sql.orderBy += convertFnCallToSQLFormat(alias, node.sort[attr], projectionPrefix);
 		}
 		else {
-			if(projectionPrefix) {
-				sql.orderBy += "`" + alias + "`.";
+			if (node.sort[attr] === 1 || node.sort[attr] === -1) {
+				// 如果排序的列是as出来的名字，不要用1和-1这两个值，可以避免加上表名
+				// 见测试用例tfas3.0
+				if(projectionPrefix) {
+					sql.orderBy += "`" + alias + "`.";
+				}
+				else  {
+					sql.orderBy += "`" + relName + "`.";
+				}
 			}
 			sql.orderBy += "`" + attr + "`";
 
