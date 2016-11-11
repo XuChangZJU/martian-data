@@ -365,7 +365,7 @@ class SQLTransformer {
 			}
 			else if(where.hasOwnProperty("$nin")) {
 				sql += " not in (";
-				where.$in.forEach((ele, index) => {
+				where.$nin.forEach((ele, index) => {
 					if(index > 0) {
 						sql += ",";
 					}
