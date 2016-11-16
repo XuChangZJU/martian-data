@@ -367,8 +367,8 @@ class Mysql {
 							// 如果有显式定义的主键，则给主键赋上值
 							// 要支持插入多列，这里的id返回的是第一列的id，因此以1为单位递增
 							data.forEach(
-								(ele) => {
-									ele[attr] = result.insertId;
+								(ele, idx) => {
+									ele[attr] = result.insertId + idx;
 								}
 							);
 							return Promise.resolve(data.length > 1 ? data : data[0]);
@@ -376,8 +376,8 @@ class Mysql {
 					}
 
 					data.forEach(
-						(ele) => {
-							ele[constants.mysqlDefaultIdColumn] = result.insertId;
+						(ele, idx) => {
+							ele[constants.mysqlDefaultIdColumn] = result.insertId + idx;
 						}
 					);
 					return Promise.resolve(data.length > 1 ? data : data[0]);
