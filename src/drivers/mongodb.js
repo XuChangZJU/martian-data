@@ -309,7 +309,7 @@ class Mongodb {
 										return formalizeResult(ele);
 									});
 
-									return Promise.resolve(rows2);
+									return Promise.resolve(rows2.length > 1 ? rows2: rows2[0]);
 								},
 								(err) => {
 									return Promise.resolve(err);

@@ -125,6 +125,39 @@ describe("test_insert_update_delete", ()=> {
             )
     });
 
+    it("[cud1.3]batch insert in mysql", (done) => {
+        let _schema = JSON.parse(JSON.stringify(schema2));
+
+        _schema.house.source = "mysql";
+        uda.setSchemas(_schema)
+            .then(
+                () => {
+                    const items = [
+                        {
+                            buildAt: Date.now(),
+                            status: "free"
+                        },
+                        {
+                            buildAt: new Date("1983-11-10"),
+                            status: "offline"
+                        }
+                    ];
+                    uda.insert("house", items)
+                        .then(
+                            (results) => {
+                                expect(results).to.be.an("array");
+                                expect(results).to.have.length(2);
+                                done()
+                            },
+                            done
+                        );
+                },
+                (err) => {
+                    done(err);
+                }
+            );
+    });
+
 
     after((done) => {
         uda.disconnect()

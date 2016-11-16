@@ -188,4 +188,25 @@ describe("test sqltransformer", () => {
 		done();
 	});
 
+	it("[st3.0]", (done) => {
+		const items = [
+			{
+				name: 'xc',
+				age: '35'
+			},
+			{
+				name: 'cg',
+				age: '45',
+				gender: '男',
+			},
+			{
+				name: 'sld',
+				id: 5
+			}
+		];
+		const sql = sqlTransformer.transformInsert("user", items);
+		console.log(sql);
+		done();
+	})
+
 })

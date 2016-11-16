@@ -7,6 +7,7 @@ const util = require("util");
 const ObjectId = require("mongodb").ObjectID;
 
 const assign = require("lodash/assign");
+const keys = require("lodash/keys");
 
 
 function convertValueToSQLFormat(value) {
@@ -195,26 +196,50 @@ class SQLTransformer {
 		let sql = "insert into `";
 		sql += tableName;
 		sql += "`";
-		let attributes = "(", values = "(";
 
-		for(let attr in data) {
-			if(!attributes.endsWith("(")) {
-				attributes += ",";
-			}
-			attributes += "`" + attr + "`";
-			if(!values.endsWith("(")) {
-				values += ",";
-			}
-			const value = data[attr];
-			const type = this.schemas[tableName].attributes[attr].type;
-			values += this.typeConvertor(value, type);
-		}
-		attributes += ")";
-		values += ")";
+        assert(data instanceof Array);
+        let wholeAttrsObject = {};
+        data.forEach(
+            (ele) => {
+                wholeAttrsObject = assign(wholeAttrsObject, ele);
+            }
+        );
+		let attributes = "(", values = "";
+
+        const wholeAttrs = keys(wholeAttrsObject);
+        wholeAttrs.forEach(
+            (ele, idx) => {
+                if (idx !== 0) {
+                    attributes += ",";
+                }
+                attributes += `\`${ele}\``;
+            }
+        );
+        attributes += ")";
+
+        data.forEach(
+            (ele, idx) => {
+                if (idx !== 0) {
+                    values += ",";
+                }
+                values += "("
+                wholeAttrs.forEach(
+                    (ele2, idx2) => {
+                        if (idx2 !== 0) {
+                            values += ",";
+                        }
+                        const type = this.schemas[tableName].attributes[ele2].type;
+                        values += this.typeConvertor(ele[ele2], type);
+                    }
+                );
+                values += ")";
+            }
+        );
 
 		sql += attributes;
 		sql += " values";
 		sql += values;
+        sql += ";";
 
 		return sql;
 	}

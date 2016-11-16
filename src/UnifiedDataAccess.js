@@ -289,6 +289,7 @@ function formalizeDataForUpdate(data, schema, type) {
             }
         }
     }
+    return data;
 }
 
 function transformDateTypeInQuery(query) {
@@ -815,19 +816,19 @@ function joinNext(forest, me, result) {
                     );
 
                     /*// 又要处理 mongodb _id的特殊情况
-                    if(nodeSon.joinInfo.refAttr === "_id") {
-                        try{
-                            let joinLocalValues2 = joinLocalValues.map(
-                                (ele) => {
-                                    return new ObjectId(ele);
-                                }
-                            );
-                            joinLocalValues = joinLocalValues2;
-                        }
-                        catch(e) {
-                            console.log("跨库连接出现了_id关键字，但相应的值未能成功转化成ObjectId类型")
-                        }
-                    }*/
+                     if(nodeSon.joinInfo.refAttr === "_id") {
+                     try{
+                     let joinLocalValues2 = joinLocalValues.map(
+                     (ele) => {
+                     return new ObjectId(ele);
+                     }
+                     );
+                     joinLocalValues = joinLocalValues2;
+                     }
+                     catch(e) {
+                     console.log("跨库连接出现了_id关键字，但相应的值未能成功转化成ObjectId类型")
+                     }
+                     }*/
                     let query = {
                         $and: [
                             nodeSon.query,
@@ -1097,18 +1098,26 @@ class DataAccess extends EventEmitter{
         let schema = this.schemas[name];
         const connection = this.connections[schema.source];
 
-        if(data instanceof Array) {
-            throw new Error("暂时不支持批量插入");
+        if (typeof data !== "object") {
+            throw new Error("插入的数据必须是object类型");
+        }
+
+        let create;
+        if(!isSettingTrueStrictly(this.dataSources[schema.source].settings, "disableCreateAt")){
+            create = "create";
+        }
+        let data2;
+        if (!(data instanceof Array)) {
+            data2 = [formalizeDataForUpdate(assign({}, data), schema, create)];
         }
         else {
-            let data2 = Object.assign({}, data);
-            let create;
-            if(!isSettingTrueStrictly(this.dataSources[schema.source].settings, "disableCreateAt")){
-                create = "create";
-            }
-            formalizeDataForUpdate(data2, schema, create);
-            return connection.insert(name, data2, schema);
+            data2 = data.map(
+                (ele) => formalizeDataForUpdate(assign({}, ele), schema, create)
+
+            );
         }
+
+        return connection.insert(name, data2, schema);
     }
 
     find(name, projection, query, sort, indexFrom, count) {

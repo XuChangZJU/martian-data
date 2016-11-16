@@ -355,12 +355,7 @@ class Mysql {
 	}
 
 	insert(name, data, schema) {
-		if(typeof data !== "object") {
-			throw new Error("插入的数据必须是object类型");
-		}
-		if(data instanceof Array) {
-			throw new Error("mysql暂时不支持批量插入");
-		}
+		assert(data instanceof Array && data.length >= 1);
 		let query = this.sqlTransformer.transformInsert(name, data);
 
 		return queryToPromise(this.db, query)
@@ -370,13 +365,22 @@ class Mysql {
 						const attrDef = schema.attributes[attr];
 						if(attrDef.key === true) {
 							// 如果有显式定义的主键，则给主键赋上值
-							data[attr] = result.insertId;
-							return Promise.resolve(data);
+							// 要支持插入多列，这里的id返回的是第一列的id，因此以1为单位递增
+							data.forEach(
+								(ele) => {
+									ele[attr] = result.insertId;
+								}
+							);
+							return Promise.resolve(data.length > 1 ? data : data[0]);
 						}
 					}
 
-					data[constants.mysqlDefaultIdColumn] = result.insertId;
-					return Promise.resolve(data);
+					data.forEach(
+						(ele) => {
+							ele[constants.mysqlDefaultIdColumn] = result.insertId;
+						}
+					);
+					return Promise.resolve(data.length > 1 ? data : data[0]);
 
 				},
 				(err) => {
