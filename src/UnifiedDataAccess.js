@@ -935,6 +935,7 @@ function getRidOfResult(result, projection, name) {
                  result[attr] = new Date(result[attr]);
                  break;
                  }*/
+                case "array":
                 case "object": {
                     if(typeof result[attr] === "string") {
                         // 从mysql中获取的object类型应该是string

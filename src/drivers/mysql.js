@@ -48,6 +48,7 @@ function convertTypeDefToDbFormat(typeDef) {
 			case "time": {
 				return "bigint";
 			}
+			case "array":
 			case "object":
 			case "file":
 			case "image":
@@ -237,6 +238,7 @@ function convertValueToDbFormat(value, type) {
 		case "boolean": {
 			return new String(value);
 		}
+		case "array":
 		case "object":{
 			return this.db.escape(JSON.stringify(value));
 		}
