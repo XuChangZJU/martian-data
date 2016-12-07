@@ -647,7 +647,7 @@ describe("test select with joins in mysql 1", function() {
 
 
 describe("test select with joins in mongodb", function() {
-    this.timeout(5000);
+    this.timeout(10000);
 
     const houses =  JSON.parse(JSON.stringify(g_houses));
     const users = JSON.parse(JSON.stringify(g_users));

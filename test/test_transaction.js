@@ -10,7 +10,8 @@ var expect = require("expect.js");
 
 const UDA = require("../src/UnifiedDataAccess");
 const uda = new UDA();
-const dataSource = require("./def/dataSource");
+const dataSource3 = require("./def/dataSource2");
+const dataSource2 = require("./def/dataSource2");
 const schema = require("./def/schemas/schema");
 const now = new Date();
 
@@ -103,10 +104,10 @@ function initData(uda) {
                                                                                 .then(
                                                                                     (result) => {
                                                                                         return uda.updateOneById("house", {
-                                                                                                $set: {
-                                                                                                    contract: result
-                                                                                                }
-                                                                                            }, (hItem.id || hItem._id))
+                                                                                            $set: {
+                                                                                                contract: result
+                                                                                            }
+                                                                                        }, (hItem.id || hItem._id))
                                                                                             .then(
                                                                                                 () => {
                                                                                                     return Promise.resolve();
@@ -152,7 +153,7 @@ function initData(uda) {
 describe("test transaction", function() {
     this.timeout(5000);
     before((done) => {
-        uda.connect(dataSource)
+        uda.connect(dataSource3)
             .then(
                 () => {
                     const _schema = JSON.parse(JSON.stringify(schema));
@@ -191,16 +192,16 @@ describe("test transaction", function() {
     it("[tt0.0] rollback transaction in mysql", (done) => {
         uda.startTransaction("mysql")
             .then(
-                () => {
+                (txn) => {
                     const houseInfo = JSON.parse(JSON.stringify(houseInfos[0]));
-                    uda.insert("houseInfo", houseInfo)
+                    uda.insert("houseInfo", houseInfo, txn)
                         .then(
                             () => {
                                 uda.find("houseInfo", {
                                     id: 1,
                                     area: 1,
                                     floor: 1
-                                }, null, null, 0, 10)
+                                }, null, null, 0, 10, txn)
                                     .then(
                                         (result) => {
                                             expect(result).to.be.an("array");
@@ -208,14 +209,14 @@ describe("test transaction", function() {
                                             expect(result[0].area).to.be.eql(houseInfo.area);
                                             expect(result[0].floor).to.be.eql(houseInfo.floor);
 
-                                            uda.rollbackTransaction()
+                                            uda.rollbackTransaction(txn)
                                                 .then(
                                                     () => {
                                                         uda.find("houseInfo", {
-                                                                id: 1,
-                                                                area: 1,
-                                                                floor: 1
-                                                            }, null, null, 0, 10)
+                                                            id: 1,
+                                                            area: 1,
+                                                            floor: 1
+                                                        }, null, null, 0, 10)
                                                             .then(
                                                                 (result) => {
                                                                     expect(result).to.be.an("array");
@@ -253,16 +254,16 @@ describe("test transaction", function() {
     it("[tt0.1] commit transaction in mysql", (done) => {
         uda.startTransaction("mysql")
             .then(
-                () => {
+                (txn) => {
                     const houseInfo = JSON.parse(JSON.stringify(houseInfos[0]));
-                    uda.insert("houseInfo", houseInfo)
+                    uda.insert("houseInfo", houseInfo, txn)
                         .then(
                             () => {
                                 uda.find("houseInfo", {
-                                        id: 1,
-                                        area: 1,
-                                        floor: 1
-                                    }, null, null, 0, 10)
+                                    id: 1,
+                                    area: 1,
+                                    floor: 1
+                                }, null, null, 0, 10, txn)
                                     .then(
                                         (result) => {
                                             expect(result).to.be.an("array");
@@ -270,14 +271,14 @@ describe("test transaction", function() {
                                             expect(result[0].area).to.be.eql(houseInfo.area);
                                             expect(result[0].floor).to.be.eql(houseInfo.floor);
 
-                                            uda.commitTransaction()
+                                            uda.commitTransaction(txn)
                                                 .then(
                                                     () => {
                                                         uda.find("houseInfo", {
-                                                                id: 1,
-                                                                area: 1,
-                                                                floor: 1
-                                                            }, null, null, 0, 10)
+                                                            id: 1,
+                                                            area: 1,
+                                                            floor: 1
+                                                        }, null, null, 0, 10)
                                                             .then(
                                                                 (result) => {
                                                                     expect(result).to.be.an("array");
@@ -313,5 +314,156 @@ describe("test transaction", function() {
             );
     });
 
+});
 
+describe('test concurrent transaction in mysql', function() {
+    this.timeout(15000);
+    const uda2 = new UDA();
+    before(() => {
+        return uda2.connect(dataSource2)
+            .then(
+                () => {
+                    const _schema = JSON.parse(JSON.stringify(schema));
+                    return uda2.setSchemas(_schema)
+                        .then(
+                            () => {
+                                return uda2.dropSchemas()
+                                    .then(
+                                        () => {
+                                            return uda2.createSchemas();
+                                        }
+                                    );
+                            }
+                        );
+                }
+            );
+    });
+
+    it("[tct1.1] recursive transaction in mysql", () => {
+        // 因为connectionPool中写的连接数目大于2，所以这个测试能过，如果是1个连接就过不了。这种写法仍然不推荐
+        return uda2.startTransaction("mysql")
+            .then(
+                (txn1) => {
+                    return uda2.startTransaction('mysql')
+                        .then(
+                            (txn2) => {
+                                return uda2.commitTransaction(txn1)
+                                    .then(
+                                        () => uda2.commitTransaction(txn2)
+                                    )
+                            }
+                        )
+                }
+            );
+    });
+
+
+    it("[tct1.2] concurrent transaction in mysql", () => {
+        let areaValue;
+        const f = (houseInfoId, option) => {
+            return uda2.startTransaction('mysql', option)
+                .then(
+                    (txn) => {
+                        return uda2.findById('houseInfo', {
+                            area: 1
+                        }, houseInfoId, txn)
+                            .then(
+                                (houseInfo) => {
+                                    return uda2.updateOneById('houseInfo', {
+                                        $set: {
+                                            area: houseInfo.area + 1,
+                                        },
+                                    }, houseInfoId, txn)
+                                        .then(
+                                            () => {
+                                                return uda2.commitTransaction(txn, {
+                                                    isolationLevel: 'REPEATED READ',
+                                                })
+                                                    .then(
+                                                        () => {
+                                                            areaValue ++;
+                                                            return Promise.resolve();
+                                                        }
+                                                    )
+                                            }
+                                        )
+                                }
+                            )
+                            .catch(
+                                (err) => {
+                                    return uda2.rollbackTransaction(txn);
+                                }
+                            );
+                    }
+                );
+        };
+
+        return uda2.insert('houseInfo', {
+            floor: 1,
+            area: 100
+        })
+            .then(
+                (houseInfo) => {
+                    areaValue = 100;
+                    const promises = [];
+                    for (let i = 0; i < 100; i ++) {
+                        promises.push(f(houseInfo.id));
+                    }
+                    return Promise.all(promises)
+                        .then(
+                            () => {
+                                return uda2.findById('houseInfo', {
+                                    area: 1,
+                                }, houseInfo.id)
+                                    .then(
+                                        (houseInfo2) => {
+                                            // 不使用串行隔离级别，得到的结果不可控
+                                            console.log(`value in db ${houseInfo2.area}, value outside: ${areaValue}`);
+                                            areaValue = houseInfo2.area;
+
+                                            const promises2 = [];
+                                            for (let i = 0; i < 100; i ++) {
+                                                promises2.push(f(houseInfo.id, {
+                                                    isolationLevel: 'SERIALIZABLE'
+                                                }));
+                                            }
+
+                                            const checkValue = () => {
+                                                return uda2.findById('houseInfo', {
+                                                    area: 1,
+                                                }, houseInfo.id)
+                                                    .then(
+                                                        (houseInfo3) => {
+                                                            console.log(`[serializable]value in db ${houseInfo3.area}, value outside: ${areaValue}`);
+                                                            expect(houseInfo3.area).to.eql(areaValue);
+                                                            return Promise.resolve();
+                                                        }
+                                                    );
+                                            }
+                                            return Promise.all(promises2)
+                                                .then(
+                                                    checkValue
+                                                )
+                                                .catch(
+                                                    checkValue
+                                                );
+                                        }
+                                    );
+                            }
+                        );
+                }
+            );
+    });
+
+
+    it("[tct1.3] show variables", () => {
+        return uda2.getSource('mysql')
+            .execSql("show variables like '%iso%'")
+            .then(
+                (result) => {
+                    console.log(result[0].Value);
+                    return Promise.resolve();
+                }
+            )
+    });
 })

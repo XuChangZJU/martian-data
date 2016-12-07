@@ -879,7 +879,7 @@ function joinNext(forest, me, result) {
  * @param count
  * @returns {Promise.<TResult>}
  */
-function execOverSourceQuery(name, forest, indexFrom, count) {
+function execOverSourceQuery(name, forest, indexFrom, count, txn) {
     for(let i in forest) {
         const tree = forest[i];
         if(i !== name && hasOperator(tree, "sort")) {
@@ -893,7 +893,7 @@ function execOverSourceQuery(name, forest, indexFrom, count) {
     const schema = this.schemas[name];
     const connection = this.connections[schema.source];
 
-    return connection.find(name, firstRel, indexFrom, count)
+    return connection.find(name, firstRel, indexFrom, count, false, txn)
         .then(
             (result) => {
                 return joinNext.call(this, forest, name, result)
@@ -1095,7 +1095,7 @@ class DataAccess extends EventEmitter{
         return Promise.all(promises);
     }
 
-    insert(name, data) {
+    insert(name, data, txn) {
         let schema = this.schemas[name];
         const connection = this.connections[schema.source];
 
@@ -1118,10 +1118,10 @@ class DataAccess extends EventEmitter{
             );
         }
 
-        return connection.insert(name, data2, schema);
+        return connection.insert(name, data2, schema, txn && txn.txn);
     }
 
-    find(name, projection, query, sort, indexFrom, count) {
+    find(name, projection, query, sort, indexFrom, count, txn) {
         if(!name || !this.schemas[name]) {
             throw new Error("查询必须输入有效表名");
         }
@@ -1130,7 +1130,7 @@ class DataAccess extends EventEmitter{
         }
         let execTree = destructSelect.call(this, name, projection, query, sort);
 
-        return this.findByExecTreeDirectly(name, execTree, indexFrom, count)
+        return this.findByExecTreeDirectly(name, execTree, indexFrom, count, false, txn && txn.txn)
             .then(
                 (result) => {
                     assert(result instanceof Array);
@@ -1144,21 +1144,21 @@ class DataAccess extends EventEmitter{
             );
     }
 
-    count(name, query) {
+    count(name, query, txn) {
         if(!name || !this.schemas[name]) {
             throw new Error("查询必须输入有效表名");
         }
 
         let execTree = destructSelect.call(this, name, null, query, null, true);
-        return this.findByExecTreeDirectly(name, execTree, undefined, undefined, true);
+        return this.findByExecTreeDirectly(name, execTree, undefined, undefined, true, txn && txn.txn);
 
     }
 
-    findOneById(name, projection, id) {
-        return this.findById(name, projection, id);
+    findOneById(name, projection, id, txn) {
+        return this.findById(name, projection, id, txn);
     }
 
-    findById(name, projection, id) {
+    findById(name, projection, id, txn) {
         if(!name || !this.schemas[name]) {
             throw new Error("查询必须输入有效表名");
         }
@@ -1176,7 +1176,7 @@ class DataAccess extends EventEmitter{
         query[pKeyColumn] = id;
 
         let execTree = destructSelect.call(this, name, projection, query);
-        return this.findByExecTreeDirectly(name, execTree, 0, 1)
+        return this.findByExecTreeDirectly(name, execTree, 0, 1, null, txn && txn.txn)
             .then(
                 (result) => {
                     switch (result.length) {
@@ -1200,7 +1200,7 @@ class DataAccess extends EventEmitter{
     }
 
 
-    findByExecTreeDirectly(name, execTree, indexFrom, count, isCounting) {
+    findByExecTreeDirectly(name, execTree, indexFrom, count, isCounting, txn) {
         let execForest = distributeSelect.call(this, name, execTree);
 
         let trees = Object.getOwnPropertyNames(execForest);
@@ -1210,18 +1210,18 @@ class DataAccess extends EventEmitter{
                 throw new Error("当前不支持跨源的count查询");
             }
 
-            return execOverSourceQuery.call(this, name, execForest, indexFrom, count);
+            return execOverSourceQuery.call(this, name, execForest, indexFrom, count, txn);
         }
         else {
             // 单源的查询直接PUSH给相应的数据源
             let schema = this.schemas[name];
             const connection = this.connections[schema.source];
 
-            return connection.find(name, execTree, indexFrom, count, isCounting);
+            return connection.find(name, execTree, indexFrom, count, isCounting, txn);
         }
     }
 
-    update(name, data, query) {
+    update(name, data, query, txn) {
         let schema = this.schemas[name];
         query = query || {};
         const connection = this.connections[schema.source];
@@ -1240,10 +1240,10 @@ class DataAccess extends EventEmitter{
         formalizeDataForUpdate(data2.$set || {}, schema, update);
         transformDateTypeInQuery(query);
 
-        return connection.update(name, data2, query);
+        return connection.update(name, data2, query, txn && txn.txn);
     }
 
-    updateOneById(name, data, id) {
+    updateOneById(name, data, id, txn) {
         let schema = this.schemas[name];
         const connection = this.connections[schema.source];
 
@@ -1255,11 +1255,11 @@ class DataAccess extends EventEmitter{
 
         formalizeDataForUpdate(data2.$set || {}, schema, update);
 
-        return connection.updateOneById(name, data2, id, schema);
+        return connection.updateOneById(name, data2, id, schema, txn && txn.txn);
 
     }
 
-    remove(name, query) {
+    remove(name, query, txn) {
         let schema = this.schemas[name];
         query = query || {};
         const connection = this.connections[schema.source];
@@ -1275,14 +1275,14 @@ class DataAccess extends EventEmitter{
             query[constants.deleteAtColumn] = {
                 $exists: false
             };
-            return connection.update(name, data, query);
+            return connection.update(name, data, query, txn && txn.txn);
         }
         else {
-            return connection.remove(name, query);
+            return connection.remove(name, query, txn && txn.txn);
         }
     }
 
-    removeOneById(name, id) {
+    removeOneById(name, id, txn) {
         let schema = this.schemas[name];
         const connection = this.connections[schema.source];
 
@@ -1292,10 +1292,10 @@ class DataAccess extends EventEmitter{
                     [constants.deleteAtColumn]: Date.now()
                 }
             };
-            return connection.updateOneById(name, data, id, schema);
+            return connection.updateOneById(name, data, id, schema, txn && txn.txn);
         }
         else {
-            return connection.removeOneById(name, id);
+            return connection.removeOneById(name, id, schema, txn && txn.txn);
         }
     }
 
@@ -1316,33 +1316,69 @@ class DataAccess extends EventEmitter{
         return this.schemas[tblName].attributes[columnName].type;
     }
 
-    startTransaction(source) {
+    /**
+     * 开始一个事务
+     * @param source
+     * @param option {
+     *                  isolationLevel: ' SERIALIZABLE',
+     *                  extras: " READ ONLY"
+     *              }
+     * @returns {*}
+     */
+    startTransaction(source, option) {
         const connection = this.connections[source];
         if(connection && connection.startTransaction && typeof connection.startTransaction === "function") {
-            this.txnSource = source;
-            return connection.startTransaction();
+            return connection.startTransaction(option)
+                .then(
+                    (txn) => {
+                        return {
+                            txn,
+                            source,
+                        };
+                    }
+                )
         }
         else {
             throw new Error("源" + source + "不存在，或者不支持事务操作");
         }
     }
 
-    commitTransaction() {
-        const connection = this.connections[this.txnSource];
-        this.txnSource = null;
+    /**
+     * 结束一个事务
+     * @param txn
+     * @param option {
+     *                  isolationLevel: ' REPEATABLE READ'
+     *              }
+     * @returns {*}
+     */
+    commitTransaction(txn, option) {
+        if (!txn || !txn.hasOwnProperty('txn') || !txn.hasOwnProperty('source')) {
+            throw new Error('必须传入有效的txn结构');
+        }
+        const connection = this.connections[txn.source];
         if(connection && connection.commmitTransaction && typeof connection.commmitTransaction === "function") {
-            return connection.commmitTransaction();
+            return connection.commmitTransaction(txn.txn, option);
         }
         else {
             throw new Error("未发现活跃事务，或者不支持事务操作");
         }
     }
 
-    rollbackTransaction() {
-        const connection = this.connections[this.txnSource];
-        this.txnSource = null;
+    /**
+     * 回滚一个事务
+     * @param txn
+     * @param option {
+     *                  isolationLevel: ' REPEATABLE READ'
+     *              }
+     * @returns {*}
+     */
+    rollbackTransaction(txn, option) {
+        if (!txn || !txn.hasOwnProperty('txn') || !txn.hasOwnProperty('source')) {
+            throw new Error('必须传入有效的txn结构');
+        }
+        const connection = this.connections[txn.source];
         if(connection && connection.rollbackTransaction && typeof connection.rollbackTransaction === "function") {
-            return connection.rollbackTransaction();
+            return connection.rollbackTransaction(txn.txn, option);
         }
         else {
             throw new Error("未发现活跃事务，或者不支持事务操作");

@@ -309,18 +309,27 @@ class Mysql {
 
 
 	connect(url) {
-		this.db = mysql.createConnection(url);
+		if (typeof url === 'string') {
+			this.db = mysql.createConnection(url);
 
-		return new Promise((resolve, reject) => {
-			this.db.connect((err) => {
-				if(err) {
-					reject(err);
-				}
-				else {
-					resolve();
-				}
-			})
-		});
+			return new Promise((resolve, reject) => {
+				this.db.connect((err) => {
+					if(err) {
+						reject(err);
+					}
+					else {
+						resolve();
+					}
+				})
+			});
+		}
+		else if (typeof url === 'object' && url.hasOwnProperty('host')) {
+			this.db = mysql.createPool(url);
+			return Promise.resolve();
+		}
+		else {
+			throw new Error('不合法的url格式');
+		}
 	}
 
 	setSchemas(schemas) {
@@ -342,10 +351,10 @@ class Mysql {
 		})
 	}
 
-	find(name, execTree, indexFrom, count, isCounting) {
+	find(name, execTree, indexFrom, count, isCounting, con) {
 		const sql = this.sqlTransformer.transformSelect(name, execTree, indexFrom, count, isCounting);
 
-		return queryToPromise(this.db, sql, true)
+		return queryToPromise(con || this.db, sql, true)
 			.then(
 				(result) => {
 					if(isCounting) {
@@ -356,11 +365,11 @@ class Mysql {
 			)
 	}
 
-	insert(name, data, schema) {
+	insert(name, data, schema, con) {
 		assert(data instanceof Array && data.length >= 1);
 		let query = this.sqlTransformer.transformInsert(name, data);
 
-		return queryToPromise(this.db, query)
+		return queryToPromise(con || this.db, query)
 			.then(
 				(result) => {
 					for(let attr in schema.attributes) {
@@ -391,14 +400,14 @@ class Mysql {
 			);
 	}
 
-	update(name, updatePart, query) {
+	update(name, updatePart, query, con) {
 		if(typeof updatePart != "object") {
 			throw new Error("更新的数据必须是object类型");
 		}
 
 		let sql = this.sqlTransformer.transformUpdate(name, updatePart, query);
 
-		return queryToPromise(this.db, sql)
+		return queryToPromise(con || this.db, sql)
 			.then(
 				(result) => {
 					return Promise.resolve(result.affectedRows);
@@ -409,7 +418,7 @@ class Mysql {
 			);
 	}
 
-	updateOneById(name, updatePart, id, schema) {
+	updateOneById(name, updatePart, id, schema, con) {
 		if(typeof updatePart != "object") {
 			throw new Error("更新的数据必须是object类型");
 		}
@@ -418,7 +427,7 @@ class Mysql {
 			[idColumn]: id
 		});
 
-		return queryToPromise(this.db, sql)
+		return queryToPromise(con || this.db, sql)
 			.then(
 				(result) => {
 					if(result.affectedRows === 1) {
@@ -438,11 +447,11 @@ class Mysql {
 
 	}
 
-	remove(name, query) {
+	remove(name, query, con) {
 		let sql = sqlTransformer.transformDelete(name, query);
 
 
-		return queryToPromise(this.db, sql)
+		return queryToPromise(con || this.db, sql)
 			.then(
 				(result) => {
 					return Promise.resolve(result.affectedRows);
@@ -453,13 +462,13 @@ class Mysql {
 			);
 	}
 
-	removeOneById(name, id) {
+	removeOneById(name, id, schema, con) {
 		const idColumn = getPrimaryKeyColumn(schema);
 		let sql = this.sqlTransformer.transformDelete(name, {
 			[idColumn]: id
 		});
 
-		return queryToPromise(this.db, sql)
+		return queryToPromise(con || this.db, sql)
 			.then(
 				(result) => {
 					if(result.affectedRows === 1) {
@@ -479,7 +488,7 @@ class Mysql {
 
 	}
 
-	createSchema(schema, name) {
+	createSchema(schema, name, con) {
 		let query = "create table if not exists `";
 		query += name;
 		query += "`(";
@@ -577,14 +586,14 @@ class Mysql {
 
 
 
-		return queryToPromise(this.db, query);
+		return queryToPromise(con || this.db, query);
 	}
 
-	dropSchema(schema, name) {
+	dropSchema(schema, name, con) {
 		let query = "drop table if exists `";
 		query += name + "`";
 
-		return queryToPromise(this.db, query);
+		return queryToPromise(con || this.db, query);
 	}
 
 	getDefaultKeyType() {
@@ -604,54 +613,110 @@ class Mysql {
 		);
 	}
 
-	execSql(sql, transformResultToObject) {
-		return queryToPromise(this.db, sql, transformResultToObject);
+	execSql(sql, transformResultToObject, con) {
+		return queryToPromise(con || this.db, sql, transformResultToObject);
 	}
 
 
-	startTransaction() {
+	startTransaction(option) {
+		const Pool = require('mysql/lib/Pool');
+		if (this.db instanceof Pool) {
+			return new Promise(
+				(resolve, reject) => {
+					this.db.getConnection((err, connection) => {
+						if (err) {
+							reject(err);
+						}
+						function startTxn() {
+						    let statement = 'START TRANSACTION';
+                            if (option && option.extras) {
+                                statement = statement.concat(` ${option.extras}`);
+                            }
+                            connection.query(statement, (err, result, fields) => {
+                                if(err) {
+                                    reject(err);
+                                }
+                                else {
+                                    resolve(connection);
+                                }
+                            })
+                        }
+                        if (option && option.isolationLevel) {
+                            connection.query(`SET TRANSACTION ISOLATION LEVEL ${option.isolationLevel}`, (err) => {
+                                if(err) {
+                                    reject(err);
+                                }
+                                startTxn();
+                            })
+                        }
+                        else {
+                            startTxn();
+                        }
+					});
+				}
+			);
+		}
+		else {
+			const Connection = require('mysql/lib/Connection');
+			assert(this.db instanceof Connection);
+			throw new Error('要支持事务，则mysql的连接必须是连接池式配置');
+		}
+	}
+
+	commmitTransaction(con, option) {
 		return new Promise(
 			(resolve, reject) => {
-				this.db.query("START TRANSACTION", (err, result, fields) => {
+			    let statement = 'COMMIT';
+                if (option && option.extras) {
+                    statement = statement.concat(` ${option.extras}`);
+                }
+				con.query(statement, (err, result, fields) => {
 					if(err) {
 						reject(err);
 					}
 					else {
-						resolve(result, fields);
+					    if (option && option.isolationLevel) {
+					        con.query(`SET TRANSACTION ISOLATION LEVEL ${option.isolationLevel}`, (err) => {
+					            con.release();
+                                resolve();
+                            });
+                        }
+                        else {
+                            con.release();
+                            resolve()
+                        };
 					}
-				})
+				});
 			}
 		);
 	}
 
-	commmitTransaction() {
+	rollbackTransaction(con, option) {
 		return new Promise(
 			(resolve, reject) => {
-				this.db.query("COMMIT", (err, result, fields) => {
+                let statement = 'ROLLBACK';
+                if (option && option.extras) {
+                    statement = statement.concat(` ${option.extras}`);
+                }
+				con.query(statement, (err, result, fields) => {
 					if(err) {
 						reject(err);
 					}
 					else {
-						resolve(result, fields);
+                        if (option && option.isolationLevel) {
+                            con.query(`SET TRANSACTION ISOLATION LEVEL ${option.isolationLevel}`, (err) => {
+                                con.release();
+                                resolve();
+                            });
+                        }
+                        else {
+                            con.release();
+                            resolve()
+                        };
 					}
-				})
+				});
 			}
 		);
-	}
-
-	rollbackTransaction() {
-		return new Promise(
-			(resolve, reject) => {
-				this.db.query("ROLLBACK", (err, result, fields) => {
-					if(err) {
-						reject(err);
-					}
-					else {
-						resolve(result, fields);
-					}
-				})
-			}
-		)
 	}
 }
 
