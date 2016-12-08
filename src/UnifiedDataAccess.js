@@ -968,8 +968,17 @@ function getRidOfResult(result, projection, name) {
 }
 
 
-
 class DataAccess extends EventEmitter{
+
+    checkTransactionValid(txn) {
+        if (!txn || !txn.hasOwnProperty('txn') || !txn.hasOwnProperty('source') ||
+            !txn.hasOwnProperty('state')) {
+            throw new Error('必须传入有效的txn结构');
+        }
+        if (txn.state !== 'active') {
+            throw new Error('事务处于非活跃状态');
+        }
+    }
 
     constructor() {
         super();
@@ -1096,6 +1105,9 @@ class DataAccess extends EventEmitter{
     }
 
     insert(name, data, txn) {
+        if (txn) {
+            this.checkTransactionValid(txn);
+        }
         let schema = this.schemas[name];
         const connection = this.connections[schema.source];
 
@@ -1128,6 +1140,9 @@ class DataAccess extends EventEmitter{
         if(indexFrom === undefined || !count) {
             throw new Error("查询列表必须带indexFrom和count参数");
         }
+        if (txn) {
+            this.checkTransactionValid(txn);
+        }
         let execTree = destructSelect.call(this, name, projection, query, sort);
 
         return this.findByExecTreeDirectly(name, execTree, indexFrom, count, false, txn && txn.txn)
@@ -1148,6 +1163,9 @@ class DataAccess extends EventEmitter{
         if(!name || !this.schemas[name]) {
             throw new Error("查询必须输入有效表名");
         }
+        if (txn) {
+            this.checkTransactionValid(txn);
+        }
 
         let execTree = destructSelect.call(this, name, null, query, null, true);
         return this.findByExecTreeDirectly(name, execTree, undefined, undefined, true, txn && txn.txn);
@@ -1165,6 +1183,10 @@ class DataAccess extends EventEmitter{
 
         if(typeof id !== "number" && typeof id !== "string" && ! id instanceof ObjectId) {
             throw new Error("查询必须输入有效id")
+        }
+
+        if (txn) {
+            this.checkTransactionValid(txn);
         }
 
         let schema = this.schemas[name];
@@ -1222,6 +1244,9 @@ class DataAccess extends EventEmitter{
     }
 
     update(name, data, query, txn) {
+        if (txn) {
+            this.checkTransactionValid(txn);
+        }
         let schema = this.schemas[name];
         query = query || {};
         const connection = this.connections[schema.source];
@@ -1244,6 +1269,9 @@ class DataAccess extends EventEmitter{
     }
 
     updateOneById(name, data, id, txn) {
+        if (txn) {
+            this.checkTransactionValid(txn);
+        }
         let schema = this.schemas[name];
         const connection = this.connections[schema.source];
 
@@ -1260,6 +1288,9 @@ class DataAccess extends EventEmitter{
     }
 
     remove(name, query, txn) {
+        if (txn) {
+            this.checkTransactionValid(txn);
+        }
         let schema = this.schemas[name];
         query = query || {};
         const connection = this.connections[schema.source];
@@ -1283,6 +1314,9 @@ class DataAccess extends EventEmitter{
     }
 
     removeOneById(name, id, txn) {
+        if (txn) {
+            this.checkTransactionValid(txn);
+        }
         let schema = this.schemas[name];
         const connection = this.connections[schema.source];
 
@@ -1331,10 +1365,12 @@ class DataAccess extends EventEmitter{
             return connection.startTransaction(option)
                 .then(
                     (txn) => {
-                        return {
+                        const transaction = {
                             txn,
                             source,
+                            state: 'active'
                         };
+                        return Promise.resolve(transaction);
                     }
                 )
         }
@@ -1352,12 +1388,16 @@ class DataAccess extends EventEmitter{
      * @returns {*}
      */
     commitTransaction(txn, option) {
-        if (!txn || !txn.hasOwnProperty('txn') || !txn.hasOwnProperty('source')) {
-            throw new Error('必须传入有效的txn结构');
-        }
+        this.checkTransactionValid(txn);
         const connection = this.connections[txn.source];
         if(connection && connection.commmitTransaction && typeof connection.commmitTransaction === "function") {
-            return connection.commmitTransaction(txn.txn, option);
+            return connection.commmitTransaction(txn.txn, option)
+                .then(
+                    () => {
+                        txn.state = 'committed';
+                        this.emit('txnCommitted', txn);
+                    }
+                )
         }
         else {
             throw new Error("未发现活跃事务，或者不支持事务操作");
@@ -1373,12 +1413,16 @@ class DataAccess extends EventEmitter{
      * @returns {*}
      */
     rollbackTransaction(txn, option) {
-        if (!txn || !txn.hasOwnProperty('txn') || !txn.hasOwnProperty('source')) {
-            throw new Error('必须传入有效的txn结构');
-        }
+        this.checkTransactionValid(txn);
         const connection = this.connections[txn.source];
         if(connection && connection.rollbackTransaction && typeof connection.rollbackTransaction === "function") {
-            return connection.rollbackTransaction(txn.txn, option);
+            return connection.rollbackTransaction(txn.txn, option)
+                .then(
+                    () => {
+                        txn.state = 'rollbacked';
+                        this.emit('txnRollbacked', txn);
+                    }
+                )
         }
         else {
             throw new Error("未发现活跃事务，或者不支持事务操作");
