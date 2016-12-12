@@ -892,8 +892,9 @@ function execOverSourceQuery(name, forest, indexFrom, count, txn) {
 
     const schema = this.schemas[name];
     const connection = this.connections[schema.source];
+    const txn2 = (txn && txn.source === schema.source) ? txn.txn : undefined;
 
-    return connection.find(name, firstRel, indexFrom, count, false, txn)
+    return connection.find(name, firstRel, indexFrom, count, false, txn2)
         .then(
             (result) => {
                 return joinNext.call(this, forest, name, result)
