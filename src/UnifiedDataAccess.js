@@ -1145,7 +1145,7 @@ class DataAccess extends EventEmitter{
         }
         let execTree = destructSelect.call(this, name, projection, query, sort);
 
-        return this.findByExecTreeDirectly(name, execTree, indexFrom, count, false, txn && txn.txn)
+        return this.findByExecTreeDirectly(name, execTree, indexFrom, count, false, txn)
             .then(
                 (result) => {
                     assert(result instanceof Array);
@@ -1168,7 +1168,7 @@ class DataAccess extends EventEmitter{
         }
 
         let execTree = destructSelect.call(this, name, null, query, null, true);
-        return this.findByExecTreeDirectly(name, execTree, undefined, undefined, true, txn && txn.txn);
+        return this.findByExecTreeDirectly(name, execTree, undefined, undefined, true, txn);
 
     }
 
@@ -1198,7 +1198,7 @@ class DataAccess extends EventEmitter{
         query[pKeyColumn] = id;
 
         let execTree = destructSelect.call(this, name, projection, query);
-        return this.findByExecTreeDirectly(name, execTree, 0, 1, null, txn && txn.txn)
+        return this.findByExecTreeDirectly(name, execTree, 0, 1, null, txn)
             .then(
                 (result) => {
                     switch (result.length) {
@@ -1238,8 +1238,9 @@ class DataAccess extends EventEmitter{
             // 单源的查询直接PUSH给相应的数据源
             let schema = this.schemas[name];
             const connection = this.connections[schema.source];
+            const txn2 = (txn && txn.source === schema.source) ? txn.txn : undefined;
 
-            return connection.find(name, execTree, indexFrom, count, isCounting, txn);
+            return connection.find(name, execTree, indexFrom, count, isCounting, txn2);
         }
     }
 
