@@ -34,5 +34,6 @@ module.exports = {
     mongodbDefaultIdColumn: "_id",
     typeReference: "ref",
     defaultRemoteApis: apis,
+    defaultRemoteApiRouter: '/client',
     defaultRemoteUrls: urls
 };

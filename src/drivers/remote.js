@@ -4,6 +4,7 @@
 "use strict";
 
 const merge = require("lodash/merge");
+const keys = require("lodash/keys");
 
 require('isomorphic-fetch');
 
@@ -31,8 +32,23 @@ function replicateExecTree(execTree) {
 
 class Remote {
 	constructor(settings) {
+		const apis = {};
+		if (settings.hasOwnProperty('remoteApiRouter')) {
+			keys(constants.defaultRemoteApis).forEach(
+				(ele) => {
+					apis[ele] = settings.remoteApiRouter.concat(constants.defaultRemoteApis[ele]);
+				}
+			);
+		}
+		else {
+			keys(constants.defaultRemoteApis).forEach(
+				(ele) => {
+					apis[ele] = constants.defaultRemoteApiRouter.concat(constants.defaultRemoteApis[ele]);
+				}
+			);
+		}
 		let defaultSettings = {
-			apis: constants.defaultRemoteApis,
+			apis,
 			resolveResponse: (res) => {
 				return new Promise.resolve(res);
 			}

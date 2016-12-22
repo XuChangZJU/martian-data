@@ -1143,7 +1143,7 @@ describe("test select with null in mysql 1", function() {
     });
 
 
-    it("[ts2.0]", (done) => {
+    it("[ts2.0]", () => {
         const query = {
             buildAt: {
                 $eq: now
@@ -1186,7 +1186,7 @@ describe("test select with null in mysql 1", function() {
         }
         const indexFrom = 0, count = 1;
 
-        uda.find("house", projection, query, sort, indexFrom, count)
+        return uda.find("house", projection, query, sort, indexFrom, count)
             .then(
                 (result) => {
                     console.log(result);
@@ -1194,10 +1194,7 @@ describe("test select with null in mysql 1", function() {
                     expect(result).to.have.length(1);
                     checkResult1(result[0]);
 
-                    done();
-                },
-                (err) => {
-                    done(err);
+                    return Promise.resolve();
                 }
             )
     });
