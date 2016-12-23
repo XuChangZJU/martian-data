@@ -248,37 +248,44 @@ class SQLTransformer {
 		let sql = "update `";
 		sql += tableName;
 		sql += "`";
-		sql += " set";
+		sql += " set ";
 
-		switch(Object.getOwnPropertyNames(data).length) {
-			case 0: {
-				throw new Error("对关系数据库的更新必须设置$set属性");
-				return;
-			}
-			case 1: {
-				if(!data.$set) {
-					throw new Error("对关系数据库的更新必须设置$set属性");
-				}
-				break;
-			}
-			default: {
-				throw new Error("对关系数据库的更新只可设置$set属性");
-				return;
-			}
-		}
-		for(let attr in data.$set) {
-			if(!sql.endsWith("set")) {
-				sql += ",";
-			}
-			else {
-				sql += " ";
-			}
-			sql += "`" + attr + "`";
-			sql += "=";
-			const type = this.schemas[tableName].attributes[attr].type;
-			const value = this.typeConvertor(data.$set[attr], type);
-			sql += value;
-		}
+		let updatePart = data.$set;
+        let incrementPart = data.$inc;
+
+        if (updatePart) {
+            keys(updatePart).forEach(
+                (ele, idx) => {
+                    if (idx > 0) {
+                        sql += ",";
+                    }
+
+                    sql += "`" + ele + "`";
+                    sql += "=";
+                    const type = this.schemas[tableName].attributes[ele].type;
+                    const value = this.typeConvertor(updatePart[ele], type);
+                    sql += value;
+                }
+            );
+        }
+
+        if (incrementPart) {
+            keys(incrementPart).forEach(
+                (ele, idx) => {
+                    if (updatePart || idx > 0) {
+                        sql += ",";
+                    }
+
+                    sql += "`" + ele + "`";
+                    sql += "=";
+                    const type = this.schemas[tableName].attributes[ele].type;
+                    const value = this.typeConvertor(incrementPart[ele], type);
+                    sql += "`" + ele + "`+ (";
+                    sql += value;
+                    sql += ")";
+                }
+            );
+        }
 
 		sql += " where ";
 		sql += this.transformWhere(query, undefined, undefined, tableName);

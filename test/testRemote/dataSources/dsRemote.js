@@ -9,7 +9,7 @@ const remoteConfig = require("../server/config");
 module.exports = {
     remote: {
         type: "remote",
-        url: "http://localhost" + ":" + remoteConfig.port + remoteConfig.url,
+        url: "http://localhost" + ":" + remoteConfig.port,
         settings: {
             apis: {
             },

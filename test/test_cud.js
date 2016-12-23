@@ -158,6 +158,123 @@ describe("test_insert_update_delete", ()=> {
             );
     });
 
+    it("[cud1.4]increment in mysql", () => {
+        let _schema = JSON.parse(JSON.stringify(schema2));
+
+        _schema.house.source = "mysql";
+        return uda.setSchemas(_schema)
+            .then(
+                () => {
+                    const item =
+                        {
+                            buildAt: Date.now(),
+                            status: "free"
+                        };
+                    return uda.insert("house", item)
+                        .then(
+                            (result) => {
+                                return uda.updateOneById('house',
+                                    {
+                                        $inc: {
+                                            buildAt: -10000
+                                        }
+                                    }, result.id)
+                                    .then(
+                                        (result2) => {
+                                            return uda.findById('house', {
+                                                buildAt: 1
+                                            }, result.id)
+                                                .then(
+                                                    (result3) => {
+                                                        expect(result3.buildAt + 10000).to.eql(result.buildAt);
+                                                        return Promise.resolve();
+                                                    }
+                                                );
+                                        }
+                                    );
+                            }
+                        );
+                }
+            );
+    });
+
+
+    it("[cud1.5]increment in mysql", () => {
+        let _schema = JSON.parse(JSON.stringify(schema2));
+
+        _schema.house.source = "mysql";
+        return uda.setSchemas(_schema)
+            .then(
+                () => {
+                    const item =
+                    {
+                        buildAt: Date.now(),
+                        status: "free"
+                    };
+                    return uda.insert("house", item)
+                        .then(
+                            (result) => {
+                                const promises = [];
+                                for (let i = 0; i < 20; i ++) {
+                                    promises.push(
+                                        uda.updateOneById('house',
+                                            {
+                                                $inc: {
+                                                    buildAt: -10000
+                                                }
+                                            }, result.id)
+                                    );
+                                }
+                                return Promise.all(promises)
+                                    .then(
+                                        () => {
+                                            return uda.findById('house', {
+                                                buildAt: 1
+                                            }, result.id)
+                                                .then(
+                                                    (result2) => {
+                                                        expect(result2.buildAt + 10000 * 20 ).to.eql(result.buildAt);
+                                                        return Promise.resolve();
+                                                    }
+                                                )
+                                        }
+                                    )
+                            }
+                        );
+                }
+            );
+    });
+
+    it("[cud1.6]$set could be omitted", () => {
+        let _schema = JSON.parse(JSON.stringify(schema2));
+
+        _schema.house.source = "mysql";
+        return uda.setSchemas(_schema)
+            .then(
+                () => {
+                    const item =
+                    {
+                        buildAt: Date.now(),
+                        status: "free"
+                    };
+                    return uda.insert("house", item)
+                        .then(
+                            (result) => {
+                                return uda.updateOneById('house',
+                                    {
+                                        buildAt: 100000
+                                    }, result.id)
+                                    .then(
+                                        (result2) => {
+                                            console.log(result2);
+                                            return Promise.resolve();
+                                        }
+                                    )
+                            }
+                        );
+                }
+            );
+    });
 
     after((done) => {
         uda.disconnect()

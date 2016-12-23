@@ -15,6 +15,8 @@ const merge = require("lodash").merge;
 const get = require("lodash").get;
 const set = require("lodash").set;
 const assign = require("lodash/assign");
+const keys = require("lodash/keys");
+const omit = require("lodash/omit");
 
 const constants = require("./constants");
 const events = require("./events");
@@ -249,47 +251,96 @@ function formalizeSchemasDefinition(schemas) {
     )
 }
 
-function formalizeDataForUpdate(data, schema, type) {
-    for(let attr in data) {
-        if(!schema.attributes[attr]) {
-            throw new Error("更新的数据拥有非法属性" + attr);
-        }
+function formalizeDataForUpdate(data, schema, type, omitTsColumn) {
+    let setPart = data.$set;
+    let incPart = data.$inc;
 
-        // 处理reference列
-        if(schema.attributes[attr].type === constants.typeReference) {
-            const localColumnName = schema.attributes[attr].localColumnName;
-            const refColumnName = schema.attributes[attr].refColumnName;
-
-            if(!data[localColumnName]) {
-                data[localColumnName] = data[attr] ? data[attr][refColumnName] : null;
-            }
-
-            delete data[attr];
-        }
-        else if(schema.attributes[attr].type === "date" || schema.attributes[attr].type === "time") {
-            // 处理Date类型
-            if(data[attr] instanceof Date) {
-                data[attr] = data[attr].valueOf();
-            }
-        }
+    if (!setPart && !incPart) {
+        setPart = data;
     }
+    if (setPart) {
+        keys(setPart).forEach(
+            (attr) => {
+                if(!schema.attributes[attr]) {
+                    throw new Error("更新的数据拥有非法属性" + attr);
+                }
 
+                // 处理reference列
+                if(schema.attributes[attr].type === constants.typeReference) {
+                    const localColumnName = schema.attributes[attr].localColumnName;
+                    const refColumnName = schema.attributes[attr].refColumnName;
+
+                    if(!setPart[localColumnName]) {
+                        setPart = assign({}, setPart, {
+                            [localColumnName] : setPart[attr] ? setPart[attr][refColumnName] : null
+                        });
+                    }
+
+                    setPart = omit(setPart, attr);
+                }
+                else if(schema.attributes[attr].type === "date" || schema.attributes[attr].type === "time") {
+                    // 处理Date类型
+                    if(setPart[attr] instanceof Date) {
+                        setPart = assign({}, setPart, {
+                            [attr] : setPart[attr].valueOf()
+                        });
+                    }
+                }
+            }
+        );
+    }
+    if (incPart) {
+        if (type && type === 'create') {
+            throw new Error('创建对象时不能传$inc算子');
+        }
+        keys(incPart).forEach(
+            (attr) => {
+                if (!schema.attributes[attr]) {
+                    throw new Error("更新的数据拥有非法属性" + attr);
+                }
+                if (schema.attributes[attr].type === constants.typeReference) {
+                    throw new Error(`$inc算子不能支持引用属性${attr}`);
+                }
+                // todo 判断这个对象类型是否可以增加，暂时先不用
+                if (typeof incPart[attr] !== 'number') {
+                    throw new Error(`属性${attr}上的$inc算子的值必须是数值，当前是${incPart[attr]}`);
+                }
+            }
+        );
+    }
 
     // 增加相应的时间列
-    if(type) {
-        switch(type) {
-            case "create": {
-                data[constants.createAtColumn] = Date.now();
-                data[constants.updateAtColumn] = Date.now();
-                break;
+    switch(type) {
+        case "create": {
+            assert(setPart);
+            if (!omitTsColumn) {
+                setPart[constants.createAtColumn] = Date.now();
+                setPart[constants.updateAtColumn] = Date.now();
             }
-            case "update": {
-                data[constants.updateAtColumn] = Date.now();
-                break;
+            return setPart;
+            break;
+        }
+        case "update": {
+            if (!omitTsColumn) {
+                if (!setPart) {
+                    setPart = {};
+                }
+                setPart[constants.updateAtColumn] = Date.now();
             }
+            const newData = {};
+            if (incPart) {
+                newData.$inc = incPart;
+            }
+            if (setPart) {
+                newData.$set = setPart;
+            }
+            return newData;
+            break;
+        }
+        default: {
+            assert(false);
         }
     }
-    return data;
 }
 
 function transformDateTypeInQuery(query) {
@@ -1116,18 +1167,17 @@ class DataAccess extends EventEmitter{
             throw new Error("插入的数据必须是object类型");
         }
 
-        let create;
+        let omitTsColumn = true;
         if(!isSettingTrueStrictly(this.dataSources[schema.source].settings, "disableCreateAt")){
-            create = "create";
+            omitTsColumn = false;
         }
         let data2;
         if (!(data instanceof Array)) {
-            data2 = [formalizeDataForUpdate(assign({}, data), schema, create)];
+            data2 = [formalizeDataForUpdate(assign({}, data), schema, 'create', omitTsColumn)];
         }
         else {
             data2 = data.map(
-                (ele) => formalizeDataForUpdate(assign({}, ele), schema, create)
-
+                (ele) => formalizeDataForUpdate(assign({}, ele), schema, 'create', omitTsColumn)
             );
         }
 
@@ -1253,10 +1303,9 @@ class DataAccess extends EventEmitter{
         query = query || {};
         const connection = this.connections[schema.source];
 
-        let data2 = Object.assign({}, data);
-        let update;
+        let omitTsColumn = true;
         if(!isSettingTrueStrictly(this.dataSources[schema.source].settings, "disableUpdateAt")){
-            update = "update";
+            omitTsColumn = false;
         }
         if(!isSettingTrueStrictly(this.dataSources[schema.source].settings, "disableDeleteAt")){
             query[constants.deleteAtColumn] = {
@@ -1264,7 +1313,7 @@ class DataAccess extends EventEmitter{
             };
         }
 
-        formalizeDataForUpdate(data2.$set || {}, schema, update);
+        const data2 = formalizeDataForUpdate(data || {}, schema, 'update', omitTsColumn);
         transformDateTypeInQuery(query);
 
         return connection.update(name, data2, query, txn && txn.txn);
@@ -1277,13 +1326,12 @@ class DataAccess extends EventEmitter{
         let schema = this.schemas[name];
         const connection = this.connections[schema.source];
 
-        let data2 = Object.assign({}, data);
-        let update;
+        let omitTsColumn = true;
         if(!isSettingTrueStrictly(this.dataSources[schema.source].settings, "disableUpdateAt")){
-            update = "update";
+            omitTsColumn = false;
         }
 
-        formalizeDataForUpdate(data2.$set || {}, schema, update);
+        const data2 = formalizeDataForUpdate(data, schema, 'update', omitTsColumn);
 
         return connection.updateOneById(name, data2, id, schema, txn && txn.txn);
 

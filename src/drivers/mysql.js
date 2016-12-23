@@ -5,6 +5,7 @@
 const assert = require("assert");
 const mysql = require('mysql');
 const merge = require("lodash").merge;
+const omit = require("lodash/omit");
 
 const constants = require("./../constants");
 const SQLTransformer = require("./../utils/sqlTransformer");
@@ -431,7 +432,7 @@ class Mysql {
 			.then(
 				(result) => {
 					if(result.affectedRows === 1) {
-						// 这里只勉强返回一个更新后的域的组装对象
+						// 这里只能勉强返回一个更新后的域的组装对象
 						return Promise.resolve(merge({}, {
 							[idColumn]: id
 						}, updatePart.$set));
