@@ -1038,6 +1038,7 @@ class DataAccess extends EventEmitter{
         this.drivers.mysql = mysql;
         this.drivers.mongodb = mongodb;
         this.drivers.remote = remote;
+        this.txnCount = 0;
     }
 
     connect(dataSources) {
@@ -1415,6 +1416,7 @@ class DataAccess extends EventEmitter{
             return connection.startTransaction(option)
                 .then(
                     (txn) => {
+                        this.txnCount ++;
                         const transaction = {
                             txn,
                             source,
@@ -1444,6 +1446,7 @@ class DataAccess extends EventEmitter{
             return connection.commmitTransaction(txn.txn, option)
                 .then(
                     () => {
+                        this.txnCount --;
                         txn.state = 'committed';
                         this.emit('txnCommitted', txn);
                     }
@@ -1464,6 +1467,7 @@ class DataAccess extends EventEmitter{
      */
     rollbackTransaction(txn, option) {
         this.checkTransactionValid(txn);
+        this.txnCount --;
         const connection = this.connections[txn.source];
         if(connection && connection.rollbackTransaction && typeof connection.rollbackTransaction === "function") {
             return connection.rollbackTransaction(txn.txn, option)
