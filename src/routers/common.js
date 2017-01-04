@@ -15,83 +15,125 @@ class Common {
     init(uda, originSchema) {
         this._router.post(apis.urlFind, (req, res, next) => {
             let data = req.body;
-            uda.findByExecTreeDirectly(data.name, data.execTree, data.indexFrom, data.count, data.isCounting)
-                .then(
-                    (result) => {
-                        res.json(result);
-                    },
-                    (err) => {
-                        next(err);
-                    }
-                );
+            try {
+                uda.findByExecTreeDirectly(data.name, data.execTree, data.indexFrom, data.count, data.isCounting)
+                    .then(
+                        (result) => {
+                            res.json(result);
+                        }
+                    )
+                    .catch(
+                        (err) => {
+                            next(err);
+                        }
+                    );
+            }
+            catch(err) {
+                next(err);
+            }
         });
 
 
         this._router.post(apis.urlInsert, (req, res, next) => {
             let data = req.body;
-            uda.insert(data.name, data.data)
-                .then(
-                    (result) => {
-                        res.json(result);
-                    },
-                    (err) => {
-                        next(err);
-                    }
-                );
+            try {
+                uda.insert(data.name, data.data)
+                    .then(
+                        (result) => {
+                            res.json(result);
+                        }
+                    )
+                    .catch(
+                        (err) => {
+                            next(err);
+                        }
+                    );
+            }
+            catch(err) {
+                next(err);
+            }
         });
 
         this._router.post(apis.urlUpdate, (req, res, next) => {
             let data = req.body;
-            uda.update(data.name, data.updatePart, data.query)
-                .then(
-                    (result) => {
-                        res.json(result);
-                    },
-                    (err) => {
-                        next(err);
-                    }
-                );
+            try {
+                uda.update(data.name, data.updatePart, data.query)
+                    .then(
+                        (result) => {
+                            res.json(result);
+                        }
+                    )
+                    .catch(
+                        (err) => {
+                            next(err);
+                        }
+                    );
+            }
+            catch(err) {
+                next(err);
+            }
         });
 
         this._router.post(apis.urlUpdateOneById, (req, res, next) => {
             let data = req.body;
-            uda.updateOneById(data.name, data.updatePart, data.id)
-                .then(
-                    (result) => {
-                        res.json(result);
-                    },
-                    (err) => {
-                        next(err);
-                    }
-                );
+            try {
+                uda.updateOneById(data.name, data.updatePart, data.id)
+                    .then(
+                        (result) => {
+                            res.json(result);
+                        }
+                    )
+                    .catch(
+                        (err) => {
+                            next(err);
+                        }
+                    );
+            }
+            catch(err) {
+                next(err);
+            }
         });
 
 
         this._router.post(apis.urlRemove, (req, res, next) => {
             let data = req.body;
-            uda.remove(data.name, data.query)
-                .then(
-                    (result) => {
-                        res.json(result);
-                    },
-                    (err) => {
-                        next(err);
-                    }
-                );
+            try {
+                uda.remove(data.name, data.query)
+                    .then(
+                        (result) => {
+                            res.json(result);
+                        }
+                    )
+                    .catch(
+                        (err) => {
+                            next(err);
+                        }
+                    );
+            }
+            catch(err) {
+                next(err);
+            }
         });
 
 
         this._router.post(apis.urlRemoveOneById, (req, res, next) => {
             let data = req.body;
-            uda.removeOneById(data.name, data.id)
-                .then(
-                    (result) => {
-                        res.json(result);
-                    },
-                    (err) => {
-                        next(err);
-                    }
-                );
+            try {
+                uda.removeOneById(data.name, data.id)
+                    .then(
+                        (result) => {
+                            res.json(result);
+                        }
+                    )
+                    .catch(
+                        (err) => {
+                            next(err);
+                        }
+                    );
+            }
+            catch(err) {
+                next(err);
+            }
         });
 
 
@@ -116,7 +158,6 @@ class Common {
         });
 
         this._router.post(apis.urlSchemas, (req, res, next) => {
-
             res.json(originSchema);
         });
 
