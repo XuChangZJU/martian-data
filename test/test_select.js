@@ -507,6 +507,30 @@ describe("test select with joins in mysql 1", function() {
             )
     });
 
+    it("[ts0.6]测试查询传null的现象", () => {
+        const projection = {
+            id: 1,
+        };
+        const where = {
+            id: 1,
+            buildAt: null
+        };
+
+
+        try {
+            return uda.find("house", projection, where, null, 0, 10)
+                .then(
+                    (result) => {
+                        throw new Error("不可能成功");
+                    }
+                );
+        }
+        catch(err) {
+            console.log(err);
+            return Promise.resolve();
+        }
+    });
+
     it("[ts0.10]", (done) => {
         const query = {
             buildAt: {

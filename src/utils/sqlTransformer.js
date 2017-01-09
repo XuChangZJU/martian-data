@@ -310,6 +310,9 @@ class SQLTransformer {
 
 
 	transformWhere(where, attr, alias, relName) {
+		if (where === null || where === undefined) {
+			throw new Error(`属性【${attr}】的值为${where}`);
+		}
 		let sql = "";
 		let type;
 		if(relName && this.schemas[relName] && attr && this.schemas[relName].attributes[attr]) {
