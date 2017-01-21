@@ -586,7 +586,7 @@ function distributeNode(result, node, name, treeName, path) {
             distributeNode.call(this, result, result[join.rel], join.rel, join.rel, "");
         }
         else {
-            let path2 = path + join.rel + ".";
+            let path2 = path + join.attr + ".";
             distributeNode.call(this, result, join.node, join.rel, treeName, path2);
             newJoins.push(join);
         }
@@ -1233,7 +1233,7 @@ class DataAccess extends EventEmitter{
             throw new Error("查询必须输入有效表名");
         }
 
-        if(typeof id !== "number" && typeof id !== "string" && ! id instanceof ObjectId) {
+        if(typeof id !== "number" && typeof id !== "string" && ! (id instanceof ObjectId)) {
             throw new Error("查询必须输入有效id")
         }
 
@@ -1321,6 +1321,9 @@ class DataAccess extends EventEmitter{
     }
 
     updateOneById(name, data, id, txn) {
+        if(typeof id !== "number" && typeof id !== "string" && ! (id instanceof ObjectId)) {
+            throw new Error("查询必须输入有效id")
+        }
         if (txn) {
             this.checkTransactionValid(txn);
         }
@@ -1365,6 +1368,9 @@ class DataAccess extends EventEmitter{
     }
 
     removeOneById(name, id, txn) {
+        if(typeof id !== "number" && typeof id !== "string" && ! (id instanceof ObjectId)) {
+            throw new Error("查询必须输入有效id")
+        }
         if (txn) {
             this.checkTransactionValid(txn);
         }

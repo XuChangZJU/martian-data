@@ -466,4 +466,87 @@ describe('test concurrent transaction in mysql', function() {
                 }
             )
     });
+
+
+    it("[tct1.4]batch insert in mysql with txn may have a bug", () => {
+        let _schema = JSON.parse(JSON.stringify(schema));
+
+        return uda2.setSchemas(_schema)
+            .then(
+                () => {
+                    const items = [];
+                    let now = Date.now();
+                    const threadCount = 3;
+                    for (let i = 0; i < threadCount; i ++) {
+                        items.push(
+                            [
+                                {
+                                    buildAt: now++,
+                                    status: "free"
+                                },
+                                {
+                                    buildAt: now++,
+                                    status: "offline"
+                                },
+                                {
+                                    buildAt: now++,
+                                    status: "free"
+                                },
+                                {
+                                    buildAt: now++,
+                                    status: "offline"
+                                }
+                            ]
+                        );
+                    }
+
+                    const doInsert = (index) => {
+                        return uda2.startTransaction('mysql', {
+                            isolationLevel: 'SERIALIZABLE',
+                        }).then(
+                            (txn) => {
+                                return uda2.insert("house", items[index], txn).then(
+                                    (result) => {
+                                        return uda2.commitTransaction(txn, {
+                                            isolationLevel: 'REPEATABLE READ',
+                                        })
+                                    }
+                                )
+                            }
+                        );
+                    };
+
+                    const i = (index) => {
+                        if (index === threadCount) {
+                            return Promise.resolve();
+                        }
+                        return doInsert(index)
+                            .then(
+                                () => i(index + 1)
+                            );
+                    };
+
+
+                    return uda2.remove('house').then(
+                        () => {
+                            return i(0).then(
+                                () => {
+                                    return uda2.count(
+                                        'house',
+                                        null
+                                    ).then(
+                                        (count) => {
+                                            expect(count.count).to.eql(threadCount * 4);
+                                            return Promise.resolve();
+                                        }
+                                    )
+                                }
+                            )
+                        }
+                    );
+                }
+            );
+    });
+
+    it("[tct1.5]", () => Promise.resolve());
 })

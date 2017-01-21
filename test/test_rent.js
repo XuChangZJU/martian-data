@@ -540,7 +540,7 @@ describe("test rent", () => {
                 )
         });
 
-        it("[1.4]rent insert consult in mongodb", (done) => {
+        /*it("[1.4]rent insert consult in mongodb", () => {
             g_consults[0].houseId=houses[0].id;
             g_consults[0].tenantId=users[2]._id||users[2].id;
             g_consults[0].details=[
@@ -575,10 +575,10 @@ describe("test rent", () => {
             };
             const indexFrom2 = 0, count2 = 10;
 
-            uda.insert("consult",g_consults[0]).then(
+            return uda.insert("consult",g_consults[0]).then(
                 (consult)=>{
                     console.log(consult);
-                    uda.updateOneById(
+                    return uda.updateOneById(
                         "consult",
                         {
                             $push:{
@@ -591,7 +591,7 @@ describe("test rent", () => {
                             console.log(consult);
                             query2.house.id =  consult.houseId;
                             console.log(query2);
-                            uda.find("consult", projection2, query2, sort2, indexFrom2, count2)
+                            return uda.find("consult", projection2, query2, sort2, indexFrom2, count2)
                                 .then(
                                     (result) => {
                                         console.log(result);
@@ -627,30 +627,18 @@ describe("test rent", () => {
                                                 (users)=> {
                                                     console.log(users);
                                                     console.log(result);
-                                                    done();
-                                                },
-                                                (err) => {
-                                                    done(err);
+                                                    return Promise.resolve();
                                                 }
                                             )
                                         }
 
-                                    },
-                                    (err) => {
-                                        done(err);
                                     }
                                 )
-                        },
-                        (err)=>{
-                            done(err)
                         }
                     )
-                },
-                (err)=>{
-                    done(err)
                 }
             )
-        })
+        })*/
 
 
     });
