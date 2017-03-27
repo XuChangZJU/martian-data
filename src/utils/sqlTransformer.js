@@ -408,6 +408,31 @@ class SQLTransformer {
 				});
 				sql += ")";
 			}
+			else if (where.hasOwnProperty('$between')) {
+				const between = where.$between;
+				const left = where.$between.$left;
+				const right = where.$between.$right;
+				assert(left);
+				assert(right);
+				if (typeof left === 'object') {
+					sql += left.$closed ? " >= " : " > ";
+					sql += left.$value;
+				}
+				else {
+					sql += " > ";
+					sql += left;
+				}
+				sql += " and ";
+				sql += attr;
+				if (typeof left === 'object') {
+					sql += right.$closed ? " <= " : " < ";
+					sql += right.$value;
+				}
+				else {
+					sql += " < ";
+					sql += right;
+				}
+			}
 			else if(where.hasOwnProperty("$exists")) {
 				sql += where.$exists ? " is not null" : " is null";
 			}

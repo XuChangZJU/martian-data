@@ -548,5 +548,136 @@ describe('test concurrent transaction in mysql', function() {
             );
     });
 
-    it("[tct1.5]", () => Promise.resolve());
+    /**
+     * Created by Administrator on 2017/2/16.
+     */
+    Promise.every = (promises) => {
+        const result = promises.map(
+            () => false
+        );
+        const promises2 = promises.map(
+            (ele, idx) =>
+                ele.then(
+                    (res) => {
+                        result[idx] = true;
+                        return Promise.resolve(res);
+                    }
+                ).catch(
+                    (err) => {
+                        return Promise.resolve(err);
+                    }
+                )
+        );
+
+        return Promise.all(promises2)
+            .then(
+                (res) => {
+                    const failure = result.findIndex(
+                        (ele) => ele === false
+                    );
+                    if (failure !== -1) {
+                        throw res[failure];
+                    }
+                    return Promise.resolve(res);
+                }
+            );
+    };
+
+
+    it("[tct1.5]事务并发执行多个任务，产生回滚", () => {
+        const t = (houseInfo) => {
+            let areaValue = 100;
+            return uda2.startTransaction('mysql', {
+                isolationLevel: 'SERIALIZABLE',
+            }).then(
+                (txn) => {
+                    const f1 = () => {
+                        return uda2.findById('houseInfo', {
+                            area: 1
+                        }, houseInfo.id, txn)
+                            .then(
+                                (houseInfo2) => {
+                                    return uda2.updateOneById('houseInfo', {
+                                        $set: {
+                                            area: houseInfo2.area + 1,
+                                        },
+                                    }, houseInfo.id, txn)
+                                }
+                            );
+                    };
+                    const f2 = () => {
+                        return uda2.findById('houseInfo', {
+                            area: 1
+                        }, houseInfo.id, txn)
+                            .then(
+                                (houseInfo2) => {
+                                    return uda2.updateOneById('houseInfo', {
+                                        $set: {
+                                            area: houseInfo2.area - 5,
+                                        },
+                                    }, houseInfo.id, txn)
+                                        .then(
+                                            () => {
+                                                throw new Error("我偏要失败");
+                                            }
+                                        )
+                                }
+                            );
+                    };
+
+                    const checkValue = () => {
+                        return uda2.findById('houseInfo', {
+                            area: 1,
+                        }, houseInfo.id)
+                            .then(
+                                (houseInfo3) => {
+                                    console.log(`[serializable]value in db ${houseInfo3.area}, value outside: ${areaValue}`);
+                                    expect(houseInfo3.area).to.eql(areaValue);
+                                    return Promise.resolve();
+                                }
+                            );
+                    };
+                    return Promise.all([f2(), f1()])
+                        .then(
+                            () => {
+                                console.log("我提交了");
+                                return uda2.commitTransaction(txn, {
+                                    isolationLevel: 'REPEATABLE READ',
+                                }).then(
+                                    () => checkValue()
+                                )
+                            }
+                        )
+                        .catch(
+                            (err) => {
+                                console.error(err);
+                                console.log("我回滚了");
+                                return uda2.rollbackTransaction(txn, {
+                                    isolationLevel: 'REPEATABLE READ',
+                                }).then(
+                                    () => checkValue()
+                                )
+                            }
+                        );
+                }
+            );
+        };
+        return uda2.insert('houseInfo', {
+            floor: 1,
+            area: 100
+        }).then(
+            (houseInfo) => {
+                return uda2.insert('houseInfo', {
+                    floor: 1,
+                    area: 100
+                }).then(
+                    (houseInfo2) => {
+                        return Promise.all(
+                            [t(houseInfo), t(houseInfo2)]
+                        );
+                    }
+                );
+            }
+        );
+    });
 })

@@ -1144,9 +1144,6 @@ describe("test select with null in mysql 1", function() {
                                                 .then(
                                                     () => {
                                                         done();
-                                                    },
-                                                    (err) => {
-                                                        done(err);
                                                     }
                                                 );
                                         },
@@ -1223,6 +1220,65 @@ describe("test select with null in mysql 1", function() {
             )
     });
 
+
+    it("[ts2.1]test $between 1", (done) => {
+        const query = {
+            contract: {
+                price: {
+                    $between: {
+                        $left: 1999,
+                        $right: 2002,
+                    }
+                }
+            }
+        };
+        const projection = {
+            id: 1,
+            buildAt : 1,
+            status: 1,
+            contract: {
+                owner: {
+                    name: 1,
+                    age: 1
+                },
+                renter: {
+                    name: 1
+                }
+            },
+            houseInfo: {
+                area: 1,
+                floor: 1
+            }
+        };
+
+        const sort = {
+            houseInfo: {
+                area: 1
+            }
+        }
+        const indexFrom = 0, count = 1;
+
+        uda.find("house", projection, query, sort, indexFrom, count)
+            .then(
+                (result) => {
+                    console.log(result);
+                    expect(result).to.be.an("array");
+                    if(result.length === 1){
+                        // 这里根据mongodb的连接算法，先实行skip + count，再进行lookup，是有可能返回0行的
+                        expect(result).to.have.length(1);
+                        checkResult1(result[0]);
+                    }
+                    else {
+                        expect(result).to.have.length(0);
+                    }
+
+                    done();
+                },
+                (err) => {
+                    done(err);
+                }
+            );
+    });
 
     after((done) => {
         uda.disconnect()

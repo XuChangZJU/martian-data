@@ -207,6 +207,35 @@ describe("test sqltransformer", () => {
 		const sql = sqlTransformer.transformInsert("user", items);
 		console.log(sql);
 		done();
-	})
+	});
+
+	it("[st4.0]between", (done) => {
+		const query = {
+			$between:{
+				$left: 1000,
+				$right: 2000,
+			},
+		};
+
+		const sql = sqlTransformer.transformWhere(query, 'price', undefined, "user");
+		console.log(sql);
+		done();
+	});
+
+	it("[st4.1]between2", (done) => {
+		const query = {
+			$between:{
+				$left: {
+					$closed: true,
+					$value: 1000,
+				},
+				$right: 2000,
+			},
+		};
+
+		const sql = sqlTransformer.transformWhere(query, 'price', undefined, "user");
+		console.log(sql);
+		done();
+	});
 
 })
