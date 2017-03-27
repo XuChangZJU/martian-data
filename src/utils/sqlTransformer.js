@@ -424,7 +424,7 @@ class SQLTransformer {
 				}
 				sql += " and ";
 				sql += attr;
-				if (typeof left === 'object') {
+				if (typeof right === 'object') {
 					sql += right.$closed ? " <= " : " < ";
 					sql += right.$value;
 				}
