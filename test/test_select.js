@@ -1280,6 +1280,40 @@ describe("test select with null in mysql 1", function() {
             );
     });
 
+
+    it("[ts2.2] select with or", (done) => {
+        const query = {
+            $or: [
+                {
+                    buildAt: {
+                        $eq: now
+                    },
+                },
+                {
+                    buildAt:  now
+                }
+            ]
+        };
+        const projection = null;
+
+        const sort = {
+            houseInfo: {
+                area: 1
+            }
+        }
+        const indexFrom = 0, count = 1;
+
+        uda.find("house", projection, query, sort, indexFrom, count)
+            .then(
+                (result) => {
+                    console.log(result);
+                    done();
+                },
+                (err) => {
+                    done(err);
+                }
+            );
+
     after((done) => {
         uda.disconnect()
             .then(done);
@@ -1454,6 +1488,9 @@ describe("test select with null in mongodb 1", function() {
                     done(err);
                 }
             );
+    });
+
+
     });
 
 

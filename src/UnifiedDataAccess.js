@@ -17,6 +17,7 @@ const set = require("lodash").set;
 const assign = require("lodash/assign");
 const keys = require("lodash/keys");
 const omit = require("lodash/omit");
+const uniq = require("lodash/uniq");
 
 const constants = require("./constants");
 const events = require("./events");
@@ -860,11 +861,11 @@ function joinNext(forest, me, result) {
                      }
                      }
                      );*/
-                    let joinLocalValues = result.map(
+                    let joinLocalValues = uniq(result.map(
                         (ele, idx) => {
                             return get(ele, nodeSon.joinInfo.localKeyPath);
                         }
-                    );
+                    ));
 
                     /*// 又要处理 mongodb _id的特殊情况
                      if(nodeSon.joinInfo.refAttr === "_id") {

@@ -28,7 +28,18 @@ const schemas = {
 				type: "string"
 			}
 		}
-	}
+	},
+	mark: {
+		attributes: {
+			value: {
+				type: 'float',
+			},
+			user: {
+				type: 'ref',
+				ref: 'user',
+			},
+		},
+	},
 };
 const sqlTransformer = new SQLTransformer(schemas);
 
@@ -238,4 +249,24 @@ describe("test sqltransformer", () => {
 		done();
 	});
 
+	it("[st5.0]or", (done) => {
+		const query = {
+			$or: [
+				{
+					age: {
+						$gt: 10,
+					},
+				},
+				{
+					age: {
+						$lt: 5,
+					},
+				}
+			],
+		};
+
+		const sql = sqlTransformer.transformWhere(query, null, null, 'user');
+		console.log(sql);
+		done();
+	});
 })
