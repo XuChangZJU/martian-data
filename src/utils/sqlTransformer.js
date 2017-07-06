@@ -390,6 +390,10 @@ class SQLTransformer {
 			}
 			else if(where.hasOwnProperty("$in")) {
 				sql += " in (";
+				if (where.$in.length === 0) {
+					throw new Error(`${attr} in算子的域集合为空`);
+					return;
+				}
 				where.$in.forEach((ele, index) => {
 					if(index > 0) {
 						sql += ",";
