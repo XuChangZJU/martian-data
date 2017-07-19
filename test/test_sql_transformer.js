@@ -269,4 +269,18 @@ describe("test sqltransformer", () => {
 		console.log(sql);
 		done();
 	});
+
+	it("[st6.0]fnCall", (done) => {
+		const query = {
+			$fnCall: {
+				$format: "ST_AsText(%s)",
+				$arguments: ["age"],
+				$as: "age"
+			}
+		};
+
+		const sql = sqlTransformer.transformWhere(query, null, null, 'user');
+		console.log(sql);
+		done();
+	});
 })
