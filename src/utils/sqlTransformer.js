@@ -421,7 +421,7 @@ class SQLTransformer {
                     if (index > 0) {
                         sql += ",";
                     }
-                    sql += this.typeConvertor(type || typeof(ele));
+                    sql += this.typeConvertor(ele, type || typeof(ele));
                 });
                 sql += ")";
             }
