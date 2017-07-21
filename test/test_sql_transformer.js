@@ -283,4 +283,16 @@ describe("test sqltransformer", () => {
 		console.log(sql);
 		done();
 	});
+
+	it("[st7.0]like", (done) => {
+		const query = {
+			name: {
+				$like: 'xc',
+			}
+		};
+
+		const sql = sqlTransformer.transformWhere(query, null, null, 'user');
+		console.log(sql);
+		done();
+	});
 })
