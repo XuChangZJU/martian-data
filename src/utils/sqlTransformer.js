@@ -453,6 +453,11 @@ class SQLTransformer {
             else if (where.hasOwnProperty("$exists")) {
                 sql += where.$exists ? " is not null" : " is null";
             }
+            //  Added by wangyuef 增加like算子 2017-7-21    Start
+            else if (where.hasOwnProperty("$like")) {
+                sql += `like '${where.$like}%'`;
+            }
+            //  Added by wangyuef 增加like算子 2017-7-21    End
             else {
                 // 只支持以上的算子，除此之外如果再有$开关的算子，直接报不支持
                 switch (typeof where) {

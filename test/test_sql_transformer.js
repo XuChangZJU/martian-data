@@ -290,7 +290,7 @@ describe("test sqltransformer", () => {
 	it("[st7.0]like", (done) => {
 		const query = {
 			name: {
-				$like: 'xc',
+				$like: "xc",
 			}
 		};
 
