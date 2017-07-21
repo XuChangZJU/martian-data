@@ -10,36 +10,36 @@ const SQLTransformer = require("../src/utils/sqlTransformer");
 
 const now = Date.now();
 const schemas = {
-	user: {
-		attributes: {
-			name: {
-				type: "string"
-			},
-			age: {
-				type: "int"
-			},
-			time: {
-				type: "date"
-			},
-			id: {
-				type: "int"
-			},
-			gender: {
-				type: "string"
-			}
-		}
-	},
-	mark: {
-		attributes: {
-			value: {
-				type: 'float',
-			},
-			user: {
-				type: 'ref',
-				ref: 'user',
-			},
-		},
-	},
+    user: {
+        attributes: {
+            name: {
+                type: "string"
+            },
+            age: {
+                type: "int"
+            },
+            time: {
+                type: "date"
+            },
+            id: {
+                type: "int"
+            },
+            gender: {
+                type: "string"
+            }
+        }
+    },
+    mark: {
+        attributes: {
+            value: {
+                type: 'float',
+            },
+            user: {
+                type: 'ref',
+                ref: 'user',
+            },
+        },
+    },
 };
 const sqlTransformer = new SQLTransformer(schemas);
 
@@ -270,19 +270,22 @@ describe("test sqltransformer", () => {
 		done();
 	});
 
-	it("[st6.0]fnCall", (done) => {
-		const query = {
-			$fnCall: {
-				$format: "ST_AsText(%s)",
-				$arguments: ["age"],
-				$as: "age"
-			}
-		};
 
-		const sql = sqlTransformer.transformWhere(query, null, null, 'user');
-		console.log(sql);
-		done();
-	});
+    it("[st6.0]fnCall", (done) => {
+        const query = {
+            $fnCall: {
+                $format: "ST_AsText(%s)",
+	$arguments: ["age"],
+                $where: {
+                    $lte: 1
+                }
+            }
+        };
+
+        const sql = sqlTransformer.transformWhere(query, null, 'user2', 'user');
+        console.log(sql);
+        done();
+    });
 
 	it("[st7.0]like", (done) => {
 		const query = {
