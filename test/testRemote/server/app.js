@@ -24,7 +24,7 @@ function initialize() {
                         // 使用Common router;
                         let commonRouter = require("../../../src/routers/common");
                         const constants = require("../../../src/constants");
-                        commonRouter.init(db.uda, db.schema);
+                        commonRouter.init({uda: db.uda, schema: db.schema});
                         app.use(constants.defaultRemoteApiRouter, commonRouter.router);
 
 

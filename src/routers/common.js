@@ -12,7 +12,8 @@ class Common {
         this._router = router;
     }
 
-    init(uda, originSchema) {
+    init(option) {
+        const { uda, schema } = option;
         this._router.post(apis.urlFind, (req, res, next) => {
             let data = req.body;
             try {
@@ -158,7 +159,7 @@ class Common {
         });
 
         this._router.post(apis.urlSchemas, (req, res, next) => {
-            res.json(originSchema);
+            res.json(schema);
         });
 
     }
