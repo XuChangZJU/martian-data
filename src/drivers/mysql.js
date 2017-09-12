@@ -528,7 +528,7 @@ class Mysql {
 					query += " not null";
 				}
 				if(attrDef.hasOwnProperty("default")) {
-					query += " default " + convertValueToDbFormat(attrDef.default, attrDef.type);
+					query += " default " + convertValueToDbFormat.call(this, attrDef.default, attrDef.type);
 				}
 			}
 		}
