@@ -8,7 +8,7 @@ const schema6 = require("./def/schemas/schema6.js");
 const now = Date.now();
 
 
-describe("test save object in mysql", function() {
+describe("test save object in mysql", function () {
 
     this.timeout(5000);
 
@@ -18,30 +18,30 @@ describe("test save object in mysql", function() {
                 (result) => {
                     let _schema6 = JSON.parse(JSON.stringify(schema6));
                     uda.setSchemas(_schema6)
-						.then(
-							() => {
-								uda.dropSchemas()
-									.then(
-										() => {
-											uda.createSchemas()
-												.then(
-													() => {
-														done();
-													},
-													(err) => {
-														done(err);
-													}
-												);
-										},
-										(err) => {
-											done(err);
-										}
-									);
-							},
-							(err) => {
-								done(err);
-							}
-						);
+                        .then(
+                            () => {
+                                uda.dropSchemas()
+                                    .then(
+                                        () => {
+                                            uda.createSchemas()
+                                                .then(
+                                                    () => {
+                                                        done();
+                                                    },
+                                                    (err) => {
+                                                        done(err);
+                                                    }
+                                                );
+                                        },
+                                        (err) => {
+                                            done(err);
+                                        }
+                                    );
+                            },
+                            (err) => {
+                                done(err);
+                            }
+                        );
 
                 },
                 (err) => {
@@ -51,52 +51,59 @@ describe("test save object in mysql", function() {
     });
 
     it("[to0.0]", (done) => {
-    	let information = {
-    		id: 1,
-    		name: "xc",
-    		age: "33",
-    		skills: [
-    			{
-    				name: "programming",
-    				rating: "A"
-    			},
-    			{
-    				name: "playing game",
-    				rating: "B"
-    			}
-    		],
-    		birth: new Date(1983, 11, 10)
-    	};
+        let information = {
+            id: 1,
+            name: "xc",
+            age: "33",
+            skills: [
+                {
+                    name: "programming",
+                    rating: "A"
+                },
+                {
+                    name: "playing game",
+                    rating: "B"
+                }
+            ],
+            birth: new Date(1983, 11, 10)
+        };
 
-    	let _information = JSON.parse(JSON.stringify(information));
+        let _information = JSON.parse(JSON.stringify(information));
 
 
-		uda.insert("info", {
-				information: _information
-			})
-			.then(
-				(result) => {
-					uda.findById("info", {
-							information: 1
-						}, result.id)
-						.then(
-							(result2)  => {
-								expect(result2).to.be.an("object");
-								let infoResult = result2.information;
-								expect(infoResult.name).to.eql(information.name);
-								expect(infoResult.age).to.eql(information.age);
-								expect(infoResult.skills).to.be.an("array");
-								done();
-							},
-							(err) => {
-								done(err);
-							}
-						);
-				},
-				(err) => {
-					done(err);
-				}
-			);
+        uda.insert({
+                name: "info",
+                data: {
+                    information: _information
+                }
+            })
+            .then(
+                (result) => {
+                    uda.findById({
+                            name: "info",
+                            projection: {
+                                information: 1
+                            },
+                            id: result.id
+                        })
+                        .then(
+                            (result2) => {
+                                expect(result2).to.be.an("object");
+                                let infoResult = result2.information;
+                                expect(infoResult.name).to.eql(information.name);
+                                expect(infoResult.age).to.eql(information.age);
+                                expect(infoResult.skills).to.be.an("array");
+                                done();
+                            },
+                            (err) => {
+                                done(err);
+                            }
+                        );
+                },
+                (err) => {
+                    done(err);
+                }
+            );
     });
 
 

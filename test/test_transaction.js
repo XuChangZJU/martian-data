@@ -4,7 +4,6 @@
 "use strict";
 
 
-
 var expect = require("expect.js");
 
 
@@ -68,7 +67,9 @@ function initData(uda) {
                                 (ele, idx) => {
                                     const idx2 = idx;
                                     promises.push(
-                                        uda.insert("user", ele)
+                                        uda.insert({
+                                                name: "user", data: ele
+                                            })
                                             .then(
                                                 (result) => {
                                                     users[idx2] = result;
@@ -87,27 +88,37 @@ function initData(uda) {
                                         houseInfos.forEach(
                                             (ele, index) => {
                                                 promises2.push(
-                                                    uda.insert("houseInfo", ele)
+                                                    uda.insert({
+                                                            name: "houseInfo", data: ele
+                                                        })
                                                         .then(
                                                             (result) => {
                                                                 houses[index].houseInfo = result;
-                                                                return uda.insert("house", houses[index])
+                                                                return uda.insert({
+                                                                        name: "house", data: houses[index]
+                                                                    })
                                                                     .then(
                                                                         (hItem) => {
                                                                             houses[index] = hItem;
                                                                             let contract = {
-                                                                                owner: users[index*2],
-                                                                                renter: users[index *2 + 1],
+                                                                                owner: users[index * 2],
+                                                                                renter: users[index * 2 + 1],
                                                                                 price: 2000
                                                                             };
-                                                                            return uda.insert("contract", contract)
+                                                                            return uda.insert({
+                                                                                    name: "contract", data: contract
+                                                                                })
                                                                                 .then(
                                                                                     (result) => {
-                                                                                        return uda.updateOneById("house", {
-                                                                                            $set: {
-                                                                                                contract: result
-                                                                                            }
-                                                                                        }, (hItem.id || hItem._id))
+                                                                                        return uda.updateOneById({
+                                                                                                name: "house",
+                                                                                                data: {
+                                                                                                    $set: {
+                                                                                                        contract: result
+                                                                                                    }
+                                                                                                },
+                                                                                                id: hItem.id || hItem._id
+                                                                                            })
                                                                                             .then(
                                                                                                 () => {
                                                                                                     return Promise.resolve();
@@ -150,7 +161,7 @@ function initData(uda) {
 }
 
 
-describe("test transaction", function() {
+describe("test transaction", function () {
     this.timeout(5000);
     before((done) => {
         uda.connect(dataSource3)
@@ -194,14 +205,22 @@ describe("test transaction", function() {
             .then(
                 (txn) => {
                     const houseInfo = JSON.parse(JSON.stringify(houseInfos[0]));
-                    uda.insert("houseInfo", houseInfo, txn)
+                    uda.insert({
+                            name: "houseInfo", data: houseInfo, txn
+                        })
                         .then(
                             () => {
-                                uda.find("houseInfo", {
-                                    id: 1,
-                                    area: 1,
-                                    floor: 1
-                                }, null, null, 0, 10, txn)
+                                uda.find({
+                                        name: "houseInfo",
+                                        projection: {
+                                            id: 1,
+                                            area: 1,
+                                            floor: 1
+                                        },
+                                        indexFrom: 0,
+                                        count: 10,
+                                        txn
+                                    })
                                     .then(
                                         (result) => {
                                             expect(result).to.be.an("array");
@@ -212,11 +231,16 @@ describe("test transaction", function() {
                                             uda.rollbackTransaction(txn)
                                                 .then(
                                                     () => {
-                                                        uda.find("houseInfo", {
-                                                            id: 1,
-                                                            area: 1,
-                                                            floor: 1
-                                                        }, null, null, 0, 10)
+                                                        uda.find({
+                                                                name: "houseInfo",
+                                                                projection: {
+                                                                    id: 1,
+                                                                    area: 1,
+                                                                    floor: 1
+                                                                },
+                                                                indexFrom: 0,
+                                                                count: 10
+                                                            })
                                                             .then(
                                                                 (result) => {
                                                                     expect(result).to.be.an("array");
@@ -256,14 +280,22 @@ describe("test transaction", function() {
             .then(
                 (txn) => {
                     const houseInfo = JSON.parse(JSON.stringify(houseInfos[0]));
-                    uda.insert("houseInfo", houseInfo, txn)
+                    uda.insert({
+                            name: "houseInfo", data: houseInfo, txn
+                        })
                         .then(
                             () => {
-                                uda.find("houseInfo", {
-                                    id: 1,
-                                    area: 1,
-                                    floor: 1
-                                }, null, null, 0, 10, txn)
+                                uda.find({
+                                        name: "houseInfo",
+                                        projection: {
+                                            id: 1,
+                                            area: 1,
+                                            floor: 1
+                                        },
+                                        indexFrom: 0,
+                                        count: 10,
+                                        txn
+                                    })
                                     .then(
                                         (result) => {
                                             expect(result).to.be.an("array");
@@ -274,11 +306,16 @@ describe("test transaction", function() {
                                             uda.commitTransaction(txn)
                                                 .then(
                                                     () => {
-                                                        uda.find("houseInfo", {
-                                                            id: 1,
-                                                            area: 1,
-                                                            floor: 1
-                                                        }, null, null, 0, 10)
+                                                        uda.find({
+                                                                name: "houseInfo",
+                                                                projection: {
+                                                                    id: 1,
+                                                                    area: 1,
+                                                                    floor: 1
+                                                                },
+                                                                indexFrom: 0,
+                                                                count: 10
+                                                            })
                                                             .then(
                                                                 (result) => {
                                                                     expect(result).to.be.an("array");
@@ -316,7 +353,7 @@ describe("test transaction", function() {
 
 });
 
-describe('test concurrent transaction in mysql', function() {
+describe('test concurrent transaction in mysql', function () {
     this.timeout(15000);
     const uda2 = new UDA();
     before(() => {
@@ -364,24 +401,34 @@ describe('test concurrent transaction in mysql', function() {
             return uda2.startTransaction('mysql', option)
                 .then(
                     (txn) => {
-                        return uda2.findById('houseInfo', {
-                            area: 1
-                        }, houseInfoId, txn)
+                        return uda2.findById({
+                                name: 'houseInfo',
+                                projection: {
+                                    area: 1
+                                },
+                                id: houseInfoId,
+                                txn
+                            })
                             .then(
                                 (houseInfo) => {
-                                    return uda2.updateOneById('houseInfo', {
-                                        $set: {
-                                            area: houseInfo.area + 1,
-                                        },
-                                    }, houseInfoId, txn)
+                                    return uda2.updateOneById({
+                                            name: 'houseInfo',
+                                            data: {
+                                                $set: {
+                                                    area: houseInfo.area + 1,
+                                                },
+                                            },
+                                            id: houseInfoId,
+                                            txn
+                                        })
                                         .then(
                                             () => {
                                                 return uda2.commitTransaction(txn, {
-                                                    isolationLevel: 'REPEATED READ',
-                                                })
+                                                        isolationLevel: 'REPEATED READ',
+                                                    })
                                                     .then(
                                                         () => {
-                                                            areaValue ++;
+                                                            areaValue++;
                                                             return Promise.resolve();
                                                         }
                                                     )
@@ -398,23 +445,30 @@ describe('test concurrent transaction in mysql', function() {
                 );
         };
 
-        return uda2.insert('houseInfo', {
-            floor: 1,
-            area: 100
+        return uda2.insert({
+            name:'houseInfo',
+            data:{
+                floor: 1,
+                area: 100
+            }
         })
             .then(
                 (houseInfo) => {
                     areaValue = 100;
                     const promises = [];
-                    for (let i = 0; i < 100; i ++) {
+                    for (let i = 0; i < 100; i++) {
                         promises.push(f(houseInfo.id));
                     }
                     return Promise.all(promises)
                         .then(
                             () => {
-                                return uda2.findById('houseInfo', {
-                                    area: 1,
-                                }, houseInfo.id)
+                                return uda2.findById({
+                                    name:'houseInfo',
+                                    projection: {
+                                        area: 1,
+                                    },
+                                    id: houseInfo.id
+                                })
                                     .then(
                                         (houseInfo2) => {
                                             // 不使用串行隔离级别，得到的结果不可控
@@ -422,16 +476,20 @@ describe('test concurrent transaction in mysql', function() {
                                             areaValue = houseInfo2.area;
 
                                             const promises2 = [];
-                                            for (let i = 0; i < 100; i ++) {
+                                            for (let i = 0; i < 100; i++) {
                                                 promises2.push(f(houseInfo.id, {
                                                     isolationLevel: 'SERIALIZABLE'
                                                 }));
                                             }
 
                                             const checkValue = () => {
-                                                return uda2.findById('houseInfo', {
-                                                    area: 1,
-                                                }, houseInfo.id)
+                                                return uda2.findById({
+                                                    name:'houseInfo',
+                                                        projection:{
+                                                            area: 1,
+                                                        },
+                                                        id:houseInfo.id
+                                                })
                                                     .then(
                                                         (houseInfo3) => {
                                                             console.log(`[serializable]value in db ${houseInfo3.area}, value outside: ${areaValue}`);
@@ -477,7 +535,7 @@ describe('test concurrent transaction in mysql', function() {
                     const items = [];
                     let now = Date.now();
                     const threadCount = 3;
-                    for (let i = 0; i < threadCount; i ++) {
+                    for (let i = 0; i < threadCount; i++) {
                         items.push(
                             [
                                 {
@@ -505,7 +563,7 @@ describe('test concurrent transaction in mysql', function() {
                             isolationLevel: 'SERIALIZABLE',
                         }).then(
                             (txn) => {
-                                return uda2.insert("house", items[index], txn).then(
+                                return uda2.insert({name: "house", data: items[index], txn}).then(
                                     (result) => {
                                         return uda2.commitTransaction(txn, {
                                             isolationLevel: 'REPEATABLE READ',
@@ -527,13 +585,14 @@ describe('test concurrent transaction in mysql', function() {
                     };
 
 
-                    return uda2.remove('house').then(
+                    return uda2.remove({name: 'house'}).then(
                         () => {
                             return i(0).then(
                                 () => {
                                     return uda2.count(
-                                        'house',
-                                        null
+                                        {
+                                            name:'house'
+                                        }
                                     ).then(
                                         (count) => {
                                             expect(count.count).to.eql(threadCount * 4);
@@ -592,30 +651,50 @@ describe('test concurrent transaction in mysql', function() {
             }).then(
                 (txn) => {
                     const f1 = () => {
-                        return uda2.findById('houseInfo', {
-                            area: 1
-                        }, houseInfo.id, txn)
+                        return uda2.findById({
+                                name: 'houseInfo',
+                                projection: {
+                                    area: 1
+                                },
+                                id: houseInfo.id,
+                                txn
+                            })
                             .then(
                                 (houseInfo2) => {
-                                    return uda2.updateOneById('houseInfo', {
-                                        $set: {
-                                            area: houseInfo2.area + 1,
+                                    return uda2.updateOneById({
+                                        name: 'houseInfo',
+                                        data: {
+                                            $set: {
+                                                area: houseInfo2.area + 1,
+                                            },
                                         },
-                                    }, houseInfo.id, txn)
+                                        id: houseInfo.id,
+                                        txn
+                                    })
                                 }
                             );
                     };
                     const f2 = () => {
-                        return uda2.findById('houseInfo', {
-                            area: 1
-                        }, houseInfo.id, txn)
+                        return uda2.findById({
+                            name:'houseInfo',
+                                projection:{
+                                    area: 1
+                                },
+                                id: houseInfo.id,
+                                txn
+                        })
                             .then(
                                 (houseInfo2) => {
-                                    return uda2.updateOneById('houseInfo', {
-                                        $set: {
-                                            area: houseInfo2.area - 5,
+                                    return uda2.updateOneById({
+                                        name:'houseInfo',
+                                        data:{
+                                            $set: {
+                                                area: houseInfo2.area - 5,
+                                            },
                                         },
-                                    }, houseInfo.id, txn)
+                                        id:houseInfo.id,
+                                        txn
+                                    })
                                         .then(
                                             () => {
                                                 throw new Error("我偏要失败");
@@ -626,9 +705,13 @@ describe('test concurrent transaction in mysql', function() {
                     };
 
                     const checkValue = () => {
-                        return uda2.findById('houseInfo', {
-                            area: 1,
-                        }, houseInfo.id)
+                        return uda2.findById({
+                            name:'houseInfo',
+                                projection:{
+                                    area: 1,
+                                },
+                                id:houseInfo.id 
+                        })
                             .then(
                                 (houseInfo3) => {
                                     console.log(`[serializable]value in db ${houseInfo3.area}, value outside: ${areaValue}`);
@@ -662,14 +745,19 @@ describe('test concurrent transaction in mysql', function() {
                 }
             );
         };
-        return uda2.insert('houseInfo', {
+        return uda2.insert({
+    name: 'houseInfo', data: {
             floor: 1,
-            area: 100
-        }).then(
+                area: 100
+        }
+}).then(
             (houseInfo) => {
-                return uda2.insert('houseInfo', {
-                    floor: 1,
-                    area: 100
+                return uda2.insert({
+                    name: 'houseInfo',
+                    data: {
+                        floor: 1,
+                        area: 100
+                    }
                 }).then(
                     (houseInfo2) => {
                         return Promise.all(

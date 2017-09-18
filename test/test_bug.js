@@ -37,7 +37,10 @@ describe("test bugs", function() {
             name: "mike's information"
         };
 
-        return uda.insert("info", info);
+        return uda.insert({
+            name: "info",
+            data: info
+        });
     })
 
 })

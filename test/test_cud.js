@@ -23,22 +23,32 @@ function insertUpdateDeleteHouse(uda) {
                 return uda.createSchemas()
                     .then(
                         () => {
-                            return uda.insert("house", {
-                                    buildAt: Date.now(),
-                                    status: "offline"
+                            return uda.insert({
+                                    name: "house",
+                                    data: {
+                                        buildAt: Date.now(),
+                                        status: "offline"
+                                    }
                                 })
                                 .then(
                                     (row) => {
                                         let id = row.hasOwnProperty("id") ? row.id : row._id;
-                                        return uda.updateOneById("house", {
-                                                $set: {
-                                                    status: "free"
-                                                }
-                                            }, id)
+                                        return uda.updateOneById({
+                                                name: "house",
+                                                data: {
+                                                    $set: {
+                                                        status: "free"
+                                                    }
+                                                },
+                                                id
+                                            })
                                             .then(
                                                 (row) => {
                                                     let id = row.hasOwnProperty("id") ? row.id : row._id;
-                                                    return uda.removeOneById("house", id);
+                                                    return uda.removeOneById({
+                                                        name: "house",
+                                                        id
+                                                    });
                                                 }
                                             )
                                     }
@@ -140,7 +150,10 @@ describe("test_insert_update_delete", ()=> {
                             status: "offline"
                         }
                     ];
-                    uda.insert("house", items)
+                    uda.insert({
+                            name: "house",
+                            data: items
+                        })
                         .then(
                             (results) => {
                                 expect(results).to.be.an("array");
@@ -168,20 +181,30 @@ describe("test_insert_update_delete", ()=> {
                         buildAt: Date.now(),
                         status: "free"
                     };
-                    return uda.insert("house", item)
+                    return uda.insert({
+                            name: "house",
+                            data: item
+                        })
                         .then(
                             (result) => {
-                                return uda.updateOneById('house',
-                                    {
-                                        $inc: {
-                                            buildAt: -10000
-                                        }
-                                    }, result.id)
+                                return uda.updateOneById({
+                                        name: 'house',
+                                        data: {
+                                            $inc: {
+                                                buildAt: -10000
+                                            }
+                                        },
+                                        id: result.id
+                                    })
                                     .then(
                                         (result2) => {
-                                            return uda.findById('house', {
-                                                    buildAt: 1
-                                                }, result.id)
+                                            return uda.findById({
+                                                    name: 'house',
+                                                    data: {
+                                                        buildAt: 1
+                                                    },
+                                                    id: result.id
+                                                })
                                                 .then(
                                                     (result3) => {
                                                         expect(result3.buildAt + 10000).to.eql(result.buildAt);
@@ -209,26 +232,36 @@ describe("test_insert_update_delete", ()=> {
                         buildAt: Date.now(),
                         status: "free"
                     };
-                    return uda.insert("house", item)
+                    return uda.insert({
+                            name: "house",
+                            data: item
+                        })
                         .then(
                             (result) => {
                                 const promises = [];
                                 for (let i = 0; i < 20; i++) {
                                     promises.push(
-                                        uda.updateOneById('house',
-                                            {
+                                        uda.updateOneById({
+                                            name: 'house',
+                                            data: {
                                                 $inc: {
                                                     buildAt: -10000
                                                 }
-                                            }, result.id)
+                                            },
+                                            id: result.id
+                                        })
                                     );
                                 }
                                 return Promise.all(promises)
                                     .then(
                                         () => {
-                                            return uda.findById('house', {
-                                                    buildAt: 1
-                                                }, result.id)
+                                            return uda.findById({
+                                                    name: 'house',
+                                                    data: {
+                                                        buildAt: 1
+                                                    },
+                                                    id: result.id
+                                                })
                                                 .then(
                                                     (result2) => {
                                                         expect(result2.buildAt + 10000 * 20).to.eql(result.buildAt);
@@ -255,70 +288,25 @@ describe("test_insert_update_delete", ()=> {
                         buildAt: Date.now(),
                         status: "free"
                     };
-                    return uda.insert("house", item)
+                    return uda.insert({
+                            name: "house",
+                            data: item
+                        })
                         .then(
                             (result) => {
-                                return uda.updateOneById('house',
-                                    {
-                                        buildAt: 100000
-                                    }, result.id)
+                                return uda.updateOneById({
+                                        name: 'house',
+                                        data: {
+                                            buildAt: 100000
+                                        },
+                                        id: result.id
+                                    })
                                     .then(
                                         (result2) => {
                                             console.log(result2);
                                             return Promise.resolve();
                                         }
                                     )
-                            }
-                        );
-                }
-            );
-    });
-
-    it("[cud1.7]crud by hint index", () => {
-        let _schema = JSON.parse(JSON.stringify(schema2));
-
-        _schema.house.source = "mysql";
-        return uda.setSchemas(_schema)
-            .then(
-                () => {
-                    const item =
-                    {
-                        buildAt: Date.now(),
-                        status: "free"
-                    };
-                    return uda.insert("house", item)
-                        .then(
-                            (result) => {
-                                return uda.updateOneById('house',
-                                    {
-                                        $inc: {
-                                            buildAt: -10000
-                                        }
-                                    }, result.id, null)
-                                    .then(
-                                        ()=> {
-                                            return uda.update('house',
-                                                {
-                                                    $inc: {
-                                                        buildAt: -10000
-                                                    }
-                                                }, {
-                                                    id: result.id
-                                                }, null, {forceIndex: "id"})
-                                        }
-                                    )
-                                    .then(
-                                        ()=> {
-                                            return uda.find('house', {
-                                                    buildAt: 1
-                                                }, null, null, 0, 128, null, {forceIndex: "id"})
-                                                .then(
-                                                    (result4) => {
-                                                        expect(result4[0].buildAt + 10000).to.eql(result.buildAt);
-                                                        return Promise.resolve();
-                                                    }
-                                                );
-                                        })
                             }
                         );
                 }

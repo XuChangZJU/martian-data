@@ -1158,7 +1158,10 @@ class DataAccess extends EventEmitter{
         return Promise.all(promises);
     }
 
-    insert(name, data, txn) {
+    insert(paramObj) {
+        const name = paramObj.name;
+        const data = paramObj.data;
+        const txn = paramObj.txn;
         if (txn) {
             this.checkTransactionValid(txn);
         }
@@ -1186,7 +1189,15 @@ class DataAccess extends EventEmitter{
         return connection.insert(name, data2, schema, txn && txn.txn);
     }
 
-    find(name, projection, query, sort, indexFrom, count, txn, forceIndex) {
+    find(paramObj) {
+        const name = paramObj.name;
+        const projection = paramObj.projection;
+        const query = paramObj.query;
+        const sort = paramObj.sort;
+        const indexFrom = paramObj.indexFrom;
+        const count = paramObj.count;
+        const txn = paramObj.txn;
+        const forceIndex = paramObj.forceIndex;
         if(!name || !this.schemas[name]) {
             throw new Error("查询必须输入有效表名");
         }
@@ -1212,7 +1223,10 @@ class DataAccess extends EventEmitter{
             );
     }
 
-    count(name, query, txn) {
+    count(paramObj) {
+        const name = paramObj.name;
+        const query = paramObj.query;
+        const txn = paramObj.txn;
         if(!name || !this.schemas[name]) {
             throw new Error("查询必须输入有效表名");
         }
@@ -1225,11 +1239,19 @@ class DataAccess extends EventEmitter{
 
     }
 
-    findOneById(name, projection, id, txn) {
+    findOneById(paramObj) {
+        const name = paramObj.name;
+        const projection = paramObj.projection;
+        const id = paramObj.id;
+        const txn = paramObj.txn;
         return this.findById(name, projection, id, txn);
     }
 
-    findById(name, projection, id, txn) {
+    findById(paramObj) {
+        const name = paramObj.name;
+        const projection = paramObj.projection;
+        const id = paramObj.id;
+        const txn = paramObj.txn;
         if(!name || !this.schemas[name]) {
             throw new Error("查询必须输入有效表名");
         }
@@ -1297,7 +1319,11 @@ class DataAccess extends EventEmitter{
         }
     }
 
-    update(name, data, query, txn) {
+    update(paramObj) {
+        const name = paramObj.name;
+        const data = paramObj.data;
+        let query = paramObj.query;
+        const txn = paramObj.txn;
         if (txn) {
             this.checkTransactionValid(txn);
         }
@@ -1321,7 +1347,11 @@ class DataAccess extends EventEmitter{
         return connection.update(name, data2, query, txn && txn.txn);
     }
 
-    updateOneById(name, data, id, txn) {
+    updateOneById(paramObj) {
+        const name = paramObj.name;
+        const data = paramObj.data;
+        const id = paramObj.id;
+        const txn = paramObj.txn;
         if(typeof id !== "number" && typeof id !== "string" && ! (id instanceof ObjectId)) {
             throw new Error("查询必须输入有效id")
         }
@@ -1342,7 +1372,10 @@ class DataAccess extends EventEmitter{
 
     }
 
-    remove(name, query, txn) {
+    remove(paramObj) {
+        const name = paramObj.name;
+        let query = paramObj.query;
+        const txn = paramObj.txn;
         if (txn) {
             this.checkTransactionValid(txn);
         }
@@ -1368,7 +1401,10 @@ class DataAccess extends EventEmitter{
         }
     }
 
-    removeOneById(name, id, txn) {
+    removeOneById(paramObj) {
+        const name = paramObj.name;
+        const id = paramObj.id;
+        const txn = paramObj.txn;
         if(typeof id !== "number" && typeof id !== "string" && ! (id instanceof ObjectId)) {
             throw new Error("查询必须输入有效id")
         }

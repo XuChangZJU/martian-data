@@ -17,19 +17,22 @@ function createInsert(uda, tableName, data) {
     return uda.createSchemas()
         .then(
             () => {
-                try{
-                    return uda.insert(tableName, data)
+                try {
+                    return uda.insert({
+                            name: tableName,
+                            data
+                        })
                         .then(
                             (results) => {
                                 console.log(results);
                                 return Promise.resolve();
                             },
                             (err) => {
-                                return Promise. reject(err);
+                                return Promise.reject(err);
                             }
                         );
                 }
-                catch(e) {
+                catch (e) {
                     return Promise.reject(e);
                 }
             },
@@ -43,10 +46,13 @@ function dropCreateInsert(uda, tableName, data, needCreateBeforeInsert) {
     return uda.dropSchemas()
         .then(
             () => {
-                return uda.insert(tableName, data)
+                return uda.insert({
+                        name: tableName,
+                        data
+                    })
                     .then(
                         () => {
-                            if(needCreateBeforeInsert) {
+                            if (needCreateBeforeInsert) {
                                 return Promise.reject(new Error("不应该能执行到这里"));
                             }
                             else {
@@ -73,7 +79,7 @@ function dropCreateInsert(uda, tableName, data, needCreateBeforeInsert) {
                             }
                         },
                         (err) => {
-                            if(needCreateBeforeInsert) {
+                            if (needCreateBeforeInsert) {
                                 expect(err.code).to.eql("ER_NO_SUCH_TABLE");
                                 return createInsert(uda, tableName, data);
                             }
@@ -205,7 +211,7 @@ describe('uda', () => {
                     columns: {
                         status: 1
                     },
-                    options : {
+                    options: {
                         unique: true
                     }
                 }
@@ -273,7 +279,7 @@ describe('uda', () => {
         })
     });
 
-    describe("test create schema with refs", function() {
+    describe("test create schema with refs", function () {
         this.timeout(4000);
         before((done) => {
             uda.connect(dataSource)
@@ -365,12 +371,18 @@ describe('uda', () => {
                                                     area: 55,
                                                     floor: 6
                                                 };
-                                                uda.insert("houseInfo", houseInfo)
+                                                uda.insert({
+                                                        name: "houseInfo",
+                                                        data: houseInfo
+                                                    })
                                                     .then(
                                                         (hiItem) => {
                                                             houseInfo.id = hiItem.id || hiItem._id;
                                                             house.houseInfo = houseInfo;
-                                                            uda.insert("house",  house)
+                                                            uda.insert({
+                                                                    name: "house",
+                                                                    data: house
+                                                                })
                                                                 .then(
                                                                     (hItem) => {
                                                                         console.log(hItem);
@@ -424,11 +436,17 @@ describe('uda', () => {
                                                     area: 55,
                                                     floor: 6
                                                 };
-                                                uda.insert("houseInfo", houseInfo)
+                                                uda.insert({
+                                                        name: "houseInfo",
+                                                        data: houseInfo
+                                                    })
                                                     .then(
                                                         (hiItem) => {
                                                             house.houseInfo = hiItem;
-                                                            uda.insert("house",  house)
+                                                            uda.insert({
+                                                                    name: "house",
+                                                                    data: house
+                                                                })
                                                                 .then(
                                                                     (hItem) => {
                                                                         console.log(hItem);
@@ -482,12 +500,18 @@ describe('uda', () => {
                                                     area: 55,
                                                     floor: 6
                                                 };
-                                                uda.insert("houseInfo", houseInfo)
+                                                uda.insert({
+                                                        name: "houseInfo",
+                                                        data: houseInfo
+                                                    })
                                                     .then(
                                                         (hiItem) => {
                                                             houseInfo.id = hiItem.id || hiItem._id;
                                                             house.houseInfo = houseInfo;
-                                                            uda.insert("house",  house)
+                                                            uda.insert({
+                                                                    name: "house",
+                                                                    data: house
+                                                                })
                                                                 .then(
                                                                     (hItem) => {
                                                                         console.log(hItem);
@@ -540,12 +564,18 @@ describe('uda', () => {
                                                     area: 55,
                                                     floor: 6
                                                 };
-                                                uda.insert("houseInfo", houseInfo)
+                                                uda.insert({
+                                                        name: "houseInfo",
+                                                        data: houseInfo
+                                                    })
                                                     .then(
                                                         (hiItem) => {
                                                             houseInfo.id = hiItem.id || hiItem._id;
                                                             house.houseInfoId = houseInfo.id;
-                                                            uda.insert("house",  house)
+                                                            uda.insert({
+                                                                    name: "house",
+                                                                    data: house
+                                                                })
                                                                 .then(
                                                                     (hItem) => {
                                                                         console.log(hItem);

@@ -38,7 +38,10 @@ class Common {
         this._router.post(apis.urlInsert, (req, res, next) => {
             let data = req.body;
             try {
-                uda.insert(data.name, data.data)
+                uda.insert({
+                    name:data.name,
+                    data:data.data
+                })
                     .then(
                         (result) => {
                             res.json(result);
@@ -58,7 +61,9 @@ class Common {
         this._router.post(apis.urlUpdate, (req, res, next) => {
             let data = req.body;
             try {
-                uda.update(data.name, data.updatePart, data.query)
+                uda.update({
+                    name: data.name, data: data.updatePart, query: data.query
+                })
                     .then(
                         (result) => {
                             res.json(result);
@@ -78,7 +83,9 @@ class Common {
         this._router.post(apis.urlUpdateOneById, (req, res, next) => {
             let data = req.body;
             try {
-                uda.updateOneById(data.name, data.updatePart, data.id)
+                uda.updateOneById({
+                    name: data.name, data: data.updatePart, id: data.id
+                })
                     .then(
                         (result) => {
                             res.json(result);
@@ -99,7 +106,9 @@ class Common {
         this._router.post(apis.urlRemove, (req, res, next) => {
             let data = req.body;
             try {
-                uda.remove(data.name, data.query)
+                uda.remove({
+                    name: data.name, query: data.query
+                })
                     .then(
                         (result) => {
                             res.json(result);
@@ -120,7 +129,9 @@ class Common {
         this._router.post(apis.urlRemoveOneById, (req, res, next) => {
             let data = req.body;
             try {
-                uda.removeOneById(data.name, data.id)
+                uda.removeOneById({
+                    name: data.name, id: data.id
+                })
                     .then(
                         (result) => {
                             res.json(result);

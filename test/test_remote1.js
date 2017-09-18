@@ -100,18 +100,25 @@ describe("test remote 1", function() {
 
     it("[tre0.0]", (done) => {
         // 尝试插入数据，再查询
-        uda.insert("user", {
-                name: "xc",
-                age: 33
-            })
+        uda.insert({
+        name:"user",
+        data:{
+            name: "xc",
+            age: 33
+        }
+    })
             .then(
                 (row) => {
                     let id = row.hasOwnProperty("id")? row.id : row._id;
 
-                    uda.findById("user", {
+                    uda.findById({
+                        name:"user",
+                        projection:{
                             name: 1,
                             age: 1
-                        }, id)
+                        },
+                        id
+                    })
                         .then(
                             (result) => {
                                 expect(result).to.be.an("object");
@@ -132,28 +139,38 @@ describe("test remote 1", function() {
 
     it("[tre0.1]", (done) => {
         // 尝试插入数据，再查询
-        uda.insert("user", {
-                name: "xc",
-                age: 33
-            })
+        uda.insert({
+        name:"user",
+        data:{
+            name: "xc",
+            age: 33
+        }
+    })
             .then(
                 (row) => {
-
+    
                     let account = {
                         owner: row,
                         deposit: 10000
                     };
-                    uda.insert("account", account)
+                    uda.insert({
+                        name:"account",
+                        data:account
+                    })
                         .then(
                             (row2) => {
                                 let id = row2.hasOwnProperty("id")? row2.id : row2._id;
-                                uda.findById("account", {
+                                uda.findById({
+                                    name:"account",
+                                    projection:{
                                         owner: {
                                             name: 1,
                                             age: 1
                                         },
                                         deposit: 1
-                                    }, id)
+                                    },
+                                    id
+                                })
                                     .then(
                                         (result) => {
                                             expect(result).to.be.an("object");
@@ -181,53 +198,74 @@ describe("test remote 1", function() {
 
     it("[tre0.2]", (done) => {
         // 尝试增删改查
-        uda.insert("user", {
-                name: "xc",
-                age: 33
-            })
+        uda.insert({
+        name:"user",
+        data:{
+            name: "xc",
+            age: 33
+        }
+    })
             .then(
                 (row) => {
                     let id = row.hasOwnProperty("id")? row.id : row._id;
-
-                    uda.findById("user", {
+    
+                    uda.findById({
+                        name:"user",
+                        projection:{
                             name: 1,
                             age: 1
-                        }, id)
+                        },
+                        id
+                    })
                         .then(
                             (result) => {
                                 expect(result).to.be.an("object");
                                 expect(result.name).to.eql("xc");
                                 expect(result.age).to.eql(33);
-
-                                uda.updateOneById("user", {
+    
+                                uda.updateOneById({
+                                    name:"user",
+                                    data:{
                                         $set: {
                                             age: 34
                                         }
                                     },
-                                    id)
+                                    id
+                                })
                                     .then(
                                         () => {
-                                            uda.findById("user", {
-                                                    name: 1,
-                                                    age: 1
-                                                }, id)
+                                            uda.findById({
+        name:"user",
+        projection:{
+            name: 1,
+            age: 1
+        },
+        id
+    })
                                                 .then(
                                                     (result) => {
                                                         expect(result).to.be.an("object");
                                                         expect(result.name).to.eql("xc");
                                                         expect(result.age).to.eql(34);
-
-                                                        uda.removeOneById("user", id)
+    
+                                                        uda.removeOneById({
+                                                            name:"user",
+                                                            id
+                                                        })
                                                             .then(
                                                                 () => {
-                                                                    uda.findById("user", {
-                                                                            name: 1,
-                                                                            age: 1
-                                                                        }, id)
+                                                                    uda.findById({
+                                                            name:"user",
+                                                            projection:{
+                                                                name: 1,
+                                                                age: 1
+                                                            },
+                                                            id
+                                                        })
                                                                         .then(
                                                                             (result) => {
                                                                                 assert(result === null);
-
+    
                                                                                 done();
                                                                             },
                                                                             (err) => {
@@ -285,23 +323,32 @@ describe("test remote 2", function() {
     it("[tre1.0]", (done) => {
         let now = new Date();
         // 尝试插入数据，再进行连接查询
-        uda.insert("user", {
+        uda.insert({
+            name:"user",
+            data:{
                 name: "xc",
                 age: 33
-            })
+            }
+        })
             .then(
                 (row) => {
                     let account = {
                         owner: row,
                         deposit: 10000
                     };
-                    uda.insert("account", account)
+                    uda.insert({
+                        name:"account",
+                        data:account
+                    })
                         .then(
                             (row2) => {
-                                uda.insert("order", {
-                                        account: row2,
-                                        time: now
-                                    })
+                                uda.insert({
+                        name: "order",
+                        data: {
+                            account: row2,
+                            time: now
+                        }
+                    })
                                     .then(
                                         (row3) => {
                                             let projection =  {
@@ -322,7 +369,13 @@ describe("test remote 2", function() {
                                                     }
                                                 }
                                             };
-                                            uda.find("order", projection, query, undefined, 0, 10)
+                                            uda.find({
+                                                name:"order",
+                                                    projection ,
+                                                    query,
+                                                indexFrom: 0,
+                                                count: 10
+                                            })
                                                 .then(
                                                     (result) => {
                                                         expect(result).to.be.an("array");
@@ -330,7 +383,10 @@ describe("test remote 2", function() {
                                                         expect(result[0].time).to.eql(now);
 
                                                         // 加上count查询
-                                                        uda.count("order", {time: now})
+                                                        uda.count({
+                                                            name:"order",
+                                                            query:{time: now}
+                                                        })
                                                             .then(
                                                                 (result2) => {
                                                                     expect(result2).to.be.an("object");
@@ -373,49 +429,70 @@ describe("test remote 2", function() {
 
     it("[tre0.2]", (done) => {
         // 尝试增删改查
-        uda.insert("user", {
-                name: "xc",
-                age: 33
-            })
+        uda.insert({
+        name:"user",
+        data:{
+            name: "xc",
+            age: 33
+        }
+    })
             .then(
                 (row) => {
                     let id = row.hasOwnProperty("id")? row.id : row._id;
 
-                    uda.findById("user", {
+                    uda.findById({
+                        name:"user",
+                        projection:{
                             name: 1,
                             age: 1
-                        }, id)
+                        },
+                        id
+                    })
                         .then(
                             (result) => {
                                 expect(result).to.be.an("object");
                                 expect(result.name).to.eql("xc");
                                 expect(result.age).to.eql(33);
 
-                                uda.updateOneById("user", {
+                                uda.updateOneById({
+                                    name : "user",
+                                    data: {
                                         $set: {
                                             age: 34
                                         }
                                     },
-                                    id)
+                                        id
+                                })
                                     .then(
                                         () => {
-                                            uda.findById("user", {
-                                                    name: 1,
-                                                    age: 1
-                                                }, id)
+                                            uda.findById({
+                                    name:"user",
+                                    projection:{
+                                        name: 1,
+                                        age: 1
+                                    },
+                                    id
+                                })
                                                 .then(
                                                     (result) => {
                                                         expect(result).to.be.an("object");
                                                         expect(result.name).to.eql("xc");
                                                         expect(result.age).to.eql(34);
 
-                                                        uda.removeOneById("user", id)
+                                                        uda.removeOneById({
+                                                            name: "user",
+                                                            id
+                                                        })
                                                             .then(
                                                                 () => {
-                                                                    uda.findById("user", {
-                                                                            name: 1,
-                                                                            age: 1
-                                                                        }, id)
+                                                                    uda.findById({
+                                                            name:"user",
+                                                            projection:{
+                                                                name: 1,
+                                                                age: 1
+                                                            },
+                                                            id
+                                                        })
                                                                         .then(
                                                                             (result) => {
                                                                                 assert(result === null);
