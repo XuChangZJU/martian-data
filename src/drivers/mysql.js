@@ -352,8 +352,8 @@ class Mysql {
 		})
 	}
 
-	find(name, execTree, indexFrom, count, isCounting, con) {
-		const sql = this.sqlTransformer.transformSelect(name, execTree, indexFrom, count, isCounting);
+	find(name, execTree, indexFrom, count, isCounting, con, forceIndex) {
+		const sql = this.sqlTransformer.transformSelect(name, execTree, indexFrom, count, isCounting, null, forceIndex);
 
 		return queryToPromise(con || this.db, sql, true)
 			.then(

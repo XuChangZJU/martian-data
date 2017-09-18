@@ -931,7 +931,7 @@ function joinNext(forest, me, result) {
  * @param count
  * @returns {Promise.<TResult>}
  */
-function execOverSourceQuery(name, forest, indexFrom, count, txn) {
+function execOverSourceQuery(name, forest, indexFrom, count, txn, forceIndex) {
     for(let i in forest) {
         const tree = forest[i];
         if(i !== name && hasOperator(tree, "sort")) {
@@ -946,7 +946,7 @@ function execOverSourceQuery(name, forest, indexFrom, count, txn) {
     const connection = this.connections[schema.source];
     const txn2 = (txn && txn.source === schema.source) ? txn.txn : undefined;
 
-    return connection.find(name, firstRel, indexFrom, count, false, txn2)
+    return connection.find(name, firstRel, indexFrom, count, false, txn2, forceIndex)
         .then(
             (result) => {
                 return joinNext.call(this, forest, name, result)
@@ -1186,7 +1186,7 @@ class DataAccess extends EventEmitter{
         return connection.insert(name, data2, schema, txn && txn.txn);
     }
 
-    find(name, projection, query, sort, indexFrom, count, txn) {
+    find(name, projection, query, sort, indexFrom, count, txn, forceIndex) {
         if(!name || !this.schemas[name]) {
             throw new Error("查询必须输入有效表名");
         }
@@ -1198,7 +1198,7 @@ class DataAccess extends EventEmitter{
         }
         let execTree = destructSelect.call(this, name, projection, query, sort);
 
-        return this.findByExecTreeDirectly(name, execTree, indexFrom, count, false, txn)
+        return this.findByExecTreeDirectly(name, execTree, indexFrom, count, false, txn, forceIndex)
             .then(
                 (result) => {
                     assert(result instanceof Array);
@@ -1275,7 +1275,7 @@ class DataAccess extends EventEmitter{
     }
 
 
-    findByExecTreeDirectly(name, execTree, indexFrom, count, isCounting, txn) {
+    findByExecTreeDirectly(name, execTree, indexFrom, count, isCounting, txn, forceIndex) {
         let execForest = distributeSelect.call(this, name, execTree);
 
         let trees = Object.getOwnPropertyNames(execForest);
@@ -1285,7 +1285,7 @@ class DataAccess extends EventEmitter{
                 throw new Error("当前不支持跨源的count查询");
             }
 
-            return execOverSourceQuery.call(this, name, execForest, indexFrom, count, txn);
+            return execOverSourceQuery.call(this, name, execForest, indexFrom, count, txn, forceIndex);
         }
         else {
             // 单源的查询直接PUSH给相应的数据源
@@ -1293,7 +1293,7 @@ class DataAccess extends EventEmitter{
             const connection = this.connections[schema.source];
             const txn2 = (txn && txn.source === schema.source) ? txn.txn : undefined;
 
-            return connection.find(name, execTree, indexFrom, count, isCounting, txn2);
+            return connection.find(name, execTree, indexFrom, count, isCounting, txn2, forceIndex);
         }
     }
 

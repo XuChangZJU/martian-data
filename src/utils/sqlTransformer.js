@@ -499,7 +499,7 @@ class SQLTransformer {
     }
 
 
-    transformSelect(name, execTree, indexFrom, count, isCounting, usedNames) {
+    transformSelect(name, execTree, indexFrom, count, isCounting, usedNames, forceIndex) {
         let sqlObj = {
             projection: "",
             from: "",
@@ -518,6 +518,7 @@ class SQLTransformer {
         sql += sqlObj.projection;
         sql += " from ";
         sql += sqlObj.from;
+        sql += forceIndex && forceIndex.forceIndex ? ` hint index(${forceIndex.forceIndex})` : "";
 
         let hasWhere = false;
         if (sqlObj.where.length > 0) {
