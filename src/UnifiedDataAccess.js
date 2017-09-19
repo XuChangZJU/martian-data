@@ -1307,15 +1307,11 @@ class DataAccess extends EventEmitter{
     }
 
     findOneById(paramObj) {
-        const name = paramObj.name;
-        const projection = paramObj.projection;
-        const id = paramObj.id;
-        const txn = paramObj.txn;
-        return this.findById(name, projection, id, txn);
+        return this.findById(paramObj);
     }
 
     findOneById2(name, projection, id, txn) {
-        return this.findById(name, projection, id, txn);
+        return this.findById({name, projection, id, txn});
     }
 
     findById(paramObj) {
