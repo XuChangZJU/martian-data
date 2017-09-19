@@ -1189,6 +1189,34 @@ class DataAccess extends EventEmitter{
         return connection.insert(name, data2, schema, txn && txn.txn);
     }
 
+    insert2(name, data, txn) {
+        if (txn) {
+            this.checkTransactionValid(txn);
+        }
+        let schema = this.schemas[name];
+        const connection = this.connections[schema.source];
+
+        if (typeof data !== "object") {
+            throw new Error("插入的数据必须是object类型");
+        }
+
+        let omitTsColumn = true;
+        if(!isSettingTrueStrictly(this.dataSources[schema.source].settings, "disableCreateAt")){
+            omitTsColumn = false;
+        }
+        let data2;
+        if (!(data instanceof Array)) {
+            data2 = [formalizeDataForUpdate(assign({}, data), schema, 'create', omitTsColumn)];
+        }
+        else {
+            data2 = data.map(
+                    (ele) => formalizeDataForUpdate(assign({}, ele), schema, 'create', omitTsColumn)
+        );
+        }
+
+        return connection.insert(name, data2, schema, txn && txn.txn);
+    }
+
     find(paramObj) {
         const name = paramObj.name;
         const projection = paramObj.projection;
@@ -1223,10 +1251,49 @@ class DataAccess extends EventEmitter{
             );
     }
 
+    find2(name, projection, query, sort, indexFrom, count, txn, forceIndex) {
+        if(!name || !this.schemas[name]) {
+            throw new Error("查询必须输入有效表名");
+        }
+        if(indexFrom === undefined || !count) {
+            throw new Error("查询列表必须带indexFrom和count参数");
+        }
+        if (txn) {
+            this.checkTransactionValid(txn);
+        }
+        let execTree = destructSelect.call(this, name, projection, query, sort);
+
+        return this.findByExecTreeDirectly(name, execTree, indexFrom, count, false, txn, forceIndex)
+                .then(
+                    (result) => {
+                assert(result instanceof Array);
+        result.forEach(
+            (ele, idx) => {
+            getRidOfResult.call(this, ele, projection, name);
+    }
+    );
+        return Promise.resolve(result);
+    }
+    );
+    }
+
     count(paramObj) {
         const name = paramObj.name;
         const query = paramObj.query;
         const txn = paramObj.txn;
+        if(!name || !this.schemas[name]) {
+            throw new Error("查询必须输入有效表名");
+        }
+        if (txn) {
+            this.checkTransactionValid(txn);
+        }
+
+        let execTree = destructSelect.call(this, name, null, query, null, true);
+        return this.findByExecTreeDirectly(name, execTree, undefined, undefined, true, txn);
+
+    }
+
+    count2(name, query, txn) {
         if(!name || !this.schemas[name]) {
             throw new Error("查询必须输入有效表名");
         }
@@ -1244,6 +1311,10 @@ class DataAccess extends EventEmitter{
         const projection = paramObj.projection;
         const id = paramObj.id;
         const txn = paramObj.txn;
+        return this.findById(name, projection, id, txn);
+    }
+
+    findOneById2(name, projection, id, txn) {
         return this.findById(name, projection, id, txn);
     }
 
@@ -1296,6 +1367,50 @@ class DataAccess extends EventEmitter{
             );
     }
 
+    findById2(name, projection, id, txn) {
+        if(!name || !this.schemas[name]) {
+            throw new Error("查询必须输入有效表名");
+        }
+
+        if(typeof id !== "number" && typeof id !== "string" && ! (id instanceof ObjectId)) {
+            throw new Error("查询必须输入有效id")
+        }
+
+        if (txn) {
+            this.checkTransactionValid(txn);
+        }
+
+        let schema = this.schemas[name];
+        let query = {};
+        const connection = this.connections[schema.source];
+
+        const pKeyColumn = findKeyColumnName.call(this, name, schema);
+        assert (!(pKeyColumn instanceof Promise));            // 在运行中去获取主键应该不需要等待
+        query[pKeyColumn] = id;
+
+        let execTree = destructSelect.call(this, name, projection, query);
+        return this.findByExecTreeDirectly(name, execTree, 0, 1, null, txn)
+                .then(
+                    (result) => {
+                switch (result.length) {
+        case 0: {
+                return Promise.resolve(null);
+            }
+        case 1: {
+                let row = result[0];
+                getRidOfResult.call(this, row, projection, name);
+                return Promise.resolve(row);
+            }
+        case 2: {
+                return Promise.reject(new Error("基于键值的查询返回了一个以上的结果"));
+            }
+        }
+    },
+        (err) => {
+            return Promise.reject(err);
+        }
+    );
+    }
 
     findByExecTreeDirectly(name, execTree, indexFrom, count, isCounting, txn, forceIndex) {
         let execForest = distributeSelect.call(this, name, execTree);
@@ -1347,11 +1462,56 @@ class DataAccess extends EventEmitter{
         return connection.update(name, data2, query, txn && txn.txn);
     }
 
+    update2(name, data, query, txn) {
+        if (txn) {
+            this.checkTransactionValid(txn);
+        }
+        let schema = this.schemas[name];
+        query = query || {};
+        const connection = this.connections[schema.source];
+
+        let omitTsColumn = true;
+        if(!isSettingTrueStrictly(this.dataSources[schema.source].settings, "disableUpdateAt")){
+            omitTsColumn = false;
+        }
+        if(!isSettingTrueStrictly(this.dataSources[schema.source].settings, "disableDeleteAt")){
+            query[constants.deleteAtColumn] = {
+                $exists: false
+            };
+        }
+
+        const data2 = formalizeDataForUpdate(data || {}, schema, 'update', omitTsColumn);
+        transformDateTypeInQuery(query);
+
+        return connection.update(name, data2, query, txn && txn.txn);
+    }
+
     updateOneById(paramObj) {
         const name = paramObj.name;
         const data = paramObj.data;
         const id = paramObj.id;
         const txn = paramObj.txn;
+        if(typeof id !== "number" && typeof id !== "string" && ! (id instanceof ObjectId)) {
+            throw new Error("查询必须输入有效id")
+        }
+        if (txn) {
+            this.checkTransactionValid(txn);
+        }
+        let schema = this.schemas[name];
+        const connection = this.connections[schema.source];
+
+        let omitTsColumn = true;
+        if(!isSettingTrueStrictly(this.dataSources[schema.source].settings, "disableUpdateAt")){
+            omitTsColumn = false;
+        }
+
+        const data2 = formalizeDataForUpdate(data, schema, 'update', omitTsColumn);
+
+        return connection.updateOneById(name, data2, id, schema, txn && txn.txn);
+
+    }
+
+    updateOneById2(name, data, id, txn) {
         if(typeof id !== "number" && typeof id !== "string" && ! (id instanceof ObjectId)) {
             throw new Error("查询必须输入有效id")
         }
@@ -1401,10 +1561,59 @@ class DataAccess extends EventEmitter{
         }
     }
 
+    remove2(name, query, txn) {
+        if (txn) {
+            this.checkTransactionValid(txn);
+        }
+        let schema = this.schemas[name];
+        query = query || {};
+        const connection = this.connections[schema.source];
+        transformDateTypeInQuery(query);
+
+        if(!isSettingTrueStrictly(this.dataSources[schema.source].settings, "disableDeleteAt")){
+            let data = {
+                $set: {
+                    [constants.deleteAtColumn]: Date.now()
+                }
+            };
+
+            query[constants.deleteAtColumn] = {
+                $exists: false
+            };
+            return connection.update(name, data, query, txn && txn.txn);
+        }
+        else {
+            return connection.remove(name, query, txn && txn.txn);
+        }
+    }
+
     removeOneById(paramObj) {
         const name = paramObj.name;
         const id = paramObj.id;
         const txn = paramObj.txn;
+        if(typeof id !== "number" && typeof id !== "string" && ! (id instanceof ObjectId)) {
+            throw new Error("查询必须输入有效id")
+        }
+        if (txn) {
+            this.checkTransactionValid(txn);
+        }
+        let schema = this.schemas[name];
+        const connection = this.connections[schema.source];
+
+        if(!isSettingTrueStrictly(this.dataSources[schema.source].settings, "disableDeleteAt")){
+            let data = {
+                $set: {
+                    [constants.deleteAtColumn]: Date.now()
+                }
+            };
+            return connection.updateOneById(name, data, id, schema, txn && txn.txn);
+        }
+        else {
+            return connection.removeOneById(name, id, schema, txn && txn.txn);
+        }
+    }
+
+    removeOneById2(name, id, txn) {
         if(typeof id !== "number" && typeof id !== "string" && ! (id instanceof ObjectId)) {
             throw new Error("查询必须输入有效id")
         }

@@ -458,6 +458,30 @@ class SQLTransformer {
                 sql += `like '${where.$like}%'`;
             }
             //  Added by wangyuef 增加like算子 2017-7-21    End
+            else if (where.hasOwnProperty("$inLt")) {
+                sql += " < ";
+                sql += alias ? `\`${alias}\`.\`${where.$inLt}\`` : `\`${where.$inLt}\``;
+            }
+            else if (where.hasOwnProperty("$inGt")) {
+                sql += " > ";
+                sql += alias ? `\`${alias}\`.\`${where.$inLt}\`` : `\`${where.$inLt}\``;
+            }
+            else if (where.hasOwnProperty("$inLte")) {
+                sql += " <= ";
+                sql += alias ? `\`${alias}\`.\`${where.$inLt}\`` : `\`${where.$inLt}\``;
+            }
+            else if (where.hasOwnProperty("$inGte")) {
+                sql += " >= ";
+                sql += alias ? `\`${alias}\`.\`${where.$inLt}\`` : `\`${where.$inLt}\``;
+            }
+            else if (where.hasOwnProperty("$inEq")) {
+                sql += " = ";
+                sql += alias ? `\`${alias}\`.\`${where.$inLt}\`` : `\`${where.$inLt}\``;
+            }
+            else if (where.hasOwnProperty("$inNe")) {
+                sql += " != ";
+                sql += alias ? `\`${alias}\`.\`${where.$inLt}\`` : `\`${where.$inLt}\``;
+            }
             else {
                 // 只支持以上的算子，除此之外如果再有$开关的算子，直接报不支持
                 switch (typeof where) {

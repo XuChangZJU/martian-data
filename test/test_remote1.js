@@ -307,7 +307,7 @@ describe("test remote 1", function() {
 
 
 describe("test remote 2", function() {
-    this.timeout(5000000);
+    this.timeout(5000);
     let server;
     before((done) => {
         init(schemaRemote2)
