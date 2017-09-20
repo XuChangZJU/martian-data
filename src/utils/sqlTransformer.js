@@ -58,10 +58,10 @@ function convertValueToSQLFormat(value) {
 
 function convertFnCallToSQLFormat(alias, fnCall, projectionPrefix, me) {
     let attrs = fnCall.$arguments.map(
-        (ele) => {
+            (ele) => {
             return alias + "." + ele;
-        }
-    );
+}
+);
     let args = [fnCall.$format].concat(attrs);
     let result = util.format.apply(null, args);
     if (fnCall.hasOwnProperty("$as")) {
@@ -188,10 +188,10 @@ function convertExecNodeToSQL(sql, node, parentName, relName, joinInfo, projecti
 
     node.joins.forEach(
         (ele, index) => {
-            let prefix = (projectionPrefix || "") + ele.attr + ".";
-            convertExecNodeToSQL.call(this, sql, ele.node, alias, ele.rel, ele, prefix);
-        }
-    )
+        let prefix = (projectionPrefix || "") + ele.attr + ".";
+    convertExecNodeToSQL.call(this, sql, ele.node, alias, ele.rel, ele, prefix);
+}
+)
 }
 
 class SQLTransformer {
@@ -213,40 +213,40 @@ class SQLTransformer {
         let wholeAttrsObject = {};
         data.forEach(
             (ele) => {
-                wholeAttrsObject = assign(wholeAttrsObject, ele);
-            }
-        );
+            wholeAttrsObject = assign(wholeAttrsObject, ele);
+    }
+    );
         let attributes = "(", values = "";
 
         const wholeAttrs = keys(wholeAttrsObject);
         wholeAttrs.forEach(
             (ele, idx) => {
-                if (idx !== 0) {
-                    attributes += ",";
-                }
-                attributes += `\`${ele}\``;
-            }
-        );
+            if (idx !== 0) {
+            attributes += ",";
+        }
+        attributes += `\`${ele}\``;
+    }
+    );
         attributes += ")";
 
         data.forEach(
             (ele, idx) => {
-                if (idx !== 0) {
-                    values += ",";
-                }
-                values += "("
-                wholeAttrs.forEach(
-                    (ele2, idx2) => {
-                        if (idx2 !== 0) {
-                            values += ",";
-                        }
-                        const type = this.schemas[tableName].attributes[ele2].type;
-                        values += this.typeConvertor(ele[ele2], type);
-                    }
-                );
-                values += ")";
-            }
-        );
+            if (idx !== 0) {
+            values += ",";
+        }
+        values += "("
+        wholeAttrs.forEach(
+            (ele2, idx2) => {
+            if (idx2 !== 0) {
+            values += ",";
+        }
+        const type = this.schemas[tableName].attributes[ele2].type;
+        values += this.typeConvertor(ele[ele2], type);
+    }
+    );
+        values += ")";
+    }
+    );
 
         sql += attributes;
         sql += " values";
@@ -268,35 +268,35 @@ class SQLTransformer {
         if (updatePart) {
             keys(updatePart).forEach(
                 (ele, idx) => {
-                    if (idx > 0) {
-                        sql += ",";
-                    }
+                if (idx > 0) {
+                sql += ",";
+            }
 
-                    sql += "`" + ele + "`";
-                    sql += "=";
-                    const type = this.schemas[tableName].attributes[ele].type;
-                    const value = this.typeConvertor(updatePart[ele], type);
-                    sql += value;
-                }
-            );
+            sql += "`" + ele + "`";
+            sql += "=";
+            const type = this.schemas[tableName].attributes[ele].type;
+            const value = this.typeConvertor(updatePart[ele], type);
+            sql += value;
+        }
+        );
         }
 
         if (incrementPart) {
             keys(incrementPart).forEach(
                 (ele, idx) => {
-                    if (updatePart || idx > 0) {
-                        sql += ",";
-                    }
+                if (updatePart || idx > 0) {
+                sql += ",";
+            }
 
-                    sql += "`" + ele + "`";
-                    sql += "=";
-                    const type = this.schemas[tableName].attributes[ele].type;
-                    const value = this.typeConvertor(incrementPart[ele], type);
-                    sql += "`" + ele + "`+ (";
-                    sql += value;
-                    sql += ")";
-                }
-            );
+            sql += "`" + ele + "`";
+            sql += "=";
+            const type = this.schemas[tableName].attributes[ele].type;
+            const value = this.typeConvertor(incrementPart[ele], type);
+            sql += "`" + ele + "`+ (";
+            sql += value;
+            sql += ")";
+        }
+        );
         }
 
         sql += " where ";
@@ -363,18 +363,18 @@ class SQLTransformer {
             if (where.hasOwnProperty("$or")) {
                 (where.$or).forEach((ele, index) => {
                     if (index > 0) {
-                        sql += " OR ";
-                    }
-                    sql += "(" + this.transformWhere(ele, undefined, alias, relName) + ")";
-                });
+                    sql += " OR ";
+                }
+                sql += "(" + this.transformWhere(ele, undefined, alias, relName) + ")";
+            });
             }
             else if (where.hasOwnProperty("$and")) {
                 (where.$and).forEach((ele, index) => {
                     if (index > 0) {
-                        sql += " AND ";
-                    }
-                    sql += "(" + this.transformWhere(ele, undefined, alias, relName) + ")";
-                });
+                    sql += " AND ";
+                }
+                sql += "(" + this.transformWhere(ele, undefined, alias, relName) + ")";
+            });
             }
             //  Updated by wangyuef "type" => (..|| typeof ..) 2017-7-19 Start
             else if (where.hasOwnProperty("$eq")) {
@@ -409,20 +409,20 @@ class SQLTransformer {
                 }
                 where.$in.forEach((ele, index) => {
                     if (index > 0) {
-                        sql += ",";
-                    }
-                    sql += this.typeConvertor(ele, type || typeof(ele));
-                });
+                    sql += ",";
+                }
+                sql += this.typeConvertor(ele, type || typeof(ele));
+            });
                 sql += ")";
             }
             else if (where.hasOwnProperty("$nin")) {
                 sql += " not in (";
                 where.$nin.forEach((ele, index) => {
                     if (index > 0) {
-                        sql += ",";
-                    }
-                    sql += this.typeConvertor(ele, type || typeof(ele));
-                });
+                    sql += ",";
+                }
+                sql += this.typeConvertor(ele, type || typeof(ele));
+            });
                 sql += ")";
             }
             else if (where.hasOwnProperty('$between')) {
@@ -464,23 +464,23 @@ class SQLTransformer {
             }
             else if (where.hasOwnProperty("$inGt")) {
                 sql += " > ";
-                sql += alias ? `\`${alias}\`.\`${where.$inLt}\`` : `\`${where.$inLt}\``;
+                sql += alias ? `\`${alias}\`.\`${where.$inGt}\`` : `\`${where.$inGt}\``;
             }
             else if (where.hasOwnProperty("$inLte")) {
                 sql += " <= ";
-                sql += alias ? `\`${alias}\`.\`${where.$inLt}\`` : `\`${where.$inLt}\``;
+                sql += alias ? `\`${alias}\`.\`${where.$inLte}\`` : `\`${where.$inLte}\``;
             }
             else if (where.hasOwnProperty("$inGte")) {
                 sql += " >= ";
-                sql += alias ? `\`${alias}\`.\`${where.$inLt}\`` : `\`${where.$inLt}\``;
+                sql += alias ? `\`${alias}\`.\`${where.$inGte}\`` : `\`${where.$inGte}\``;
             }
             else if (where.hasOwnProperty("$inEq")) {
                 sql += " = ";
-                sql += alias ? `\`${alias}\`.\`${where.$inLt}\`` : `\`${where.$inLt}\``;
+                sql += alias ? `\`${alias}\`.\`${where.$inEq}\`` : `\`${where.$inEq}\``;
             }
             else if (where.hasOwnProperty("$inNe")) {
                 sql += " != ";
-                sql += alias ? `\`${alias}\`.\`${where.$inLt}\`` : `\`${where.$inLt}\``;
+                sql += alias ? `\`${alias}\`.\`${where.$inNe}\`` : `\`${where.$inNe}\``;
             }
             else {
                 // 只支持以上的算子，除此之外如果再有$开关的算子，直接报不支持
