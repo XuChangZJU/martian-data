@@ -1281,6 +1281,7 @@ class DataAccess extends EventEmitter{
         const name = paramObj.name;
         const query = paramObj.query;
         const txn = paramObj.txn;
+        const forceIndex = paramObj.forceIndex;
         if(!name || !this.schemas[name]) {
             throw new Error("查询必须输入有效表名");
         }
@@ -1289,11 +1290,11 @@ class DataAccess extends EventEmitter{
         }
 
         let execTree = destructSelect.call(this, name, null, query, null, true);
-        return this.findByExecTreeDirectly(name, execTree, undefined, undefined, true, txn);
+        return this.findByExecTreeDirectly(name, execTree, undefined, undefined, true, txn, forceIndex);
 
     }
 
-    count2(name, query, txn) {
+    count2(name, query, txn, forceIndex) {
         if(!name || !this.schemas[name]) {
             throw new Error("查询必须输入有效表名");
         }
@@ -1302,7 +1303,7 @@ class DataAccess extends EventEmitter{
         }
 
         let execTree = destructSelect.call(this, name, null, query, null, true);
-        return this.findByExecTreeDirectly(name, execTree, undefined, undefined, true, txn);
+        return this.findByExecTreeDirectly(name, execTree, undefined, undefined, true, txn, forceIndex);
 
     }
 

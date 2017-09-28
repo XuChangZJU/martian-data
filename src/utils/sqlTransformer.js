@@ -542,7 +542,7 @@ class SQLTransformer {
         sql += sqlObj.projection;
         sql += " from ";
         sql += sqlObj.from;
-        sql += forceIndex && forceIndex.forceIndex ? ` force index(${forceIndex.forceIndex})` : "";
+        sql += forceIndex ? ` force index(${forceIndex})` : "";
 
         let hasWhere = false;
         if (sqlObj.where.length > 0) {
