@@ -172,38 +172,32 @@ describe("test subquery", function () {
     const users = JSON.parse(JSON.stringify(g_users));
     const houseInfos = JSON.parse(JSON.stringify(g_houseInfos));
 
-    before((done) => {
-        uda.connect(dataSource)
+    before(() => {
+        return uda.connect(dataSource)
             .then(
                 (result) => {
 
                     let _schema4 = JSON.parse(JSON.stringify(schema4));
-                    uda.setSchemas(_schema4)
+                    return uda.setSchemas(_schema4)
                         .then(
                             () => {
-                                initData(uda, users, houses, houseInfos)
+                                return initData(uda, users, houses, houseInfos)
                                     .then(
                                         () => {
-                                            done();
+                                            return;
                                         },
                                         (err) => {
-                                            done(err);
+                                            throw err;
                                         }
                                     );
 
-                            },
-                            (err) => {
-                                done(err);
                             }
                         );
-                },
-                (err) => {
-                    done(err);
                 }
             );
     });
 
-    it("{tsub0.1}", (done) => {
+    it("{tsub0.1}", () => {
         const query = {
             buildAt: {
                 $eq: now
@@ -247,7 +241,7 @@ describe("test subquery", function () {
         }
         const indexFrom = 0, count = 2;
 
-        uda.find({
+        return uda.find({
                 name: "house", projection, query, sort, indexFrom, count
             })
             .then(
@@ -255,15 +249,12 @@ describe("test subquery", function () {
                     expect(result).to.be.an("array");
                     expect(result).to.have.length(2);
 
-                    done();
-                },
-                (err) => {
-                    done(err);
+                    return;
                 }
             )
     });
 
-    it("{tsub0.2}", (done) => {
+    it("{tsub0.2}", () => {
         const query = {
             buildAt: {
                 $eq: now
@@ -314,7 +305,7 @@ describe("test subquery", function () {
         }
         const indexFrom = 0, count = 2;
 
-        uda.find({
+        return uda.find({
                 name: "house", projection, query, sort, indexFrom, count
             })
             .then(
@@ -322,16 +313,13 @@ describe("test subquery", function () {
                     expect(result).to.be.an("array");
                     expect(result).to.have.length(1);
 
-                    done();
-                },
-                (err) => {
-                    done(err);
+                    return
                 }
             )
     });
 
 
-    it("{tsub0.3}", (done) => {
+    it("{tsub0.3}", () => {
         const query = {
             buildAt: {
                 $eq: now
@@ -382,7 +370,7 @@ describe("test subquery", function () {
         }
         const indexFrom = 0, count = 2;
 
-        uda.find({
+        return uda.find({
                 name: "house", projection, query, sort, indexFrom, count
             })
             .then(
@@ -390,16 +378,13 @@ describe("test subquery", function () {
                     expect(result).to.be.an("array");
                     expect(result).to.have.length(0);
 
-                    done();
-                },
-                (err) => {
-                    done(err);
+                    return;
                 }
             )
     });
 
 
-    it("{tsub0.4}", (done) => {
+    it("{tsub0.4}", () => {
         const query = {
             buildAt: {
                 $eq: now
@@ -462,7 +447,7 @@ describe("test subquery", function () {
         }
         const indexFrom = 0, count = 2;
 
-        uda.find({
+        return uda.find({
                 name: "house", projection, query, sort, indexFrom, count
             })
             .then(
@@ -470,16 +455,13 @@ describe("test subquery", function () {
                     expect(result).to.be.an("array");
                     expect(result).to.have.length(0);
 
-                    done();
-                },
-                (err) => {
-                    done(err);
+                    return;
                 }
             )
     });
 
 
-    it("{tsub0.5}", (done) => {
+    it("{tsub0.5}", () => {
         const query = {
             buildAt: {
                 $eq: now
@@ -544,7 +526,7 @@ describe("test subquery", function () {
         }
         const indexFrom = 0, count = 2;
 
-        uda.find({
+        return uda.find({
                 name: "house", projection, query, sort, indexFrom, count
             })
             .then(
@@ -552,15 +534,13 @@ describe("test subquery", function () {
                     expect(result).to.be.an("array");
                     expect(result).to.have.length(0);
 
-                    done();
-                },
-                (err) => {
-                    done(err);
+                    return;
                 }
             )
     });
 
-    it("{tsub0.6}", (done) => {
+    it("{tsub0.6}", () => {
+        const now = Date.now();
         const query = {
             buildAt: {
                 $eq: now
@@ -611,7 +591,7 @@ describe("test subquery", function () {
         }
         const indexFrom = 0, count = 2;
 
-        uda.find({
+        return uda.find({
                 name: "house", projection, query, sort, indexFrom, count
             })
             .then(
@@ -619,11 +599,166 @@ describe("test subquery", function () {
                     expect(result).to.be.an("array");
                     expect(result).to.have.length(0);
 
-                    done();
-                },
-                (err) => {
-                    done(err);
+                    return;
                 }
             )
     });
-})
+
+    it("{tsub0.7}", () => {
+        const query = {
+            contract: {
+                price: {
+                    $exists: true
+                }
+            },
+            houseInfo: {
+                id: {
+                    $exists: true
+                }
+            },
+            house: {
+                id: {
+                    $exists: true
+                }
+            },
+            id: {
+                $exists: true
+            },
+            $isql: {
+                format: '${1} > ${2} + ${3} + ${4} + 5',
+                $attrs: ['id'],
+            },
+        };
+        query.$isql.$attrs.push(
+            {
+                $ref: "contract",
+                $attr: 'price',
+            },
+            {
+                $ref: "houseInfo",
+                $attr: 'id',
+            },
+            {
+                $ref: "house",
+                $attr: 'id',
+            }
+        );
+
+        //  这是个在同步函数中抛出的错误，需要try catch捕获
+        try {
+            return uda.find({
+                    name: "house", query, projection: {id: 1}, indexFrom: 0, count: 10
+                })
+                .then(
+                    (result) => {
+                        throw new Error("不应当成功");
+                    }
+                )
+        }
+        catch (err) {
+            console.log(err);
+            return Promise.resolve();
+        }
+    });
+
+    it("{tsub0.8}", () => {
+        const query = {
+            $isql: {
+                format: '${1} < ${2} + 1',
+                $attrs: ['id', 'buildAt'],
+            },
+            id: {
+                $exists: true
+            },
+        };
+
+        return uda.find({
+                name: "house", query, projection: {id: 1}, indexFrom: 0, count: 10
+            })
+            .then(
+                (result) => {
+                    return;
+                }
+            )
+    });
+
+    it("{tsub0.9}", () => {
+        const query = {
+            contract: {
+                price: {
+                    $exists: true
+                }
+            },
+            $isql: {
+                format: '${1} > ${2} + ${3} + 5',
+                $attrs: ['id'],
+            },
+            id: {
+                $exists: true
+            },
+        };
+        query.$isql.$attrs.push(
+            {
+                $ref: "contract",
+                $attr: 'price',
+            },
+            {
+                $ref: "houseInfo",
+                $attr: 'id',
+            }
+        );
+
+        try {
+            return uda.find({
+                    name: "house", query, projection: {id: 1}, indexFrom: 0, count: 10
+                })
+                .then(
+                    (result) => {
+                        throw new Error("不应当成功");
+                    }
+                )
+        }
+        catch (err) {
+            console.log(err);
+            return Promise.resolve();
+        }
+    });
+
+    it("{tsub0.10}", () => {
+        const query = {
+            contract: {
+                price: {
+                    $exists: true
+                }
+            },
+            $isql: {
+                format: '${1} > ${2} + ${3} + 5',
+                $attrs: ['id'],
+            },
+            id: {
+                $exists: true
+            },
+        };
+        query.$isql.$attrs.push(
+            {
+                $ref: "contract",
+                $attr: 'price',
+            }
+        );
+
+        try {
+            return uda.find({
+                    name: "house", query, projection: {id: 1}, indexFrom: 0, count: 10
+                })
+                .then(
+                    (result) => {
+                        throw new Error("不应当成功");
+                    }
+                )
+        }
+        catch (err) {
+            console.log(err);
+            return Promise.resolve();
+        }
+    });
+});
