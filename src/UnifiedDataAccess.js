@@ -38,10 +38,10 @@ function formalizeSchemasDefinition(schemas) {
         (resolve, reject) => {
 
             let schemasPromises = [];
-            for(let schema in schemas) {
+            for (let schema in schemas) {
                 const schemaDef = schemas[schema];
                 const connection = connections[schemaDef.source];
-                if(!connection) {
+                if (!connection) {
                     throw new Error("寻找不到相应的数据源" + schemaDef.source);
                 }
                 else {
@@ -54,26 +54,26 @@ function formalizeSchemasDefinition(schemas) {
 
                                     // 处理所有的reference列
                                     let keyTypePromises = [];
-                                    for(let attr in schemaDef.attributes) {
+                                    for (let attr in schemaDef.attributes) {
                                         const attrDef = schemaDef.attributes[attr];
 
-                                        if(attr === mainKeyColumn) {
+                                        if (attr === mainKeyColumn) {
                                             throw new Error("请不要使用默认的主键名" + attr);
                                         }
 
-                                        if(attrDef.type === constants.typeReference) {
+                                        if (attrDef.type === constants.typeReference) {
                                             const schemaReferenced = schemas[attrDef.ref];
-                                            if(!schemaReferenced) {
-                                                throw new Error("表"+ schema + "定义中的" + attr + "列引用了不存在的表" + attrDef.ref);
+                                            if (!schemaReferenced) {
+                                                throw new Error("表" + schema + "定义中的" + attr + "列引用了不存在的表" + attrDef.ref);
                                             }
                                             else {
                                                 // 寻找被引用表是否有显式定义主键
                                                 const dataSource2 = this.connections[schemaReferenced.source];
                                                 let type = dataSource2.getDefaultKeyType(attrDef.ref);
-                                                for(let attr2 in schemaReferenced.attributes) {
+                                                for (let attr2 in schemaReferenced.attributes) {
                                                     const attrDef2 = schemaReferenced.attributes[attr2];
-                                                    if(attrDef2.key) {
-                                                        if(attrDef2.type === "serial") {
+                                                    if (attrDef2.key) {
+                                                        if (attrDef2.type === "serial") {
                                                             type = {
                                                                 type: "int",
                                                                 size: 8
@@ -88,7 +88,7 @@ function formalizeSchemasDefinition(schemas) {
                                                 let localColumnName = attrDef.localColumnName || (attr + "Id");
                                                 attrDef.localColumnName = localColumnName;
                                                 attrDef.refColumnName = (attrDef.refColumnName || findKeyColumnName.call(this, attrDef.ref, schemaReferenced));
-                                                if(attrDef.refColumnName instanceof Promise) {
+                                                if (attrDef.refColumnName instanceof Promise) {
                                                     keyTypePromises.push(attrDef.refColumnName
                                                         .then(
                                                             (columnName) => {
@@ -103,13 +103,13 @@ function formalizeSchemasDefinition(schemas) {
                                                 }
 
                                                 let attrDef3 = Object.assign({}, attrDef);
-                                                if(type instanceof Promise) {
+                                                if (type instanceof Promise) {
                                                     // 异步获取keyType
                                                     keyTypePromises.push(
                                                         type
                                                             .then(
                                                                 (keyType) => {
-                                                                    if(keyType === "serial") {
+                                                                    if (keyType === "serial") {
                                                                         // 特殊处理一下serial类型，如果是serial则转成bigint
                                                                         keyType = {
                                                                             type: "int",
@@ -132,11 +132,11 @@ function formalizeSchemasDefinition(schemas) {
                                                 schemaDef.attributes[localColumnName] = attrDef3;
 
                                                 // 外键上默认要建索引
-                                                if(!attrDef3.unique && (attrDef3.autoIndexed !== false)) {
+                                                if (!attrDef3.unique && (attrDef3.autoIndexed !== false)) {
                                                     const indexName = "index_" + localColumnName;
                                                     const columns = {};
                                                     columns[localColumnName] = 1;
-                                                    if(schemaDef.indexes) {
+                                                    if (schemaDef.indexes) {
                                                         schemaDef.indexes[indexName] = {
                                                             columns: columns
                                                         }
@@ -151,13 +151,13 @@ function formalizeSchemasDefinition(schemas) {
                                                 }
                                             }
                                         }
-                                        else if(attrDef.key) {
+                                        else if (attrDef.key) {
                                             // 如果有显式定义主键，则不用增加主键列
                                             isMainKeyDefined = true;
                                         }
                                     }
 
-                                    if(!isMainKeyDefined) {
+                                    if (!isMainKeyDefined) {
                                         keyTypePromises.push(
                                             connection.getDefaultKeyType(schema)
                                                 .then(
@@ -175,7 +175,7 @@ function formalizeSchemasDefinition(schemas) {
                                         );
                                     }
 
-                                    if(!isSettingTrueStrictly(dataSources[schemaDef.source].settings, "disableCreateAt")) {
+                                    if (!isSettingTrueStrictly(dataSources[schemaDef.source].settings, "disableCreateAt")) {
                                         // 增加_createAt_
                                         schemaDef.attributes[constants.createAtColumn] = {
                                             type: "date",
@@ -191,7 +191,7 @@ function formalizeSchemasDefinition(schemas) {
                                         schemaDef.indexes = indexes;
                                     }
 
-                                    if(!isSettingTrueStrictly(dataSources[schemaDef.source].settings, "disableUpdateAt")) {
+                                    if (!isSettingTrueStrictly(dataSources[schemaDef.source].settings, "disableUpdateAt")) {
                                         // 增加_updateAt_
                                         schemaDef.attributes[constants.updateAtColumn] = {
                                             type: "date"
@@ -206,7 +206,7 @@ function formalizeSchemasDefinition(schemas) {
                                         schemaDef.indexes = indexes;
                                     }
 
-                                    if(!isSettingTrueStrictly(dataSources[schemaDef.source].settings, "disableDeleteAt")) {
+                                    if (!isSettingTrueStrictly(dataSources[schemaDef.source].settings, "disableDeleteAt")) {
                                         // 增加_deleteAt_
                                         schemaDef.attributes[constants.deleteAtColumn] = {
                                             type: "date"
@@ -221,7 +221,7 @@ function formalizeSchemasDefinition(schemas) {
                                         schemaDef.indexes = indexes;
                                     }
 
-                                    if(keyTypePromises.length > 0) {
+                                    if (keyTypePromises.length > 0) {
                                         return Promise.all(keyTypePromises);
                                     }
                                     else {
@@ -235,7 +235,7 @@ function formalizeSchemasDefinition(schemas) {
                     );
                 }
             }
-            if(schemasPromises.length > 0) {
+            if (schemasPromises.length > 0) {
                 return Promise.all(schemasPromises)
                     .then(
                         resolve,
@@ -262,28 +262,28 @@ function formalizeDataForUpdate(data, schema, type, omitTsColumn) {
     if (setPart) {
         keys(setPart).forEach(
             (attr) => {
-                if(!schema.attributes[attr]) {
+                if (!schema.attributes[attr]) {
                     throw new Error("更新的数据拥有非法属性" + attr);
                 }
 
                 // 处理reference列
-                if(schema.attributes[attr].type === constants.typeReference) {
+                if (schema.attributes[attr].type === constants.typeReference) {
                     const localColumnName = schema.attributes[attr].localColumnName;
                     const refColumnName = schema.attributes[attr].refColumnName;
 
-                    if(!setPart[localColumnName]) {
+                    if (!setPart[localColumnName]) {
                         setPart = assign({}, setPart, {
-                            [localColumnName] : setPart[attr] ? setPart[attr][refColumnName] : null
+                            [localColumnName]: setPart[attr] ? setPart[attr][refColumnName] : null
                         });
                     }
 
                     setPart = omit(setPart, attr);
                 }
-                else if(schema.attributes[attr].type === "date" || schema.attributes[attr].type === "time") {
+                else if (schema.attributes[attr].type === "date" || schema.attributes[attr].type === "time") {
                     // 处理Date类型
-                    if(setPart[attr] instanceof Date) {
+                    if (setPart[attr] instanceof Date) {
                         setPart = assign({}, setPart, {
-                            [attr] : setPart[attr].valueOf()
+                            [attr]: setPart[attr].valueOf()
                         });
                     }
                 }
@@ -311,8 +311,9 @@ function formalizeDataForUpdate(data, schema, type, omitTsColumn) {
     }
 
     // 增加相应的时间列
-    switch(type) {
-        case "create": {
+    switch (type) {
+        case "create":
+        {
             assert(setPart);
             if (!omitTsColumn) {
                 setPart[constants.createAtColumn] = Date.now();
@@ -321,7 +322,8 @@ function formalizeDataForUpdate(data, schema, type, omitTsColumn) {
             return setPart;
             break;
         }
-        case "update": {
+        case "update":
+        {
             if (!omitTsColumn) {
                 if (!setPart) {
                     setPart = {};
@@ -338,17 +340,18 @@ function formalizeDataForUpdate(data, schema, type, omitTsColumn) {
             return newData;
             break;
         }
-        default: {
+        default:
+        {
             assert(false);
         }
     }
 }
 
 function transformDateTypeInQuery(query) {
-    for(let attr in query) {
+    for (let attr in query) {
         const value = query[attr];
-        if(typeof value === "object") {
-            if(value instanceof Date) {
+        if (typeof value === "object") {
+            if (value instanceof Date) {
                 query[attr] = value.valueOf();
             }
             else {
@@ -360,11 +363,11 @@ function transformDateTypeInQuery(query) {
 
 
 function formalizeQueryValue(value) {
-    if(typeof value === "object") {
-        if(value instanceof Date) {
+    if (typeof value === "object") {
+        if (value instanceof Date) {
             return value.valueOf();
         }
-        else if(value instanceof Array) {
+        else if (value instanceof Array) {
             value = value.map(
                 (ele) => {
                     return formalizeQueryValue(ele);
@@ -372,8 +375,8 @@ function formalizeQueryValue(value) {
             )
         }
         else {
-            for(let i in value) {
-                if(i.startsWith("$")) {
+            for (let i in value) {
+                if (i.startsWith("$")) {
                     value[i] = formalizeQueryValue(value[i]);
                 }
             }
@@ -384,16 +387,16 @@ function formalizeQueryValue(value) {
 }
 
 function formalizeProjection(schema, projection, ignoreRef, isCounting) {
-    if(projection && typeof projection === "object") {
+    if (projection && typeof projection === "object") {
         return projection;
     }
     let proj2 = {};
-    for(let i in schema.attributes) {
-        if(schema.attributes[i].type === constants.typeReference && !isCounting) {
+    for (let i in schema.attributes) {
+        if (schema.attributes[i].type === constants.typeReference && !isCounting) {
             // 这里如果去将自己的ref全取出来，在自己ref自己的情况下会造成无限递归
             // 更新，这里上层需求取一层出来
-            if(!ignoreRef) {
-                proj2[i] = formalizeProjection.call(this, this.schemas[schema.attributes[i].ref], null,  true);
+            if (!ignoreRef) {
+                proj2[i] = formalizeProjection.call(this, this.schemas[schema.attributes[i].ref], null, true);
             }
         }
         else {
@@ -424,21 +427,20 @@ function destructSelect(name, projection, query, sort, isCounting) {
     sort = sort || {};
 
 
-
     // 选取的数据要过滤掉delete的行
     const settings = this.dataSources[schema.source].settings;
-    if(!settings || ! settings.disableDeleteAt) {
-        if(!query[constants.deleteAtColumn]) {
+    if (!settings || !settings.disableDeleteAt) {
+        if (!query[constants.deleteAtColumn]) {
             query[constants.deleteAtColumn] = {
                 $exists: false
             }
         }
     }
 
-    for(let attr in schema.attributes) {
+    for (let attr in schema.attributes) {
         const attrDef = schema.attributes[attr];
-        if(attrDef.type === constants.typeReference) {
-            if(projection[attr] || query[attr] || sort[attr]) {
+        if (attrDef.type === constants.typeReference) {
+            if (projection[attr] || query[attr] || sort[attr]) {
                 let refProjection = assign({}, projection[attr], {
                     [attrDef.refColumnName]: 1
                 });
@@ -448,33 +450,33 @@ function destructSelect(name, projection, query, sort, isCounting) {
                     refColumnName: attrDef.refColumnName,
                     localColumnName: attrDef.localColumnName,
                     node: destructSelect.call(this, schema.attributes[attr].ref, refProjection, query[attr], sort[attr])
-                }
+                };
                 result.joins.push(join);
             }
         }
         else {
-            if(projection.hasOwnProperty(attr)) {
+            if (projection.hasOwnProperty(attr)) {
                 result.projection[attr] = projection[attr];
             }
-            if(query.hasOwnProperty(attr)) {
+            if (query.hasOwnProperty(attr)) {
                 result.query[attr] = formalizeQueryValue(query[attr]);
             }
-            if(sort.hasOwnProperty(attr)) {
+            if (sort.hasOwnProperty(attr)) {
                 result.sort[attr] = sort[attr];
             }
         }
     }
 
     // 处理projection、query和sort中的fnCall
-    for(let attr in projection) {
-        if(attr.toLowerCase().startsWith("$fncall")) {
+    for (let attr in projection) {
+        if (attr.toLowerCase().startsWith("$fncall")) {
             result.projection[attr] = projection[attr];
         }
     }
     // sort可能按照函数调用结果的重命名列排序，所以把所有的项都传进去
-    for(let attr in sort) {
-        if(!result.sort.hasOwnProperty(attr)) {
-            if(typeof sort[attr] === "number" || attr.toLowerCase().startsWith("$fncall")) {
+    for (let attr in sort) {
+        if (!result.sort.hasOwnProperty(attr)) {
+            if (typeof sort[attr] === "number" || attr.toLowerCase().startsWith("$fncall")) {
                 result.sort[attr] = sort[attr];
             }
         }
@@ -482,22 +484,22 @@ function destructSelect(name, projection, query, sort, isCounting) {
 
     function checkQueryIsNoRef(query, attributes) {
         let noRef = true;
-        for(let i in query) {
-            if(attributes[i]) {
-                if(attributes[i].type === "ref") {
+        for (let i in query) {
+            if (attributes[i]) {
+                if (attributes[i].type === "ref") {
                     return false;
                 }
             }
             else {
-                if(i.startsWith("$")) {
+                if (i.startsWith("$")) {
                     query[i].forEach(
                         (ele) => {
-                            if(!checkQueryIsNoRef(ele, attributes)) {
+                            if (!checkQueryIsNoRef(ele, attributes)) {
                                 noRef = false;
                             }
                         }
                     );
-                    if(!noRef) {
+                    if (!noRef) {
                         return false;
                     }
                 }
@@ -506,36 +508,68 @@ function destructSelect(name, projection, query, sort, isCounting) {
         return noRef;
     }
 
-    for(let i in query) {
-        if(i.startsWith('$')) {
-            if(i === "$and" || i === "$or" || i === "$nor") {
+    for (let i in query) {
+        if (i.startsWith('$')) {
+            if (i === "$and" || i === "$or" || i === "$nor") {
                 const values = query[i];
                 let legal = true;
-                for(let j = 0; j < values.length; j ++){
-                    if(!checkQueryIsNoRef(values[j], schema.attributes)) {
+                for (let j = 0; j < values.length; j++) {
+                    if (!checkQueryIsNoRef(values[j], schema.attributes)) {
                         legal = false;
                         break;
                     }
                 }
-                if(!legal) {
+                if (!legal) {
                     throw new Error("逻辑顶层算子" + i + "只能支持单表级语义");
                 }
                 else {
                     result.query[i] = query[i];
                 }
             }
-            else if(i === "$has" || i === "$hasnot") {
+            else if (i === "$has" || i === "$hasnot") {
                 // exists / not exists 查询
                 result.query[i] = {
                     name: query[i].name,
                     execTree: destructSelect.call(this, query[i].name, query[i].projection, query[i].query, null)
                 };
             }
-            else if(i.toLowerCase().startsWith("$fncall")) {
+            else if (i === "$isql") {
+                const attrRefs = query[i].$attrs && query[i].$attrs.filter((attr)=>attr.$ref);
+                let maxNum = 0;
+                let idx = 0;
+                const str = query[i].format;
+                while (str.slice(idx, str.length).indexOf("${") !== -1) {
+                    let numStr = str.slice(idx, str.length).match(/\$\{[0-9]*\}/)[0];
+                    let num = parseInt(numStr.slice(numStr.indexOf("${") + 2, numStr.indexOf("}")));
+                    idx = str.indexOf(num) + 3;
+                    if (maxNum < num) {
+                        maxNum = num;
+                    }
+                }
+                if (query[i].$attrs.length !== maxNum) {
+                    throw new Error(`$isql算子中的$attrs长度与format中的最大数字${maxNum}不匹配`);
+                }
+                if (attrRefs && attrRefs.length !== 0) {
+                    attrRefs.forEach(
+                        (attrRef)=> {
+                            if (attrRef.$ref === name) {
+                                throw new Error(`暂时不支持$isql算子中同名的${attrRef.$ref}引用`);
+                            }
+                            if (!query.hasOwnProperty(attrRef.$ref)) {
+                                throw new Error(`query中缺少${attrRef.$ref}表的${attrRef.$attr}存在条件`);
+                            }
+                            let temp = attrRef;
+                            attrRef.$ref = {"#execNode#": temp.$ref};
+                        }
+                    )
+                }
+                result.query[i] = query[i];
+            }
+            else if (i.toLowerCase().startsWith("$fncall")) {
                 result.query[i] = query[i];
             }
             else {
-                throw new Error("检测到尚未支持的顶层算子: " + i );
+                throw new Error("检测到尚未支持的顶层算子: " + i);
             }
         }
     }
@@ -546,16 +580,16 @@ function destructSelect(name, projection, query, sort, isCounting) {
 function distributeNode(result, node, name, treeName, path) {
     const schemas = this.schemas;
     let newJoins = [];
-    for(let i = 0; i < node.joins.length; i ++) {
+    for (let i = 0; i < node.joins.length; i++) {
         let join = node.joins[i];
-        if(schemas[name].source !== schemas[join.rel].source) {
+        if (schemas[name].source !== schemas[join.rel].source) {
             // 如果子表与本表非同一个源，则将子表的查询剥离
             join.node.referencedBy = treeName;
             join.node.referenceNode = node;
-            if(result[join.rel]) {
+            if (result[join.rel]) {
                 // 已经对本表有一个子树了，不能重名
                 let alias = join.rel + "_1";
-                while(result[alias]) {
+                while (result[alias]) {
                     alias += "_1";
                 }
                 join.node.relName = join.rel;
@@ -578,7 +612,6 @@ function distributeNode(result, node, name, treeName, path) {
             });
 
             delete join.node;
-            node.joins
 
             // 此时要在本表的查询投影中加上子表的外键
             node.projection = merge({}, node.projection, {
@@ -604,17 +637,15 @@ function distributeSelect(name, tree) {
 }
 
 
-
-
 function hasOperator(node, op, num) {
     let count = num || 0;
-    if(Object.getOwnPropertyNames(node[op]).length > count) {
+    if (Object.getOwnPropertyNames(node[op]).length > count) {
         return true;
     }
     else {
-        if(node.joins.length > 0) {
-            for(let i = 0; i < node.joins.length; i ++) {
-                if(node.joins[i].node && hasOperator(node.joins[i].node, op, num)) {
+        if (node.joins.length > 0) {
+            for (let i = 0; i < node.joins.length; i++) {
+                if (node.joins[i].node && hasOperator(node.joins[i].node, op, num)) {
                     return true;
                 }
             }
@@ -624,8 +655,8 @@ function hasOperator(node, op, num) {
 }
 
 function findKeyColumnName(tblName, schema) {
-    for(let i in schema.attributes) {
-        if(schema.attributes[i].key) {
+    for (let i in schema.attributes) {
+        if (schema.attributes[i].key) {
             return i;
         }
     }
@@ -639,42 +670,43 @@ function findKeyColumnName(tblName, schema) {
  */
 function checkRightNodeQuerySatisfyNull(node, root) {
     function checkQuerySatisfied(query) {
-        if(!query || Object.getOwnPropertyNames(query).length === 0) {
+        if (!query || Object.getOwnPropertyNames(query).length === 0) {
             return true;
         }
 
-        for(let i in query) {
-            if(i === "$and") {
+        for (let i in query) {
+            if (i === "$and") {
                 let j = query[i].find(
                     (ele) => {
                         return (checkQuerySatisfied(ele) === false);
                     }
                 );
-                if(j) {
+                if (j) {
                     return false;
                 }
             }
-            else if(i.startsWith("$")) {
+            else if (i.startsWith("$")) {
                 // 除了and的一切一级算子直接报错
                 return false;
             }
-            else if(!query[i].hasOwnProperty("$exists") || query[i].$exists !== false) {
+            else if (!query[i].hasOwnProperty("$exists") || query[i].$exists !== false) {
                 // 如果用户显式地传了右子树的“id in”这样的查询，这里逻辑上会出错，不过这种概率极低
-                if(!root || i !== node.joinInfo.refAttr || !query[i].hasOwnProperty("$in") || !(query[i].$in instanceof Array)) {
+                if (!root || i !== node.joinInfo.refAttr || !query[i].hasOwnProperty("$in") || !(query[i].$in instanceof Array)) {
                     return false;
                 }
             }
         }
         return true;
     }
+
     let query = node.query;
-    if(!checkQuerySatisfied(query)) {
+    if (!checkQuerySatisfied(query)) {
         return false;
     }
 
-    if(node.joins.length > 0) {
-        for(let i = 0; i < node.joins.length; i ++) {
-            if(node.joins[i].node && !checkRightNodeQuerySatisfyNull(node.joins[i].node, false)) {
+    if (node.joins.length > 0) {
+        for (let i = 0; i < node.joins.length; i++) {
+            if (node.joins[i].node && !checkRightNodeQuerySatisfyNull(node.joins[i].node, false)) {
                 return false;
             }
         }
@@ -697,9 +729,9 @@ function joinNext(forest, me, result) {
     const nodeMe = forest[me];
     let promises = [];
     nodeMe.result = result;
-    if(nodeMe.referencedBy) {
+    if (nodeMe.referencedBy) {
         const nodeParent = forest[nodeMe.referencedBy];
-        if(nodeParent.result) {
+        if (nodeParent.result) {
             // 将自己的查询结果和父亲的结果进行join
             const parentResult = nodeParent.result;
 
@@ -708,23 +740,23 @@ function joinNext(forest, me, result) {
                 (ele, idx) => {
                     let joinLocalValue = get(ele, nodeMe.joinInfo.localKeyPath);
                     let i;
-                    for(i = 0; i < result.length; i ++) {
+                    for (i = 0; i < result.length; i++) {
                         let joinRefValue = result[i][nodeMe.joinInfo.refAttr];
                         // 这里要处理mongodb的ObjectId类型，不是一个很好的方案  by xc
-                        if(joinRefValue instanceof ObjectId) {
+                        if (joinRefValue instanceof ObjectId) {
                             joinRefValue = joinRefValue.toString();
                         }
-                        if(joinLocalValue instanceof ObjectId) {
+                        if (joinLocalValue instanceof ObjectId) {
                             joinLocalValue = joinLocalValue.toString();
                         }
-                        if(joinRefValue === joinLocalValue) {
+                        if (joinRefValue === joinLocalValue) {
                             set(ele, nodeMe.joinInfo.localAttrPath, result[i]);
                             joinedResult.push(ele);
                             break;
                         }
                     }
 
-                    if(i === result.length) {
+                    if (i === result.length) {
                         // 说明子表中没有相应的行，置undefined还是null?
                         /**
                          * 左连逻辑：
@@ -736,7 +768,7 @@ function joinNext(forest, me, result) {
                          *      则返回此项，否则不返回此项
                          *      by xc 20160911
                          */
-                        if(checkRightNodeQuerySatisfyNull(nodeMe, true)) {
+                        if (checkRightNodeQuerySatisfyNull(nodeMe, true)) {
                             set(ele, nodeMe.joinInfo.localAttrPath, null);
                             joinedResult.push(ele);
                         }
@@ -746,7 +778,7 @@ function joinNext(forest, me, result) {
             nodeParent.result = joinedResult;
         }
         else {
-            if(result.length > 0) {
+            if (result.length > 0) {
                 // 将自己的查询结果转换成in条件，进行父亲的查询
                 let referenceNode = nodeMe.referenceNode;
                 let joinLocalValues = result.map(
@@ -755,7 +787,7 @@ function joinNext(forest, me, result) {
                     }
                 );
                 referenceNode.query = merge({}, referenceNode.query, {
-                    [nodeMe.joinInfo.localKeyPath] : {
+                    [nodeMe.joinInfo.localKeyPath]: {
                         $in: joinLocalValues
                     }
                 });
@@ -781,19 +813,19 @@ function joinNext(forest, me, result) {
     }
 
     let completed = true;
-    let root ;
+    let root;
     for (let i in forest) {
         const node = forest[i];
 
-        if(!node.result) {
+        if (!node.result) {
             completed = false;
         }
-        if(!node.referencedBy) {
+        if (!node.referencedBy) {
             root = node;
         }
-        else if(node.referencedBy === me) {
+        else if (node.referencedBy === me) {
             const nodeSon = node;
-            if(nodeSon.result) {
+            if (nodeSon.result) {
                 // 将子结点的结果与自己进行join
                 // fixed 这里由于要保持order的顺序，只能由子向父倒查寻。由于在对父亲进行查询时规定了count不大于子查询结果的count,因此这里不会有过量的问题
                 const resultSon = nodeSon.result;
@@ -803,16 +835,16 @@ function joinNext(forest, me, result) {
                     (ele, idx) => {
                         let joinRefValue = ele[nodeSon.joinInfo.refAttr];
                         let i;
-                        for(i = 0; i < result.length; i ++) {
+                        for (i = 0; i < result.length; i++) {
                             let joinLocalValue = get(result[i], nodeSon.joinInfo.localKeyPath);
                             // 这里要处理mongodb的ObjectId类型，不是一个很好的方案  by xc
-                            if(joinRefValue instanceof ObjectId) {
+                            if (joinRefValue instanceof ObjectId) {
                                 joinRefValue = joinRefValue.toString();
                             }
-                            if(joinLocalValue instanceof ObjectId) {
+                            if (joinLocalValue instanceof ObjectId) {
                                 joinLocalValue = joinLocalValue.toString();
                             }
-                            if(joinRefValue === joinLocalValue) {
+                            if (joinRefValue === joinLocalValue) {
                                 set(result[i], nodeSon.joinInfo.localAttrPath, ele);
                                 newResult.push(result[i]);
                                 break;
@@ -850,7 +882,7 @@ function joinNext(forest, me, result) {
 
             }
             else {
-                if(result.length > 0) {
+                if (result.length > 0) {
                     // 将自己的查询结果转换成in形式，进行子孙的查询
                     /* let joinLocalValues = [];
                      result.forEach(
@@ -915,7 +947,7 @@ function joinNext(forest, me, result) {
     }
 
     // 如果所有的查询都完成，则返回root的结果
-    if(completed || promises.length === 0) {
+    if (completed || promises.length === 0) {
         return Promise.resolve(root.result);
     }
     else {
@@ -931,10 +963,10 @@ function joinNext(forest, me, result) {
  * @param count
  * @returns {Promise.<TResult>}
  */
-function execOverSourceQuery(name, forest, indexFrom, count, txn) {
-    for(let i in forest) {
+function execOverSourceQuery(name, forest, indexFrom, count, txn, forceIndex) {
+    for (let i in forest) {
         const tree = forest[i];
-        if(i !== name && hasOperator(tree, "sort")) {
+        if (i !== name && hasOperator(tree, "sort")) {
             throw new Error("跨源查询的排序算子必须在主表上");
         }
     }
@@ -946,7 +978,7 @@ function execOverSourceQuery(name, forest, indexFrom, count, txn) {
     const connection = this.connections[schema.source];
     const txn2 = (txn && txn.source === schema.source) ? txn.txn : undefined;
 
-    return connection.find(name, firstRel, indexFrom, count, false, txn2)
+    return connection.find(name, firstRel, indexFrom, count, false, txn2, forceIndex)
         .then(
             (result) => {
                 return joinNext.call(this, forest, name, result)
@@ -966,20 +998,20 @@ function execOverSourceQuery(name, forest, indexFrom, count, txn) {
 }
 
 
-
 function getRidOfResult(result, projection, name) {
     const schemas = this.schemas;
     const schema = schemas[name];
 
     projection = formalizeProjection.call(this, schema, projection);
-    for(let attr in result) {
-        if(!projection[attr]) {
+    for (let attr in result) {
+        if (!projection[attr]) {
             // delete result[attr];
             continue;
         }
         else {
-            switch(schema.attributes[attr].type) {
-                case "ref" : {
+            switch (schema.attributes[attr].type) {
+                case "ref" :
+                {
                     getRidOfResult.call(this, result[attr], projection[attr], schema.attributes[attr].ref);
                     break;
                 }
@@ -989,26 +1021,31 @@ function getRidOfResult(result, projection, name) {
                  break;
                  }*/
                 case "array":
-                case "object": {
-                    if(typeof result[attr] === "string") {
+                case "object":
+                {
+                    if (typeof result[attr] === "string") {
                         // 从mysql中获取的object类型应该是string
                         result[attr] = JSON.parse(result[attr]);
                         break;
                     }
                 }
                 case "bool":
-                case "boolean": {
-                    switch(typeof result[attr]) {
-                        case "boolean": {
-                            result[attr] =  result[attr];
+                case "boolean":
+                {
+                    switch (typeof result[attr]) {
+                        case "boolean":
+                        {
+                            result[attr] = result[attr];
                             break;
                         }
-                        case "number": {
-                            result[attr] =  (result[attr] === 0) ? false : true;
+                        case "number":
+                        {
+                            result[attr] = (result[attr] === 0) ? false : true;
                             break;
                         }
-                        case "string": {
-                            result[attr] =  (result[attr] === "0" || result[attr] === "false") ? false: true;
+                        case "string":
+                        {
+                            result[attr] = (result[attr] === "0" || result[attr] === "false") ? false : true;
                             break;
                         }
                     }
@@ -1021,11 +1058,10 @@ function getRidOfResult(result, projection, name) {
 }
 
 
-class DataAccess extends EventEmitter{
+class DataAccess extends EventEmitter {
 
     checkTransactionValid(txn) {
-        if (!txn || !txn.hasOwnProperty('txn') || !txn.hasOwnProperty('source') ||
-            !txn.hasOwnProperty('state')) {
+        if (!txn || !txn.hasOwnProperty('txn') || !txn.hasOwnProperty('source') || !txn.hasOwnProperty('state')) {
             throw new Error('必须传入有效的txn结构');
         }
         if (txn.state !== 'active') {
@@ -1048,13 +1084,13 @@ class DataAccess extends EventEmitter{
 
         // 连接上所有的数据库
         let promises = [];
-        for(let name in dataSources) {
+        for (let name in dataSources) {
             const dsItem = dataSources[name];
 
             promises.push(new Promise(
                 (resolve, reject) => {
                     const driver = this.drivers[dsItem.type];
-                    if(!driver) {
+                    if (!driver) {
                         throw new Error("尚不支持的数据源类型" + dsItem.type);
                     }
                     const instance = new driver(dsItem.settings);
@@ -1084,7 +1120,7 @@ class DataAccess extends EventEmitter{
 
     disconnect() {
         let promises = [];
-        for(let i in this.connections) {
+        for (let i in this.connections) {
             const instance = this.connections[i];
             promises.push(
                 instance.disconnect()
@@ -1110,8 +1146,8 @@ class DataAccess extends EventEmitter{
         return formalizeSchemasDefinition.call(this, this.schemas)
             .then(
                 () => {
-                    for(let conn in this.connections) {
-                        if(this.connections[conn].setSchemas && typeof this.connections[conn].setSchemas === "function") {
+                    for (let conn in this.connections) {
+                        if (this.connections[conn].setSchemas && typeof this.connections[conn].setSchemas === "function") {
                             this.connections[conn].setSchemas(this.schemas);
                         }
                     }
@@ -1125,10 +1161,10 @@ class DataAccess extends EventEmitter{
     createSchemas() {
         let promises = [];
 
-        for(let schema in this.schemas) {
+        for (let schema in this.schemas) {
             const schemaDef = this.schemas[schema];
             const connection = this.connections[schemaDef.source];
-            if(!connection) {
+            if (!connection) {
                 throw new Error("寻找不到相应的数据源" + schemaDef.source);
             }
             else {
@@ -1142,15 +1178,15 @@ class DataAccess extends EventEmitter{
 
     dropSchemas() {
         let promises = [];
-        for(let schema in this.schemas) {
+        for (let schema in this.schemas) {
             const schemaDef = this.schemas[schema];
             const connection = this.connections[schemaDef.source];
-            if(!connection) {
+            if (!connection) {
                 throw new Error("寻找不到相应的数据源" + schemaDef.source);
             }
             else {
                 // 这里增加需求，可以指定某张表在Drop时不删除，可能有问题  by xc!
-                if(!schemaDef.static) {
+                if (!schemaDef.static) {
                     promises.push(connection.dropSchema(schemaDef, schema));
                 }
             }
@@ -1158,7 +1194,10 @@ class DataAccess extends EventEmitter{
         return Promise.all(promises);
     }
 
-    insert(name, data, txn) {
+    insert(paramObj) {
+        const name = paramObj.name;
+        const data = paramObj.data;
+        const txn = paramObj.txn;
         if (txn) {
             this.checkTransactionValid(txn);
         }
@@ -1170,7 +1209,7 @@ class DataAccess extends EventEmitter{
         }
 
         let omitTsColumn = true;
-        if(!isSettingTrueStrictly(this.dataSources[schema.source].settings, "disableCreateAt")){
+        if (!isSettingTrueStrictly(this.dataSources[schema.source].settings, "disableCreateAt")) {
             omitTsColumn = false;
         }
         let data2;
@@ -1186,11 +1225,47 @@ class DataAccess extends EventEmitter{
         return connection.insert(name, data2, schema, txn && txn.txn);
     }
 
-    find(name, projection, query, sort, indexFrom, count, txn) {
-        if(!name || !this.schemas[name]) {
+    insert2(name, data, txn) {
+        if (txn) {
+            this.checkTransactionValid(txn);
+        }
+        let schema = this.schemas[name];
+        const connection = this.connections[schema.source];
+
+        if (typeof data !== "object") {
+            throw new Error("插入的数据必须是object类型");
+        }
+
+        let omitTsColumn = true;
+        if (!isSettingTrueStrictly(this.dataSources[schema.source].settings, "disableCreateAt")) {
+            omitTsColumn = false;
+        }
+        let data2;
+        if (!(data instanceof Array)) {
+            data2 = [formalizeDataForUpdate(assign({}, data), schema, 'create', omitTsColumn)];
+        }
+        else {
+            data2 = data.map(
+                (ele) => formalizeDataForUpdate(assign({}, ele), schema, 'create', omitTsColumn)
+            );
+        }
+
+        return connection.insert(name, data2, schema, txn && txn.txn);
+    }
+
+    find(paramObj) {
+        const name = paramObj.name;
+        const projection = paramObj.projection;
+        const query = paramObj.query;
+        const sort = paramObj.sort;
+        const indexFrom = paramObj.indexFrom;
+        const count = paramObj.count;
+        const txn = paramObj.txn;
+        const forceIndex = paramObj.forceIndex;
+        if (!name || !this.schemas[name]) {
             throw new Error("查询必须输入有效表名");
         }
-        if(indexFrom === undefined || !count) {
+        if (indexFrom === undefined || !count) {
             throw new Error("查询列表必须带indexFrom和count参数");
         }
         if (txn) {
@@ -1198,7 +1273,7 @@ class DataAccess extends EventEmitter{
         }
         let execTree = destructSelect.call(this, name, projection, query, sort);
 
-        return this.findByExecTreeDirectly(name, execTree, indexFrom, count, false, txn)
+        return this.findByExecTreeDirectly(name, execTree, indexFrom, count, false, txn, forceIndex)
             .then(
                 (result) => {
                     assert(result instanceof Array);
@@ -1212,8 +1287,38 @@ class DataAccess extends EventEmitter{
             );
     }
 
-    count(name, query, txn) {
-        if(!name || !this.schemas[name]) {
+    find2(name, projection, query, sort, indexFrom, count, txn, forceIndex) {
+        if (!name || !this.schemas[name]) {
+            throw new Error("查询必须输入有效表名");
+        }
+        if (indexFrom === undefined || !count) {
+            throw new Error("查询列表必须带indexFrom和count参数");
+        }
+        if (txn) {
+            this.checkTransactionValid(txn);
+        }
+        let execTree = destructSelect.call(this, name, projection, query, sort);
+
+        return this.findByExecTreeDirectly(name, execTree, indexFrom, count, false, txn, forceIndex)
+            .then(
+                (result) => {
+                    assert(result instanceof Array);
+                    result.forEach(
+                        (ele, idx) => {
+                            getRidOfResult.call(this, ele, projection, name);
+                        }
+                    );
+                    return Promise.resolve(result);
+                }
+            );
+    }
+
+    count(paramObj) {
+        const name = paramObj.name;
+        const query = paramObj.query;
+        const txn = paramObj.txn;
+        const forceIndex = paramObj.forceIndex;
+        if (!name || !this.schemas[name]) {
             throw new Error("查询必须输入有效表名");
         }
         if (txn) {
@@ -1221,20 +1326,41 @@ class DataAccess extends EventEmitter{
         }
 
         let execTree = destructSelect.call(this, name, null, query, null, true);
-        return this.findByExecTreeDirectly(name, execTree, undefined, undefined, true, txn);
+        return this.findByExecTreeDirectly(name, execTree, undefined, undefined, true, txn, forceIndex);
 
     }
 
-    findOneById(name, projection, id, txn) {
-        return this.findById(name, projection, id, txn);
+    count2(name, query, txn, forceIndex) {
+        if (!name || !this.schemas[name]) {
+            throw new Error("查询必须输入有效表名");
+        }
+        if (txn) {
+            this.checkTransactionValid(txn);
+        }
+
+        let execTree = destructSelect.call(this, name, null, query, null, true);
+        return this.findByExecTreeDirectly(name, execTree, undefined, undefined, true, txn, forceIndex);
+
     }
 
-    findById(name, projection, id, txn) {
-        if(!name || !this.schemas[name]) {
+    findOneById(paramObj) {
+        return this.findById(paramObj);
+    }
+
+    findOneById2(name, projection, id, txn) {
+        return this.findById({name, projection, id, txn});
+    }
+
+    findById(paramObj) {
+        const name = paramObj.name;
+        const projection = paramObj.projection;
+        const id = paramObj.id;
+        const txn = paramObj.txn;
+        if (!name || !this.schemas[name]) {
             throw new Error("查询必须输入有效表名");
         }
 
-        if(typeof id !== "number" && typeof id !== "string" && ! (id instanceof ObjectId)) {
+        if (typeof id !== "number" && typeof id !== "string" && !(id instanceof ObjectId)) {
             throw new Error("查询必须输入有效id")
         }
 
@@ -1247,7 +1373,7 @@ class DataAccess extends EventEmitter{
         const connection = this.connections[schema.source];
 
         const pKeyColumn = findKeyColumnName.call(this, name, schema);
-        assert (!(pKeyColumn instanceof Promise));            // 在运行中去获取主键应该不需要等待
+        assert(!(pKeyColumn instanceof Promise));            // 在运行中去获取主键应该不需要等待
         query[pKeyColumn] = id;
 
         let execTree = destructSelect.call(this, name, projection, query);
@@ -1255,15 +1381,18 @@ class DataAccess extends EventEmitter{
             .then(
                 (result) => {
                     switch (result.length) {
-                        case 0: {
+                        case 0:
+                        {
                             return Promise.resolve(null);
                         }
-                        case 1: {
+                        case 1:
+                        {
                             let row = result[0];
                             getRidOfResult.call(this, row, projection, name);
                             return Promise.resolve(row);
                         }
-                        case 2: {
+                        case 2:
+                        {
                             return Promise.reject(new Error("基于键值的查询返回了一个以上的结果"));
                         }
                     }
@@ -1274,18 +1403,65 @@ class DataAccess extends EventEmitter{
             );
     }
 
+    findById2(name, projection, id, txn) {
+        if (!name || !this.schemas[name]) {
+            throw new Error("查询必须输入有效表名");
+        }
 
-    findByExecTreeDirectly(name, execTree, indexFrom, count, isCounting, txn) {
+        if (typeof id !== "number" && typeof id !== "string" && !(id instanceof ObjectId)) {
+            throw new Error("查询必须输入有效id")
+        }
+
+        if (txn) {
+            this.checkTransactionValid(txn);
+        }
+
+        let schema = this.schemas[name];
+        let query = {};
+        const connection = this.connections[schema.source];
+
+        const pKeyColumn = findKeyColumnName.call(this, name, schema);
+        assert(!(pKeyColumn instanceof Promise));            // 在运行中去获取主键应该不需要等待
+        query[pKeyColumn] = id;
+
+        let execTree = destructSelect.call(this, name, projection, query);
+        return this.findByExecTreeDirectly(name, execTree, 0, 1, null, txn)
+            .then(
+                (result) => {
+                    switch (result.length) {
+                        case 0:
+                        {
+                            return Promise.resolve(null);
+                        }
+                        case 1:
+                        {
+                            let row = result[0];
+                            getRidOfResult.call(this, row, projection, name);
+                            return Promise.resolve(row);
+                        }
+                        case 2:
+                        {
+                            return Promise.reject(new Error("基于键值的查询返回了一个以上的结果"));
+                        }
+                    }
+                },
+                (err) => {
+                    return Promise.reject(err);
+                }
+            );
+    }
+
+    findByExecTreeDirectly(name, execTree, indexFrom, count, isCounting, txn, forceIndex) {
         let execForest = distributeSelect.call(this, name, execTree);
 
         let trees = Object.getOwnPropertyNames(execForest);
-        if(trees.length > 1) {
+        if (trees.length > 1) {
             // 如果查询跨越了数据源，则必须要带sort条件，否则无法进行查询
-            if(isCounting) {
+            if (isCounting) {
                 throw new Error("当前不支持跨源的count查询");
             }
 
-            return execOverSourceQuery.call(this, name, execForest, indexFrom, count, txn);
+            return execOverSourceQuery.call(this, name, execForest, indexFrom, count, txn, forceIndex);
         }
         else {
             // 单源的查询直接PUSH给相应的数据源
@@ -1293,11 +1469,15 @@ class DataAccess extends EventEmitter{
             const connection = this.connections[schema.source];
             const txn2 = (txn && txn.source === schema.source) ? txn.txn : undefined;
 
-            return connection.find(name, execTree, indexFrom, count, isCounting, txn2);
+            return connection.find(name, execTree, indexFrom, count, isCounting, txn2, forceIndex);
         }
     }
 
-    update(name, data, query, txn) {
+    update(paramObj) {
+        const name = paramObj.name;
+        const data = paramObj.data;
+        let query = paramObj.query;
+        const txn = paramObj.txn;
         if (txn) {
             this.checkTransactionValid(txn);
         }
@@ -1306,10 +1486,10 @@ class DataAccess extends EventEmitter{
         const connection = this.connections[schema.source];
 
         let omitTsColumn = true;
-        if(!isSettingTrueStrictly(this.dataSources[schema.source].settings, "disableUpdateAt")){
+        if (!isSettingTrueStrictly(this.dataSources[schema.source].settings, "disableUpdateAt")) {
             omitTsColumn = false;
         }
-        if(!isSettingTrueStrictly(this.dataSources[schema.source].settings, "disableDeleteAt")){
+        if (!isSettingTrueStrictly(this.dataSources[schema.source].settings, "disableDeleteAt")) {
             query[constants.deleteAtColumn] = {
                 $exists: false
             };
@@ -1321,8 +1501,36 @@ class DataAccess extends EventEmitter{
         return connection.update(name, data2, query, txn && txn.txn);
     }
 
-    updateOneById(name, data, id, txn) {
-        if(typeof id !== "number" && typeof id !== "string" && ! (id instanceof ObjectId)) {
+    update2(name, data, query, txn) {
+        if (txn) {
+            this.checkTransactionValid(txn);
+        }
+        let schema = this.schemas[name];
+        query = query || {};
+        const connection = this.connections[schema.source];
+
+        let omitTsColumn = true;
+        if (!isSettingTrueStrictly(this.dataSources[schema.source].settings, "disableUpdateAt")) {
+            omitTsColumn = false;
+        }
+        if (!isSettingTrueStrictly(this.dataSources[schema.source].settings, "disableDeleteAt")) {
+            query[constants.deleteAtColumn] = {
+                $exists: false
+            };
+        }
+
+        const data2 = formalizeDataForUpdate(data || {}, schema, 'update', omitTsColumn);
+        transformDateTypeInQuery(query);
+
+        return connection.update(name, data2, query, txn && txn.txn);
+    }
+
+    updateOneById(paramObj) {
+        const name = paramObj.name;
+        const data = paramObj.data;
+        const id = paramObj.id;
+        const txn = paramObj.txn;
+        if (typeof id !== "number" && typeof id !== "string" && !(id instanceof ObjectId)) {
             throw new Error("查询必须输入有效id")
         }
         if (txn) {
@@ -1332,7 +1540,7 @@ class DataAccess extends EventEmitter{
         const connection = this.connections[schema.source];
 
         let omitTsColumn = true;
-        if(!isSettingTrueStrictly(this.dataSources[schema.source].settings, "disableUpdateAt")){
+        if (!isSettingTrueStrictly(this.dataSources[schema.source].settings, "disableUpdateAt")) {
             omitTsColumn = false;
         }
 
@@ -1342,7 +1550,31 @@ class DataAccess extends EventEmitter{
 
     }
 
-    remove(name, query, txn) {
+    updateOneById2(name, data, id, txn) {
+        if (typeof id !== "number" && typeof id !== "string" && !(id instanceof ObjectId)) {
+            throw new Error("查询必须输入有效id")
+        }
+        if (txn) {
+            this.checkTransactionValid(txn);
+        }
+        let schema = this.schemas[name];
+        const connection = this.connections[schema.source];
+
+        let omitTsColumn = true;
+        if (!isSettingTrueStrictly(this.dataSources[schema.source].settings, "disableUpdateAt")) {
+            omitTsColumn = false;
+        }
+
+        const data2 = formalizeDataForUpdate(data, schema, 'update', omitTsColumn);
+
+        return connection.updateOneById(name, data2, id, schema, txn && txn.txn);
+
+    }
+
+    remove(paramObj) {
+        const name = paramObj.name;
+        let query = paramObj.query;
+        const txn = paramObj.txn;
         if (txn) {
             this.checkTransactionValid(txn);
         }
@@ -1351,7 +1583,7 @@ class DataAccess extends EventEmitter{
         const connection = this.connections[schema.source];
         transformDateTypeInQuery(query);
 
-        if(!isSettingTrueStrictly(this.dataSources[schema.source].settings, "disableDeleteAt")){
+        if (!isSettingTrueStrictly(this.dataSources[schema.source].settings, "disableDeleteAt")) {
             let data = {
                 $set: {
                     [constants.deleteAtColumn]: Date.now()
@@ -1368,8 +1600,37 @@ class DataAccess extends EventEmitter{
         }
     }
 
-    removeOneById(name, id, txn) {
-        if(typeof id !== "number" && typeof id !== "string" && ! (id instanceof ObjectId)) {
+    remove2(name, query, txn) {
+        if (txn) {
+            this.checkTransactionValid(txn);
+        }
+        let schema = this.schemas[name];
+        query = query || {};
+        const connection = this.connections[schema.source];
+        transformDateTypeInQuery(query);
+
+        if (!isSettingTrueStrictly(this.dataSources[schema.source].settings, "disableDeleteAt")) {
+            let data = {
+                $set: {
+                    [constants.deleteAtColumn]: Date.now()
+                }
+            };
+
+            query[constants.deleteAtColumn] = {
+                $exists: false
+            };
+            return connection.update(name, data, query, txn && txn.txn);
+        }
+        else {
+            return connection.remove(name, query, txn && txn.txn);
+        }
+    }
+
+    removeOneById(paramObj) {
+        const name = paramObj.name;
+        const id = paramObj.id;
+        const txn = paramObj.txn;
+        if (typeof id !== "number" && typeof id !== "string" && !(id instanceof ObjectId)) {
             throw new Error("查询必须输入有效id")
         }
         if (txn) {
@@ -1378,7 +1639,30 @@ class DataAccess extends EventEmitter{
         let schema = this.schemas[name];
         const connection = this.connections[schema.source];
 
-        if(!isSettingTrueStrictly(this.dataSources[schema.source].settings, "disableDeleteAt")){
+        if (!isSettingTrueStrictly(this.dataSources[schema.source].settings, "disableDeleteAt")) {
+            let data = {
+                $set: {
+                    [constants.deleteAtColumn]: Date.now()
+                }
+            };
+            return connection.updateOneById(name, data, id, schema, txn && txn.txn);
+        }
+        else {
+            return connection.removeOneById(name, id, schema, txn && txn.txn);
+        }
+    }
+
+    removeOneById2(name, id, txn) {
+        if (typeof id !== "number" && typeof id !== "string" && !(id instanceof ObjectId)) {
+            throw new Error("查询必须输入有效id")
+        }
+        if (txn) {
+            this.checkTransactionValid(txn);
+        }
+        let schema = this.schemas[name];
+        const connection = this.connections[schema.source];
+
+        if (!isSettingTrueStrictly(this.dataSources[schema.source].settings, "disableDeleteAt")) {
             let data = {
                 $set: {
                     [constants.deleteAtColumn]: Date.now()
@@ -1398,13 +1682,13 @@ class DataAccess extends EventEmitter{
 
     getKeyName(tblName) {
         let keyName = findKeyColumnName.call(this, tblName, this.schemas[tblName]);
-        assert (!(keyName instanceof Promise));            // 在运行中去获取主键应该不需要等待
+        assert(!(keyName instanceof Promise));            // 在运行中去获取主键应该不需要等待
         return keyName;
     }
 
     getKeyType(tblName) {
         let columnName = this.getKeyName(tblName);
-        assert (!(columnName instanceof Promise));            // 在运行中去获取主键应该不需要等待
+        assert(!(columnName instanceof Promise));            // 在运行中去获取主键应该不需要等待
         return this.schemas[tblName].attributes[columnName].type;
     }
 
@@ -1419,11 +1703,11 @@ class DataAccess extends EventEmitter{
      */
     startTransaction(source, option) {
         const connection = this.connections[source];
-        if(connection && connection.startTransaction && typeof connection.startTransaction === "function") {
+        if (connection && connection.startTransaction && typeof connection.startTransaction === "function") {
             return connection.startTransaction(option)
                 .then(
                     (txn) => {
-                        this.txnCount ++;
+                        this.txnCount++;
                         const transaction = {
                             txn,
                             source,
@@ -1449,11 +1733,11 @@ class DataAccess extends EventEmitter{
     commitTransaction(txn, option) {
         this.checkTransactionValid(txn);
         const connection = this.connections[txn.source];
-        if(connection && connection.commmitTransaction && typeof connection.commmitTransaction === "function") {
+        if (connection && connection.commmitTransaction && typeof connection.commmitTransaction === "function") {
             return connection.commmitTransaction(txn.txn, option)
                 .then(
                     () => {
-                        this.txnCount --;
+                        this.txnCount--;
                         txn.state = 'committed';
                         this.emit('txnCommitted', txn);
                     }
@@ -1474,9 +1758,9 @@ class DataAccess extends EventEmitter{
      */
     rollbackTransaction(txn, option) {
         this.checkTransactionValid(txn);
-        this.txnCount --;
+        this.txnCount--;
         const connection = this.connections[txn.source];
-        if(connection && connection.rollbackTransaction && typeof connection.rollbackTransaction === "function") {
+        if (connection && connection.rollbackTransaction && typeof connection.rollbackTransaction === "function") {
             return connection.rollbackTransaction(txn.txn, option)
                 .then(
                     () => {
@@ -1490,7 +1774,7 @@ class DataAccess extends EventEmitter{
         }
     }
 
-    get constants(){
+    get constants() {
         return constants;
     }
 
@@ -1498,14 +1782,11 @@ class DataAccess extends EventEmitter{
         return events;
     }
 
-};
+}
+;
 
 
 // const dataAccess = new DataAccess();
-
-
-
-
 
 
 module.exports = DataAccess;

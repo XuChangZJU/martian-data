@@ -31,6 +31,10 @@ const schema = {
             contract: {
                 type: "ref",
                 ref: "contract"
+            },
+            house: {
+                type: "ref",
+                ref: "house"
             }
         }
     },

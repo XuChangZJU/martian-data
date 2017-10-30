@@ -42,7 +42,7 @@ function convertValueToSQLFormat(value) {
                  *    这样的格式来传属性
                  */
                 assert(Object.getOwnPropertyNames(value).length === 2 && value.hasOwnProperty("$attr"));
-                let result = "`" + value["$ref"]["#execNode#"]["alias"] + "`";
+                let result = "`" + (value["$ref"]["#execNode#"] || value["$ref"]["#execNode#"]["alias"]) + "`";
                 result += ".";
                 result += value["$attr"];
                 return result;
@@ -458,6 +458,39 @@ class SQLTransformer {
                 sql += `like '${where.$like}%'`;
             }
             //  Added by wangyuef 增加like算子 2017-7-21    End
+            else if (where.hasOwnProperty("$inLt")) {
+                sql += " < ";
+                sql += alias ? `\`${alias}\`.\`${where.$inLt}\`` : `\`${where.$inLt}\``;
+            }
+            else if (where.hasOwnProperty("$inGt")) {
+                sql += " > ";
+                sql += alias ? `\`${alias}\`.\`${where.$inGt}\`` : `\`${where.$inGt}\``;
+            }
+            else if (where.hasOwnProperty("$inLte")) {
+                sql += " <= ";
+                sql += alias ? `\`${alias}\`.\`${where.$inLte}\`` : `\`${where.$inLte}\``;
+            }
+            else if (where.hasOwnProperty("$inGte")) {
+                sql += " >= ";
+                sql += alias ? `\`${alias}\`.\`${where.$inGte}\`` : `\`${where.$inGte}\``;
+            }
+            else if (where.hasOwnProperty("$inEq")) {
+                sql += " = ";
+                sql += alias ? `\`${alias}\`.\`${where.$inEq}\`` : `\`${where.$inEq}\``;
+            }
+            else if (where.hasOwnProperty("$inNe")) {
+                sql += " != ";
+                sql += alias ? `\`${alias}\`.\`${where.$inNe}\`` : `\`${where.$inNe}\``;
+            }
+            else if (where.hasOwnProperty("$isql")) {
+                while (where.$isql.format.indexOf("${") !== -1) {
+                    let numStr = where.$isql.format.match(/\$\{[0-9]*\}/)[0];
+                    let num = parseInt(numStr.slice(numStr.indexOf("${") + 2, numStr.indexOf("}")));
+                    let value = typeof where.$isql.$attrs[num - 1] === "object" ? convertValueToSQLFormat(where.$isql.$attrs[num - 1]) : (alias ? `\`${alias}\`.${where.$isql.$attrs[num - 1]}` : where.$isql.$attrs[num - 1]);
+                    where.$isql.format = where.$isql.format.replace(numStr, value);
+                }
+                sql += where.$isql.format;
+            }
             else {
                 // 只支持以上的算子，除此之外如果再有$开关的算子，直接报不支持
                 switch (typeof where) {
@@ -499,7 +532,7 @@ class SQLTransformer {
     }
 
 
-    transformSelect(name, execTree, indexFrom, count, isCounting, usedNames) {
+    transformSelect(name, execTree, indexFrom, count, isCounting, usedNames, forceIndex) {
         let sqlObj = {
             projection: "",
             from: "",
@@ -518,6 +551,7 @@ class SQLTransformer {
         sql += sqlObj.projection;
         sql += " from ";
         sql += sqlObj.from;
+        sql += forceIndex ? ` force index(${forceIndex})` : "";
 
         let hasWhere = false;
         if (sqlObj.where.length > 0) {

@@ -298,4 +298,18 @@ describe("test sqltransformer", () => {
 		console.log(sql);
 		done();
 	});
+
+
+it("[st8.0]inside operator", (done) => {
+
+	const query = {
+		age :{
+			$inLt: "price"
+		}
+	}
+
+	const sql = sqlTransformer.transformWhere(query, undefined, "table", "user");
+	console.log(sql);
+	done();
+});
 })

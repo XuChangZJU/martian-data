@@ -103,13 +103,15 @@ class Remote {
 		return Promise.resolve();
 	}
 
-	find(name, execTree, indexFrom, count, isCounting) {
+	find(name, execTree, indexFrom, count, isCounting, forceIndex) {
 		let body = {
 			name,
 			execTree: replicateExecTree(execTree),
 			indexFrom,
 			count,
-			isCounting
+			isCounting,
+			txn: null,
+			forceIndex
 		};
 		let init = {
 			method: "POST",

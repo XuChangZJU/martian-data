@@ -13,30 +13,30 @@ const schema = require("./def/schemas/schema7");
 const g_houseInfos = [
     // 房屋基本信息
     {
-        "prop":{
+        "prop": {
             "title": {
                 val: "西溪雅苑"
             },
-            "acreage" :{
+            "acreage": {
                 val: 120
             }
         },
         "demand": {              // 出租需求
-            "price" : 2000,
+            "price": 2000,
             "onHire": Date.now()
         }
     },
     {
-        "prop":{
+        "prop": {
             "title": {
                 val: "西溪雅苑"
             },
-            "acreage" :{
+            "acreage": {
                 val: 120
             }
         },
         "demand": {              // 出租需求
-            "price" : 2000,
+            "price": 2000,
             "onHire": Date.now()
         }
     }
@@ -80,10 +80,10 @@ const g_users = [
 ];
 const g_consults = [
     {
-        details :[]
+        details: []
     },
     {
-        details :[]
+        details: []
     }
 ];
 
@@ -99,7 +99,10 @@ function initData(uda, users, keys, houses, houseInfos) {
                                 (ele, idx) => {
                                     const idx2 = idx;
                                     promises.push(
-                                        uda.insert("user", ele)
+                                        uda.insert({
+                                                name: "user",
+                                                data: ele
+                                            })
                                             .then(
                                                 (result) => {
                                                     users[idx2] = result;
@@ -114,14 +117,17 @@ function initData(uda, users, keys, houses, houseInfos) {
                             );
                             return Promise.all(promises)
                                 .then(
-                                    ()=>{
+                                    ()=> {
                                         let promises2 = [];
                                         keys.forEach(
                                             (key, index) => {
                                                 let user = users[index];
-                                                keys[index].ownerId=user.id||user._id;
+                                                keys[index].ownerId = user.id || user._id;
                                                 promises2.push(
-                                                    uda.insert("key", keys[index])
+                                                    uda.insert({
+                                                            name: "key",
+                                                            data: keys[index]
+                                                        })
                                                         .then(
                                                             (key) => {
                                                                 keys[index] = key;
@@ -135,28 +141,34 @@ function initData(uda, users, keys, houses, houseInfos) {
                                             }
                                         );
                                         return Promise.all(promises2).then(
-                                            ()=>{
+                                            ()=> {
                                                 let promises3 = [];
                                                 houseInfos.forEach(
                                                     (houseInfo, index) => {
                                                         let key = keys[index];
-                                                        houseInfo.status =houses[index].status;
+                                                        houseInfo.status = houses[index].status;
                                                         promises3.push(
-                                                            uda.insert("houseInfo", houseInfo)
+                                                            uda.insert({
+                                                                    name: "houseInfo",
+                                                                    data: houseInfo
+                                                                })
                                                                 .then(
                                                                     (houseInfo) => {
-                                                                        houseInfos[index]=houseInfo;
+                                                                        houseInfos[index] = houseInfo;
                                                                         houses[index].houseInfoId = houseInfo.id || houseInfo._id;
                                                                         houses[index].ownerId = key.ownerId;
-                                                                        houses[index].masterKeyId =  key.id || key._id;
+                                                                        houses[index].masterKeyId = key.id || key._id;
 
-                                                                        return uda.insert("house", houses[index])
+                                                                        return uda.insert({
+                                                                                name: "house",
+                                                                                data: houses[index]
+                                                                            })
                                                                             .then(
-                                                                                (house)=>{
-                                                                                    houses[index]=house;
+                                                                                (house)=> {
+                                                                                    houses[index] = house;
                                                                                     return Promise.resolve();
                                                                                 },
-                                                                                (err)=>{
+                                                                                (err)=> {
                                                                                     return Promise.reject(err);
                                                                                 }
                                                                             )
@@ -171,12 +183,12 @@ function initData(uda, users, keys, houses, houseInfos) {
                                                 );
                                                 return Promise.all(promises3);
                                             },
-                                            (err)=>{
+                                            (err)=> {
                                                 return Promise.reject(err);
                                             }
                                         )
                                     },
-                                    (err)=>{
+                                    (err)=> {
                                         return Promise.reject(err);
                                     }
                                 )
@@ -194,7 +206,7 @@ function initData(uda, users, keys, houses, houseInfos) {
 
 
 describe("test rent", () => {
-    describe("rent create schema with refs", function() {
+    describe("rent create schema with refs", function () {
         this.timeout(10000);
         before((done) => {
             uda.connect(dataSource)
@@ -205,7 +217,7 @@ describe("test rent", () => {
 
             let _schema = JSON.parse(JSON.stringify(schema));
             uda.setSchemas(_schema).then(
-                ()=>{
+                ()=> {
                     return uda.dropSchemas()
                         .then(
                             () => {
@@ -229,9 +241,9 @@ describe("test rent", () => {
         });
     });
 
-    describe("rent select ", function() {
+    describe("rent select ", function () {
         this.timeout(8000);
-        const houses =  JSON.parse(JSON.stringify(g_houses));
+        const houses = JSON.parse(JSON.stringify(g_houses));
         const users = JSON.parse(JSON.stringify(g_users));
         const houseInfos = JSON.parse(JSON.stringify(g_houseInfos));
         const keys = JSON.parse(JSON.stringify(g_keys));
@@ -242,7 +254,7 @@ describe("test rent", () => {
 
                         let _schema = JSON.parse(JSON.stringify(schema));
                         uda.setSchemas(_schema).then(
-                            ()=>{
+                            ()=> {
                                 initData(uda, users, keys, houses, houseInfos)
                                     .then(
                                         () => {
@@ -276,11 +288,11 @@ describe("test rent", () => {
             const projection = {
                 id: 1,
                 status: 1,
-                owner:{
-                    name:1
+                owner: {
+                    name: 1
                 },
-                key:{
-                    name:1
+                key: {
+                    name: 1
                 }
             };
             const sort = {
@@ -291,7 +303,14 @@ describe("test rent", () => {
             const indexFrom = 0, count = 2;
 
             try {
-                uda.find("house", projection, query, sort, indexFrom, count)
+                uda.find({
+                        name: "house",
+                        projection,
+                        query,
+                        sort,
+                        indexFrom,
+                        count
+                    })
                     .then(
                         (result) => {
                             console.log(result);
@@ -305,7 +324,7 @@ describe("test rent", () => {
                         }
                     )
             }
-            catch(err) {
+            catch (err) {
                 console.log(err);
                 done();
             }
@@ -321,11 +340,11 @@ describe("test rent", () => {
             const projection = {
                 id: 1,
                 status: 1,
-                owner:{
-                    name:1
+                owner: {
+                    name: 1
                 },
-                key:{
-                    name:1
+                key: {
+                    name: 1
                 }
             };
             const sort = {
@@ -335,8 +354,11 @@ describe("test rent", () => {
             };
             const indexFrom = 0, count = 2;
 
-            try{
-                uda.find("house", projection, query, sort, indexFrom, count)
+            try {
+                uda.find({
+                        name: "house",
+                        projection, query, sort, indexFrom, count
+                    })
                     .then(
                         (result) => {
                             console.log(result);
@@ -371,17 +393,15 @@ describe("test rent", () => {
                 prop: 1
             };
 
-            const query2 = {
-
-            };
+            const query2 = {};
             const projection2 = {
                 id: 1,
                 status: 1,
-                owner:{
-                    name:1
+                owner: {
+                    name: 1
                 },
-                key:{
-                    name:1
+                key: {
+                    name: 1
                 }
             };
             const sort2 = {
@@ -391,53 +411,69 @@ describe("test rent", () => {
             };
             const indexFrom2 = 0, count2 = 10;
 
-            uda.findById("house", projection, houses[1].id)
+            uda.findById({
+                    name: "house",
+                    projection,
+                    id: houses[1].id
+                })
                 .then(
                     (house) => {
                         console.log(house);
 
-                        uda.findById(
-                            "houseInfo",
-                            projection1,
-                            house.houseInfoId
+                        uda.findById({
+                                name: "houseInfo",
+                                projection: projection1,
+                                id: house.houseInfoId
+                            }
                         ).then(
                             (houseInfo) => {
                                 console.log(houseInfo);
                                 uda.updateOneById(
-                                    "houseInfo",
                                     {
-                                        $set: {
-                                            prop: {
-                                                title: {
-                                                    val: "万家花城"
-                                                },
-                                                area: {
-                                                    val: "杭州市"
-                                                },
-                                                addr: {
-                                                    val: "萍水西街180号"
+                                        name: "houseInfo",
+                                        data: {
+                                            $set: {
+                                                prop: {
+                                                    title: {
+                                                        val: "万家花城"
+                                                    },
+                                                    area: {
+                                                        val: "杭州市"
+                                                    },
+                                                    addr: {
+                                                        val: "萍水西街180号"
+                                                    }
                                                 }
                                             }
-                                        }
-                                    },
-                                    houseInfo._id
+                                        },
+                                        id: houseInfo._id
+                                    }
                                 ).then(
                                     (houseInfo) => {
                                         console.log(houseInfo);
-                                        uda.removeOneById(
-                                            "house",
-                                            house.id
+                                        uda.removeOneById({
+                                                name: "house",
+                                                id: house.id
+                                            }
                                         ).then(
-                                            (removeHouse)=>{
+                                            (removeHouse)=> {
                                                 console.log(removeHouse);
-                                                uda.removeOneById(
-                                                    "houseInfo",
-                                                    house.houseInfoId
+                                                uda.removeOneById({
+                                                        name: "houseInfo",
+                                                        id: house.houseInfoId
+                                                    }
                                                 ).then(
-                                                    (result)=>{
+                                                    (result)=> {
                                                         console.log(result);
                                                         try {
-                                                            uda.find("house", projection2, query2, sort2, indexFrom2, count2)
+                                                            uda.find({
+                                                                    name: "house",
+                                                                    projection: projection2,
+                                                                    query: query2,
+                                                                    sort: sort2,
+                                                                    indexFrom: indexFrom2,
+                                                                    count: count2
+                                                                })
                                                                 .then(
                                                                     (result) => {
                                                                         done("跨源查询的sort算子落在非主表上但查询完成");
@@ -450,18 +486,18 @@ describe("test rent", () => {
                                                                     }
                                                                 );
                                                         }
-                                                        catch(err) {
+                                                        catch (err) {
                                                             console.log(err);
                                                             done();
 
                                                         }
                                                     },
-                                                    (err)=>{
+                                                    (err)=> {
                                                         done(err);
                                                     }
                                                 )
                                             },
-                                            (err)=>{
+                                            (err)=> {
                                                 done(err);
                                             }
                                         )
@@ -494,41 +530,47 @@ describe("test rent", () => {
             };
 
 
-            uda.findById("house", projection, houses[0].id)
+            uda.findById({
+                    name: "house",
+                    projection,
+                    id: houses[0].id
+                })
                 .then(
                     (house) => {
                         console.log(house);
 
-                        uda.updateOneById(
-                            "house",
-                            {
-                                $set: {
-                                    status: "verifying"
-                                }
-                            },
-                            house.id
+                        uda.updateOneById({
+                                name: "house",
+                                data: {
+                                    $set: {
+                                        status: "verifying"
+                                    }
+                                },
+                                id: house.id
+                            }
                         ).then(
-                            (house1)=>{
+                            (house1)=> {
                                 console.log(house1);
-                                uda.updateOneById(
-                                    "houseInfo",
-                                    {
-                                        $set:{
-                                            status:house1.status
-                                        }
-                                    },
-                                    house.houseInfoId
+                                uda.updateOneById({
+                                        name: "houseInfo",
+                                        data: {
+                                            $set: {
+                                                status: house1.status
+                                            }
+                                        },
+                                        id: house.houseInfoId
+                                    }
                                 ).then(
-                                    (houseInfo)=>{
+                                    (houseInfo)=> {
                                         console.log(houseInfo);
                                         done();
                                     },
-                                    (err)=>{
+                                    (err)=> {
                                         done(err);
                                     }
                                 )
                             },
-                            (err)=>{
+                            (err)=> {
                                 done(err);
                             }
                         )
@@ -541,104 +583,104 @@ describe("test rent", () => {
         });
 
         /*it("[1.4]rent insert consult in mongodb", () => {
-            g_consults[0].houseId=houses[0].id;
-            g_consults[0].tenantId=users[2]._id||users[2].id;
-            g_consults[0].details=[
-                {
-                    ownerId:users[2]._id||users[2].id,
-                    content:"房东,房租还能便宜些吗?",
-                    createAt:Date.now()
-                }
-            ];
+         g_consults[0].houseId=houses[0].id;
+         g_consults[0].tenantId=users[2]._id||users[2].id;
+         g_consults[0].details=[
+         {
+         ownerId:users[2]._id||users[2].id,
+         content:"房东,房租还能便宜些吗?",
+         createAt:Date.now()
+         }
+         ];
 
-            const landlord_answer={
-                ownerId:houses[0].ownerId,
-                content:"已经很便宜了，不能再便宜了，要租快租！",
-                createAt:Date.now()
-            };
+         const landlord_answer={
+         ownerId:houses[0].ownerId,
+         content:"已经很便宜了，不能再便宜了，要租快租！",
+         createAt:Date.now()
+         };
 
-            const query2 = {
-                house :{}
-            };
-            const projection2 = {
-                _id: 1,
-                tenant:{
-                    name:1
-                },
-                details:1
+         const query2 = {
+         house :{}
+         };
+         const projection2 = {
+         _id: 1,
+         tenant:{
+         name:1
+         },
+         details:1
 
-            };
-            const sort2 = {
-                tenant: {
-                    _createAt_: -1
-                }
-            };
-            const indexFrom2 = 0, count2 = 10;
+         };
+         const sort2 = {
+         tenant: {
+         _createAt_: -1
+         }
+         };
+         const indexFrom2 = 0, count2 = 10;
 
-            return uda.insert("consult",g_consults[0]).then(
-                (consult)=>{
-                    console.log(consult);
-                    return uda.updateOneById(
-                        "consult",
-                        {
-                            $push:{
-                                'details':landlord_answer
-                            }
-                        },
-                        consult._id
-                    ).then(
-                        (consult)=>{
-                            console.log(consult);
-                            query2.house.id =  consult.houseId;
-                            console.log(query2);
-                            return uda.find("consult", projection2, query2, sort2, indexFrom2, count2)
-                                .then(
-                                    (result) => {
-                                        console.log(result);
-                                        if(result&&result.length>0) {
-                                            console.log(result.length);
+         return uda.insert("consult",g_consults[0]).then(
+         (consult)=>{
+         console.log(consult);
+         return uda.updateOneById(
+         "consult",
+         {
+         $push:{
+         'details':landlord_answer
+         }
+         },
+         consult._id
+         ).then(
+         (consult)=>{
+         console.log(consult);
+         query2.house.id =  consult.houseId;
+         console.log(query2);
+         return uda.find("consult", projection2, query2, sort2, indexFrom2, count2)
+         .then(
+         (result) => {
+         console.log(result);
+         if(result&&result.length>0) {
+         console.log(result.length);
 
-                                            let promises = [];
-                                            if (result[0].details && result[0].details.length > 0) {
-                                                result[0].details.forEach((ele1, index1)=> {
-                                                    console.log(ele1);
-                                                    promises.push(
-                                                        uda.findById(
-                                                            "user",
-                                                            {
-                                                                _id: 1,
-                                                                name: 1
-                                                            },
-                                                            ele1.ownerId
-                                                        ).then(
-                                                            (user)=> {
-                                                                ele1.owner=user;
-                                                                delete ele1.ownerId;
-                                                                return Promise.resolve(user);
-                                                            },
-                                                            (err) => {
-                                                                return Promise.reject(err);
-                                                            }
-                                                        )
-                                                    )
-                                                })
-                                            }
-                                            return Promise.all(promises).then(
-                                                (users)=> {
-                                                    console.log(users);
-                                                    console.log(result);
-                                                    return Promise.resolve();
-                                                }
-                                            )
-                                        }
+         let promises = [];
+         if (result[0].details && result[0].details.length > 0) {
+         result[0].details.forEach((ele1, index1)=> {
+         console.log(ele1);
+         promises.push(
+         uda.findById(
+         "user",
+         {
+         _id: 1,
+         name: 1
+         },
+         ele1.ownerId
+         ).then(
+         (user)=> {
+         ele1.owner=user;
+         delete ele1.ownerId;
+         return Promise.resolve(user);
+         },
+         (err) => {
+         return Promise.reject(err);
+         }
+         )
+         )
+         })
+         }
+         return Promise.all(promises).then(
+         (users)=> {
+         console.log(users);
+         console.log(result);
+         return Promise.resolve();
+         }
+         )
+         }
 
-                                    }
-                                )
-                        }
-                    )
-                }
-            )
-        })*/
+         }
+         )
+         }
+         )
+         }
+         )
+         })*/
 
 
     });

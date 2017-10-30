@@ -4,7 +4,6 @@
 "use strict";
 
 
-
 var expect = require("expect.js");
 
 
@@ -67,7 +66,9 @@ function initData(uda) {
                                 (ele, idx) => {
                                     const idx2 = idx;
                                     promises.push(
-                                        uda.insert("user", ele)
+                                        uda.insert({
+                                                name: "user", data: ele
+                                            })
                                             .then(
                                                 (result) => {
                                                     users[idx2] = result;
@@ -86,28 +87,38 @@ function initData(uda) {
                                         houseInfos.forEach(
                                             (ele, index) => {
                                                 promises2.push(
-                                                    uda.insert("houseInfo", ele)
+                                                    uda.insert({
+                                                            name: "houseInfo", data: ele
+                                                        })
                                                         .then(
                                                             (result) => {
                                                                 houseInfos[index] = result;
                                                                 houses[index].houseInfo = result;
-                                                                return uda.insert("house", houses[index])
+                                                                return uda.insert({
+                                                                        name: "house", data: houses[index]
+                                                                    })
                                                                     .then(
                                                                         (hItem) => {
                                                                             houses[index] = hItem;
                                                                             let contract = {
-                                                                                owner: users[index*2],
-                                                                                renter: users[index *2 + 1],
+                                                                                owner: users[index * 2],
+                                                                                renter: users[index * 2 + 1],
                                                                                 price: 2000
                                                                             };
-                                                                            return uda.insert("contract", contract)
+                                                                            return uda.insert({
+                                                                                    name: "contract", data: contract
+                                                                                })
                                                                                 .then(
                                                                                     (result) => {
-                                                                                        return uda.updateOneById("house", {
-                                                                                                $set: {
-                                                                                                    contract: result
-                                                                                                }
-                                                                                            }, (hItem.id || hItem._id))
+                                                                                        return uda.updateOneById({
+                                                                                                name: "house",
+                                                                                                data: {
+                                                                                                    $set: {
+                                                                                                        contract: result
+                                                                                                    }
+                                                                                                },
+                                                                                                id: hItem.id || hItem._id
+                                                                                            })
                                                                                             .then(
                                                                                                 () => {
                                                                                                     return Promise.resolve();
@@ -158,8 +169,7 @@ function checkResult1(result) {
 }
 
 
-
-describe("test select with joins over sources", function() {
+describe("test select with joins over sources", function () {
 
     this.timeout(8000);
 
@@ -211,7 +221,7 @@ describe("test select with joins over sources", function() {
         };
         const projection = {
             id: 1,
-            buildAt : 1,
+            buildAt: 1,
             status: 1,
             contract: {
                 owner: {
@@ -228,7 +238,9 @@ describe("test select with joins over sources", function() {
         };
         const indexFrom = 0, count = 2;
 
-        uda.find("house", projection, query, null, indexFrom, count)
+        uda.find({
+                name: "house", projection, query, indexFrom, count
+            })
             .then(
                 (result) => {
                     expect(result).to.have.length(2);
@@ -243,7 +255,7 @@ describe("test select with joins over sources", function() {
 
         const projection = {
             id: 1,
-            buildAt : 1,
+            buildAt: 1,
             status: 1,
             contract: {
                 owner: {
@@ -258,7 +270,9 @@ describe("test select with joins over sources", function() {
                 area: 1
             }
         };
-        uda.findById("house", projection, houses[0].id || houses[0]._id)
+        uda.findById({
+                name: "house", projection, id: houses[0].id || houses[0]._id
+            })
             .then(
                 (result) => {
                     expect(result).to.be.an("object");
@@ -286,7 +300,7 @@ describe("test select with joins over sources", function() {
         };
         const projection = {
             id: 1,
-            buildAt : 1,
+            buildAt: 1,
             status: 1,
             contract: {
                 owner: {
@@ -314,11 +328,15 @@ describe("test select with joins over sources", function() {
                 houseInfo: null
             }
         };
-        uda.updateOneById("house", update, houses[0].id)
+        uda.updateOneById({
+                name: "house", data: update, id: houses[0].id
+            })
             .then(
                 () => {
                     try {
-                        uda.find("house", projection, query, sort, indexFrom, count)
+                        uda.find({
+                                name: "house", projection, query, sort, indexFrom, count
+                            })
                             .then(
                                 (result) => {
                                     done("跨源查询的sort算子落在非主表上但查询完成");
@@ -331,7 +349,7 @@ describe("test select with joins over sources", function() {
                                 }
                             );
                     }
-                    catch(err) {
+                    catch (err) {
                         console.log(err);
                         done();
                     }
@@ -515,14 +533,13 @@ describe("test select with joins over sources", function() {
      });*/
 
 
-
     after((done) => {
         uda.disconnect()
             .then(done);
     });
 });
 
-describe("test left joins over sources", function() {
+describe("test left joins over sources", function () {
 
     this.timeout(8000);
 
@@ -544,36 +561,49 @@ describe("test left joins over sources", function() {
                                             return uda.createSchemas()
                                                 .then(
                                                     () => {
-                                                        return uda.insert("house", {
-                                                                buildAt: now,
-                                                                status: "verifying"
+                                                        return uda.insert({
+                                                                name: "house", data: {
+                                                                    buildAt: now,
+                                                                    status: "verifying"
+                                                                }
                                                             })
                                                             .then(
                                                                 () => {
-                                                                    return uda.find("house", {
-                                                                            buildAt: 1,
-                                                                            houseInfo: {
-                                                                                area: 1,
-                                                                                floor: 1
-                                                                            }
-                                                                        }, null, null, 0, 100)
+                                                                    return uda.find({
+                                                                            name: "house",
+                                                                            data: {
+                                                                                buildAt: 1,
+                                                                                houseInfo: {
+                                                                                    area: 1,
+                                                                                    floor: 1
+                                                                                }
+                                                                            },
+                                                                            indexFrom: 0,
+                                                                            count: 100
+                                                                        })
                                                                         .then(
                                                                             (results) => {
                                                                                 expect(results).to.have.length(1);
                                                                                 expect(results[0].houseInfo).to.eql(null);
-                                                                                return uda.find("house", {
-                                                                                        buildAt: 1,
-                                                                                        houseInfo: {
-                                                                                            area: 1,
-                                                                                            floor: 1
-                                                                                        }
-                                                                                    }, {
-                                                                                        houseInfo: {
-                                                                                            area: {
-                                                                                                $exists: true
+                                                                                return uda.find({
+                                                                                        name: "house",
+                                                                                        projection: {
+                                                                                            buildAt: 1,
+                                                                                            houseInfo: {
+                                                                                                area: 1,
+                                                                                                floor: 1
                                                                                             }
-                                                                                        }
-                                                                                    }, null, 0, 100)
+                                                                                        },
+                                                                                        query: {
+                                                                                            houseInfo: {
+                                                                                                area: {
+                                                                                                    $exists: true
+                                                                                                }
+                                                                                            }
+                                                                                        },
+                                                                                        indexFrom: 0,
+                                                                                        count: 100
+                                                                                    })
                                                                                     .then(
                                                                                         (results2) => {
                                                                                             expect(results2).to.have.length(0);
@@ -595,7 +625,6 @@ describe("test left joins over sources", function() {
     });
 
 
-
     it("[tleftos1.1]", () => {
         return uda.connect(dataSource)
             .then(
@@ -613,11 +642,15 @@ describe("test left joins over sources", function() {
                                                     _id: houseInfos[0]._id
                                                 }
                                             };
-                                            return uda.find("house",
-                                                {
-                                                    id: 1
-                                                }, query, null, 0, 100
-                                                )
+                                            return uda.find({
+                                                    name: "house",
+                                                    projection: {
+                                                        id: 1
+                                                    },
+                                                    query,
+                                                    indexFrom: 0,
+                                                    count: 100
+                                                })
                                                 .then(
                                                     (result) => {
                                                         expect(result).to.be.an("array");
@@ -630,12 +663,15 @@ describe("test left joins over sources", function() {
                                                                 _id: houseInfos[1]._id
                                                             }
                                                         };
-                                                        return uda.find("house",
-                                                            {
-                                                                id: 1
-                                                            },
-                                                            query2, null, 0, 100
-                                                            )
+                                                        return uda.find({
+                                                                name: "house",
+                                                                projection: {
+                                                                    id: 1
+                                                                },
+                                                                query: query2,
+                                                                indexFrom: 0,
+                                                                count: 100
+                                                            })
                                                             .then(
                                                                 (result2) => {
                                                                     expect(result2).to.be.an("array");
@@ -651,10 +687,15 @@ describe("test left joins over sources", function() {
                                                                         }
                                                                     };
 
-                                                                    return uda.find("house", {
-                                                                        id: 1
-                                                                    },
-                                                                    query3, null, 0, 100)
+                                                                    return uda.find({
+                                                                            name: "house",
+                                                                            projection: {
+                                                                                id: 1
+                                                                            },
+                                                                            query: query3,
+                                                                            indexFrom: 0,
+                                                                            count: 100
+                                                                        })
                                                                         .then(
                                                                             (result3) => {
                                                                                 expect(result3).to.be.an("array");
