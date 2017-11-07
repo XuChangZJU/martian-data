@@ -270,6 +270,7 @@ function queryToPromise(db, query, transformSelectResult) {
 				console.log("[exec sql end]");
 			}
 			if(err) {
+				console.log(query);
 				reject(err);
 			}
 			else {

@@ -84,6 +84,23 @@ const schema = {
                 type: "int"
             }
         }
+    },
+    remoteUser: {
+        source: 'mysql2',
+        attributes: {
+            name: {
+                type: {
+                    type: "string",
+                    size: 12
+                },
+                required: true
+            },
+            contract: {
+                type: "ref",
+                ref: "contract",
+                required: true
+            },
+        }
     }
 };
 
