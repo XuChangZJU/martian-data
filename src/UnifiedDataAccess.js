@@ -460,7 +460,7 @@ function destructSelect(name, projection, query, sort, isCounting, findDel) {
                     attr: attr,
                     refColumnName: attrDef.refColumnName,
                     localColumnName: attrDef.localColumnName,
-                    node: destructSelect.call(this, schema.attributes[attr].ref, refProjection, query[attr], sort[attr], null, findDel)
+                    node: destructSelect.call(this, schema.attributes[attr].ref, refProjection, query[attr], sort[attr], null, true)
                 };
                 result.joins.push(join);
             }
