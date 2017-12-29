@@ -65,7 +65,8 @@ function convertFnCallToSQLFormat(alias, fnCall, projectionPrefix, me) {
     let args = [fnCall.$format].concat(attrs);
     let result = util.format.apply(null, args);
     if (fnCall.hasOwnProperty("$as")) {
-        let as = projectionPrefix ? projectionPrefix + "." + fnCall.$as : fnCall.$as;
+        // let as = projectionPrefix ? projectionPrefix + "." + fnCall.$as : fnCall.$as;
+        let as = "`" + (projectionPrefix ? projectionPrefix + fnCall.$as : fnCall.$as) + "`";
         result += " as ";
         result += as;
     }
@@ -122,6 +123,7 @@ function convertExecNodeToSQL(sql, node, parentName, relName, joinInfo, projecti
             sql.projection += "`" + alias + "`.`";
             sql.projection += projection + "`";
             if (projectionPrefix) {
+                // sql.projection += " as '" + projectionPrefix + projection + "'"; update by wangyuef projectionPrefix 与alias 格式统一
                 sql.projection += " as '" + projectionPrefix + projection + "'";
             }
         }
@@ -188,7 +190,8 @@ function convertExecNodeToSQL(sql, node, parentName, relName, joinInfo, projecti
 
     node.joins.forEach(
         (ele, index) => {
-            let prefix = (projectionPrefix || "") + ele.attr + ".";
+            let prefix = (projectionPrefix || "") + ele.attr + "."; //update by wangyuef projectionPrefix 与 alias 格式统一
+            // let prefix = (projectionPrefix || "").endsWith(".") ? (projectionPrefix || "") + ele.attr : (projectionPrefix || "") + "." + ele.attr;
             convertExecNodeToSQL.call(this, sql, ele.node, alias, ele.rel, ele, prefix);
         }
     )
