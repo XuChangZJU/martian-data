@@ -414,7 +414,7 @@ function formalizeProjection(schema, projection, ignoreRef, isCounting) {
  * @param sort
  * @returns {{joins: Array, projection: {}, query: {}}}
  */
-function destructSelect(name, projection, query, sort, isCounting) {
+function destructSelect(name, projection, query, sort, isCounting, findDel) {
     let result = {
         joins: [],
         projection: {},
@@ -429,13 +429,24 @@ function destructSelect(name, projection, query, sort, isCounting) {
 
     // 选取的数据要过滤掉delete的行
     const settings = this.dataSources[schema.source].settings;
-    if (!settings || !settings.disableDeleteAt) {
+    //  增加新需求，根据id的查询，无视deleteAt
+    if (!findDel) {
+        if (((!settings || !settings.disableDeleteAt) && !query.hasOwnProperty("id"))) {
+            if (!query[constants.deleteAtColumn]) {
+                query[constants.deleteAtColumn] = {
+                    $exists: false
+                }
+            }
+        }
+    }
+
+    /*if ((!settings || !settings.disableDeleteAt)) {
         if (!query[constants.deleteAtColumn]) {
             query[constants.deleteAtColumn] = {
                 $exists: false
             }
         }
-    }
+    }*/
 
     for (let attr in schema.attributes) {
         const attrDef = schema.attributes[attr];
@@ -449,7 +460,7 @@ function destructSelect(name, projection, query, sort, isCounting) {
                     attr: attr,
                     refColumnName: attrDef.refColumnName,
                     localColumnName: attrDef.localColumnName,
-                    node: destructSelect.call(this, schema.attributes[attr].ref, refProjection, query[attr], sort[attr])
+                    node: destructSelect.call(this, schema.attributes[attr].ref, refProjection, query[attr], sort[attr], null, true)
                 };
                 result.joins.push(join);
             }
@@ -913,16 +924,30 @@ function joinNext(forest, me, result) {
                      console.log("跨库连接出现了_id关键字，但相应的值未能成功转化成ObjectId类型")
                      }
                      }*/
-                    let query = {
-                        $and: [
-                            nodeSon.query,
-                            {
-                                [nodeSon.joinInfo.refAttr]: {
-                                    $in: joinLocalValues
+                    let query;
+                    if (keys(nodeSon.query).length > 0){
+                        query = {
+                            $and: [
+                                nodeSon.query,
+                                {
+                                    [nodeSon.joinInfo.refAttr]: {
+                                        $in: joinLocalValues
+                                    }
                                 }
-                            }
-                        ]
-                    };
+                            ]
+                        };
+                    }
+                    else {
+                        query = {
+                            $and: [
+                                {
+                                    [nodeSon.joinInfo.refAttr]: {
+                                        $in: joinLocalValues
+                                    }
+                                }
+                            ]
+                        };
+                    }
                     nodeSon.query = query;
                     let name = (nodeSon.relName || i);
                     let connection = this.connections[this.schemas[name].source];
@@ -1271,7 +1296,8 @@ class DataAccess extends EventEmitter {
         if (txn) {
             this.checkTransactionValid(txn);
         }
-        let execTree = destructSelect.call(this, name, projection, query, sort);
+        //  若是上层是根据id查询的，下层无视deleteAt
+        let execTree = destructSelect.call(this, name, projection, query, sort, null, query && query.hasOwnProperty("id"));
 
         return this.findByExecTreeDirectly(name, execTree, indexFrom, count, false, txn, forceIndex)
             .then(
@@ -1376,7 +1402,8 @@ class DataAccess extends EventEmitter {
         assert(!(pKeyColumn instanceof Promise));            // 在运行中去获取主键应该不需要等待
         query[pKeyColumn] = id;
 
-        let execTree = destructSelect.call(this, name, projection, query);
+        //  若是上层是根据id查询的，下层无视deleteAt
+        let execTree = destructSelect.call(this, name, projection, query, null, null, true);
         return this.findByExecTreeDirectly(name, execTree, 0, 1, null, txn)
             .then(
                 (result) => {

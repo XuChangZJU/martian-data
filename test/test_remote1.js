@@ -54,7 +54,8 @@ function init(schemaRemote) {
                                                                         return uda.createSchemas()
                                                                             .then(
                                                                                 () => {
-                                                                                    resolve(server);;
+                                                                                    resolve(server);
+                                                                                    ;
                                                                                 }
                                                                             );
                                                                     }
@@ -86,91 +87,82 @@ function init(schemaRemote) {
     )
 }
 
-describe("test remote 1", function() {
+describe("test remote 1", function () {
     this.timeout(5000);
     let server;
-    before((done) => {
-        init(schemaRemote1)
-            .then((serv)=>{
+    before(() => {
+        return init(schemaRemote1)
+            .then((serv)=> {
                 server = serv;
-                done();
-            }, done)
-            .catch(done);
+            });
     });
 
-    it("[tre0.0]", (done) => {
+    it("[tre0.0]", () => {
         // 尝试插入数据，再查询
-        uda.insert({
-        name:"user",
-        data:{
-            name: "xc",
-            age: 33
-        }
-    })
+        return uda.insert({
+                name: "user",
+                data: {
+                    name: "xc",
+                    age: 33
+                }
+            })
             .then(
                 (row) => {
-                    let id = row.hasOwnProperty("id")? row.id : row._id;
+                    let id = row.hasOwnProperty("id") ? row.id : row._id;
 
-                    uda.findById({
-                        name:"user",
-                        projection:{
-                            name: 1,
-                            age: 1
-                        },
-                        id
-                    })
+                    return uda.findById({
+                            name: "user",
+                            projection: {
+                                name: 1,
+                                age: 1
+                            },
+                            id
+                        })
                         .then(
                             (result) => {
                                 expect(result).to.be.an("object");
                                 expect(result.name).to.eql("xc");
                                 expect(result.age).to.eql(33);
-                                done();
-                            },
-                            (err) => {
-                                done(err);
                             }
                         );
-                },
-                (err) => {
-                    done(err);
                 }
             )
     });
 
-    it("[tre0.1]", (done) => {
+    it("[tre0.1]", () => {
         // 尝试插入数据，再查询
-        uda.insert({
-        name:"user",
-        data:{
-            name: "xc",
-            age: 33
-        }
-    })
+        return uda.insert({
+                name: "user",
+                data: {
+                    name: "xc",
+                    age: 33
+                }
+            })
             .then(
                 (row) => {
-    
+
                     let account = {
                         owner: row,
                         deposit: 10000
                     };
-                    uda.insert({
-                        name:"account",
-                        data:account
-                    })
+                    return uda.insert({
+                            name: "account",
+                            data: account
+                        })
                         .then(
                             (row2) => {
-                                let id = row2.hasOwnProperty("id")? row2.id : row2._id;
-                                uda.findById({
-                                    name:"account",
-                                    projection:{
-                                        owner: {
-                                            name: 1,
-                                            age: 1
+                                let id = row2.hasOwnProperty("id") ? row2.id : row2._id;
+                                return uda.findById({
+                                        name: "account",
+                                        projection: {
+                                            owner: {
+                                                name: 1,
+                                                age: 1
+                                            },
+                                            deposit: 1
                                         },
-                                        deposit: 1
-                                    },
-                                    id
-                                })
+                                        id
+                                    })
                                     .then(
                                         (result) => {
                                             expect(result).to.be.an("object");
@@ -178,180 +170,150 @@ describe("test remote 1", function() {
                                             expect(result.owner).to.be.an("object");
                                             expect(result.owner.name).to.eql("xc");
                                             expect(result.owner.age).to.eql(33);
-                                            done();
-                                        },
-                                        (err) => {
-                                            done(err);
                                         }
                                     );
-                            },
-                            (err) => {
-                                done(err);
                             }
                         );
-                },
-                (err) => {
-                    done(err);
                 }
             )
     });
 
-    it("[tre0.2]", (done) => {
+    it("[tre0.2]", () => {
         // 尝试增删改查
-        uda.insert({
-        name:"user",
-        data:{
-            name: "xc",
-            age: 33
-        }
-    })
+        return uda.insert({
+                name: "user",
+                data: {
+                    name: "xc",
+                    age: 33
+                }
+            })
             .then(
                 (row) => {
-                    let id = row.hasOwnProperty("id")? row.id : row._id;
-    
-                    uda.findById({
-                        name:"user",
-                        projection:{
-                            name: 1,
-                            age: 1
-                        },
-                        id
-                    })
+                    let id = row.hasOwnProperty("id") ? row.id : row._id;
+
+                    return uda.findById({
+                            name: "user",
+                            projection: {
+                                name: 1,
+                                age: 1
+                            },
+                            id
+                        })
                         .then(
                             (result) => {
                                 expect(result).to.be.an("object");
                                 expect(result.name).to.eql("xc");
                                 expect(result.age).to.eql(33);
-    
-                                uda.updateOneById({
-                                    name:"user",
-                                    data:{
-                                        $set: {
-                                            age: 34
-                                        }
-                                    },
-                                    id
-                                })
+
+                                return uda.updateOneById({
+                                        name: "user",
+                                        data: {
+                                            $set: {
+                                                age: 34
+                                            }
+                                        },
+                                        id
+                                    })
                                     .then(
                                         () => {
-                                            uda.findById({
-        name:"user",
-        projection:{
-            name: 1,
-            age: 1
-        },
-        id
-    })
+                                            return uda.findById({
+                                                    name: "user",
+                                                    projection: {
+                                                        name: 1,
+                                                        age: 1
+                                                    },
+                                                    id
+                                                })
                                                 .then(
                                                     (result) => {
                                                         expect(result).to.be.an("object");
                                                         expect(result.name).to.eql("xc");
                                                         expect(result.age).to.eql(34);
-    
-                                                        uda.removeOneById({
-                                                            name:"user",
-                                                            id
-                                                        })
+
+                                                        return uda.removeOneById({
+                                                                name: "user",
+                                                                id
+                                                            })
                                                             .then(
                                                                 () => {
-                                                                    uda.findById({
-                                                            name:"user",
-                                                            projection:{
-                                                                name: 1,
-                                                                age: 1
-                                                            },
-                                                            id
-                                                        })
+                                                                    return uda.findById({
+                                                                            name: "user",
+                                                                            projection: {
+                                                                                name: 1,
+                                                                                age: 1,
+                                                                                _deleteAt_: 1
+                                                                            },
+                                                                            id
+                                                                        })
                                                                         .then(
                                                                             (result) => {
-                                                                                assert(result === null);
-    
-                                                                                done();
-                                                                            },
-                                                                            (err) => {
-                                                                                done(err);
+                                                                                //  根据id查找可以无视_deleteAt_
+                                                                                assert(result._deleteAt_);
                                                                             }
                                                                         );
-                                                                },
-                                                                (err) => {
-                                                                    done(err);
                                                                 }
                                                             )
-                                                    },
-                                                    (err) => {
-                                                        done(err);
                                                     }
                                                 );
-                                        },
-                                        (err) => {
-                                            done(err);
                                         }
                                     );
-                            },
-                            (err) => {
-                                done(err);
                             }
                         );
-                },
-                (err) => {
-                    done(err);
                 }
             )
     });
 
-    after((done) => {
+    after(() => {
         server.kill("SIGTERM");
-        server.on("exit", done);
+        // server.on("exit", done);
     });
 });
 
 
-describe("test remote 2", function() {
+describe("test remote 2", function () {
     this.timeout(5000);
     let server;
-    before((done) => {
-        init(schemaRemote2)
-            .then((serv)=>{
+    before(() => {
+        return init(schemaRemote2)
+            .then((serv)=> {
                 server = serv;
-                done();
-            }, done)
-            .catch(done);
+            })
+        
     });
 
 
-
-    it("[tre1.0]", (done) => {
+    it("[tre1.0]", () => {
         let now = new Date();
         // 尝试插入数据，再进行连接查询
-        uda.insert({
-            name:"user",
-            data:{
-                name: "xc",
-                age: 33
-            }
-        })
+        return uda.insert({
+                name: "user",
+                data: {
+                    name: "xc",
+                    age: 33
+                }
+            })
             .then(
                 (row) => {
                     let account = {
                         owner: row,
                         deposit: 10000
                     };
-                    uda.insert({
-                        name:"account",
-                        data:account
-                    })
+                    return uda.insert({
+                            name: "account",
+                            data: account
+                        })
                         .then(
                             (row2) => {
-                                uda.insert({
-                        name: "order",
-                        data: {
-                            account: row2,
-                            time: now
-                        }
-                    })
+                                return uda.insert({
+                                        name: "order",
+                                        data: {
+                                            account: row2,
+                                            time: now
+                                        }
+                                    })
                                     .then(
                                         (row3) => {
-                                            let projection =  {
+                                            let projection = {
                                                 account: {
                                                     owner: {
                                                         name: 1,
@@ -369,13 +331,13 @@ describe("test remote 2", function() {
                                                     }
                                                 }
                                             };
-                                            uda.find({
-                                                name:"order",
-                                                    projection ,
+                                            return uda.find({
+                                                    name: "order",
+                                                    projection,
                                                     query,
-                                                indexFrom: 0,
-                                                count: 10
-                                            })
+                                                    indexFrom: 0,
+                                                    count: 10
+                                                })
                                                 .then(
                                                     (result) => {
                                                         expect(result).to.be.an("array");
@@ -383,155 +345,112 @@ describe("test remote 2", function() {
                                                         expect(result[0].time).to.eql(now);
 
                                                         // 加上count查询
-                                                        uda.count({
-                                                            name:"order",
-                                                            query:{time: now}
-                                                        })
+                                                        return uda.count({
+                                                                name: "order",
+                                                                query: {time: now}
+                                                            })
                                                             .then(
                                                                 (result2) => {
                                                                     expect(result2).to.be.an("object");
                                                                     expect(result2.count).to.be.eql(1);
-
-                                                                    done();
                                                                 }
                                                             )
-                                                    },
-                                                    (err) =>{
-                                                        done(err);
                                                     }
                                                 )
-                                                .catch(
-                                                    (err) => {
-                                                        done(err);
-                                                    }
-                                                )
-                                        },
-                                        (err) => {
-                                            done(err);
                                         }
                                     )
-                                    .catch(
-                                        (err) => {
-                                            done(err);
-                                        }
-                                    )
-                            },
-                            (err) => {
-                                done(err);
                             }
                         );
-                },
-                (err) => {
-                    done(err);
                 }
             )
     });
 
-    it("[tre0.2]", (done) => {
+    it("[tre0.2]", () => {
         // 尝试增删改查
-        uda.insert({
-        name:"user",
-        data:{
-            name: "xc",
-            age: 33
-        }
-    })
+        return uda.insert({
+                name: "user",
+                data: {
+                    name: "xc",
+                    age: 33
+                }
+            })
             .then(
                 (row) => {
-                    let id = row.hasOwnProperty("id")? row.id : row._id;
+                    let id = row.hasOwnProperty("id") ? row.id : row._id;
 
-                    uda.findById({
-                        name:"user",
-                        projection:{
-                            name: 1,
-                            age: 1
-                        },
-                        id
-                    })
+                    return uda.findById({
+                            name: "user",
+                            projection: {
+                                name: 1,
+                                age: 1
+                            },
+                            id
+                        })
                         .then(
                             (result) => {
                                 expect(result).to.be.an("object");
                                 expect(result.name).to.eql("xc");
                                 expect(result.age).to.eql(33);
 
-                                uda.updateOneById({
-                                    name : "user",
-                                    data: {
-                                        $set: {
-                                            age: 34
-                                        }
-                                    },
+                                return uda.updateOneById({
+                                        name: "user",
+                                        data: {
+                                            $set: {
+                                                age: 34
+                                            }
+                                        },
                                         id
-                                })
+                                    })
                                     .then(
                                         () => {
-                                            uda.findById({
-                                    name:"user",
-                                    projection:{
-                                        name: 1,
-                                        age: 1
-                                    },
-                                    id
-                                })
+                                            return uda.findById({
+                                                    name: "user",
+                                                    projection: {
+                                                        name: 1,
+                                                        age: 1
+                                                    },
+                                                    id
+                                                })
                                                 .then(
                                                     (result) => {
                                                         expect(result).to.be.an("object");
                                                         expect(result.name).to.eql("xc");
                                                         expect(result.age).to.eql(34);
 
-                                                        uda.removeOneById({
-                                                            name: "user",
-                                                            id
-                                                        })
+                                                        return uda.removeOneById({
+                                                                name: "user",
+                                                                id
+                                                            })
                                                             .then(
                                                                 () => {
-                                                                    uda.findById({
-                                                            name:"user",
-                                                            projection:{
-                                                                name: 1,
-                                                                age: 1
-                                                            },
-                                                            id
-                                                        })
+                                                                    return uda.findById({
+                                                                            name: "user",
+                                                                            projection: {
+                                                                                name: 1,
+                                                                                age: 1,
+                                                                                _deleteAt_: 1
+                                                                            },
+                                                                            id
+                                                                        })
                                                                         .then(
                                                                             (result) => {
-                                                                                assert(result === null);
-
-                                                                                done();
-                                                                            },
-                                                                            (err) => {
-                                                                                done(err);
+                                                                                assert(result._deleteAt_);
                                                                             }
                                                                         );
-                                                                },
-                                                                (err) => {
-                                                                    done(err);
                                                                 }
                                                             )
-                                                    },
-                                                    (err) => {
-                                                        done(err);
                                                     }
                                                 );
-                                        },
-                                        (err) => {
-                                            done(err);
                                         }
                                     );
-                            },
-                            (err) => {
-                                done(err);
                             }
                         );
-                },
-                (err) => {
-                    done(err);
                 }
             )
     });
 
-    after((done) => {
+    after(() => {
         server.kill("SIGTERM");
-        server.on("exit", done);
+        // server.on("exit", done);
     });
 });

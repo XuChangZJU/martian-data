@@ -167,7 +167,7 @@ function initData(uda, users, houses, houseInfos) {
 }
 
 describe("test subquery", function () {
-    this.timeout(5000);
+    this.timeout(10000);
     const houses = JSON.parse(JSON.stringify(g_houses));
     const users = JSON.parse(JSON.stringify(g_users));
     const houseInfos = JSON.parse(JSON.stringify(g_houseInfos));
@@ -761,4 +761,219 @@ describe("test subquery", function () {
             return Promise.resolve();
         }
     });
+
+    describe("[tdat]根据id的查询无视_deleteAt_选项", ()=> {
+        it("{tdat1.0}本地的查询，‘外键’被删除之后，关联的查找依旧支持", () => {
+            return uda.find({
+                name: "house",
+                indexFrom: 0,
+                count: 10
+            }).then(
+                (houseList)=> {
+                    expect(houseList.length).to.greaterThan(0);
+                    return uda.removeOneById({
+                        name: "contract",
+                        id: houseList[0].contractId
+                    }).then(
+                        ()=> {
+                            return uda.findById({
+                                name: "contract",
+                                id: houseList[0].contractId
+                            }).then(
+                                (contract)=> {
+                                    expect(contract["_deleteAt_"]).not.to.be(null);
+                                    return uda.findById({
+                                        name: "house",
+                                        projection: {
+                                            id: 1,
+                                            contractId: 1,
+                                            contract: {
+                                                id: 1,
+                                                "_deleteAt_": 1
+                                            }
+                                        },
+                                        id: houseList[0].id
+                                    }).then(
+                                        (houseInfo)=> {
+                                            expect(houseInfo.contract["_deleteAt_"]).not.to.be(null);
+                                        });
+                                });
+                        });
+                });
+        });
+
+        it("{tdat1.1}本地的查询，本身被_deleteAt_时，根据id查找还可以查到", () => {
+            return uda.find({
+                name: "house",
+                indexFrom: 0,
+                count: 10
+            }).then(
+                (houseList)=> {
+                    expect(houseList.length).to.greaterThan(0);
+                    return uda.removeOneById({
+                        name: "house",
+                        id: houseList[0].id
+                    }).then(
+                        ()=> {
+                            return uda.findById({
+                                name: "house",
+                                projection: {
+                                    id: 1,
+                                    contractId: 1,
+                                    contract: {
+                                        id: 1,
+                                        "_deleteAt_": 1
+                                    }
+                                },
+                                id: houseList[0].id
+                            }).then(
+                                (houseInfo)=> {
+                                    expect(houseInfo["_deleteAt_"]).not.to.be(null);
+                                    return uda.removeOneById({
+                                        name: "contract",
+                                        id: houseList[0].contractId
+                                    }).then(
+                                        ()=> {
+                                            return uda.findById({
+                                                name: "house",
+                                                projection: {
+                                                    id: 1,
+                                                    contractId: 1,
+                                                    contract: {
+                                                        id: 1,
+                                                        "_deleteAt_": 1
+                                                    }
+                                                },
+                                                id: houseList[0].id
+                                            }).then(
+                                                (houseInfo)=> {
+                                                    expect(houseInfo["_deleteAt_"]).not.to.be(null);
+                                                    expect(houseInfo.contract["_deleteAt_"]).not.to.be(null);
+                                                });
+                                        });
+                                });
+                        });
+                });
+        });
+
+        it("{tdat2.0}本地联合远端的查询，‘外键’被删除之后，关联的查找依旧支持", () => {
+            return uda.insert({
+                name: "contract",
+                data: {
+                    ownerId: 111,
+                    renterId: 111,
+                    price: 100
+                }
+            }).then(
+                (contract)=> {
+                    return uda.insert({
+                        name: "remoteUser",
+                        data: {
+                            name: "wangyuef",
+                            contractId: contract.id
+                        }
+                    }).then(
+                        (remoteUser)=> {
+                            return uda.removeOneById({
+                                    name: "remoteUser",
+                                    id: remoteUser.id
+                                })
+                                .then(
+                                    ()=> {
+                                        return uda.findById({
+                                            name: "remoteUser",
+                                            id: remoteUser.id
+                                        });
+                                    }
+                                )
+                                .then(
+                                    (remoteUserInfo)=> {
+                                        expect(remoteUserInfo["_deleteAt_"]).not.to.be(null);
+                                        return uda.removeOneById({
+                                            name: "contract",
+                                            id: contract.id
+                                        }).then(
+                                            ()=> {
+                                                return uda.findById({
+                                                    name: "remoteUser",
+                                                    projection: {
+                                                        id: 1,
+                                                        contractId: 1,
+                                                        contract: {
+                                                            id: 1,
+                                                            "_deleteAt_": 1
+                                                        }
+                                                    },
+                                                    id: remoteUser.id
+                                                }).then(
+                                                    (remoteUserInfo)=> {
+                                                        expect(remoteUserInfo.contract["_deleteAt_"]).not.to.be(null);
+                                                    });
+                                            });
+                                    });
+                        });
+                });
+        });
+
+        it("{tdat2.1}本地联合远端的查询，‘外键’被删除之后，关联的查找依旧支持", () => {
+            return uda.insert({
+                name: "contract",
+                data: {
+                    ownerId: 111,
+                    renterId: 111,
+                    price: 100
+                }
+            }).then(
+                (contract)=> {
+                    return uda.insert({
+                        name: "remoteUser",
+                        data: {
+                            name: "wangyuef",
+                            contractId: contract.id
+                        }
+                    }).then(
+                        (remoteUser)=> {
+                            return uda.removeOneById({
+                                    name: "contract",
+                                    id: contract.id
+                                })
+                                .then(
+                                    ()=> {
+                                        return uda.findById({
+                                            name: "remoteUser",
+                                            id: remoteUser.id
+                                        });
+                                    }
+                                )
+                                .then(
+                                    (remoteUserInfo)=> {
+                                        expect(remoteUserInfo["_deleteAt_"]).to.be(null);
+                                        expect(remoteUserInfo.contract["_deleteAt_"]).not.to.be(null);
+                                        return uda.removeOneById({
+                                            name: "remoteUser",
+                                            id: remoteUser.id
+                                        }).then(
+                                            ()=> {
+                                                return uda.findById({
+                                                    name: "remoteUser",
+                                                    projection: {
+                                                        id: 1,
+                                                        contractId: 1,
+                                                        contract: {
+                                                            id: 1,
+                                                            "_deleteAt_": 1
+                                                        }
+                                                    },
+                                                    id: remoteUser.id
+                                                }).then(
+                                                    (remoteUserInfo)=> {
+                                                        expect(remoteUserInfo.contract["_deleteAt_"]).not.to.be(null);
+                                                    });
+                                            });
+                                    });
+                        });
+                });
+        });
+    });
+
 });
