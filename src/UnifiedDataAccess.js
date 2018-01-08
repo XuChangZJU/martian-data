@@ -1740,6 +1740,7 @@ class DataAccess extends EventEmitter {
                         this.txnCount--;
                         txn.state = 'committed';
                         this.emit('txnCommitted', txn);
+                        return Promise.resolve();
                     }
                 )
         }
@@ -1766,6 +1767,7 @@ class DataAccess extends EventEmitter {
                     () => {
                         txn.state = 'rollbacked';
                         this.emit('txnRollbacked', txn);
+                        return Promise.resolve();
                     }
                 )
         }
