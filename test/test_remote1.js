@@ -1580,6 +1580,118 @@ describe("test remote 2", function () {
         )
     });
 
+    it("[tre0.14]测试缓存过期", () => {
+        uda.constants.storageInterval = 3000;
+        return uda.remove({
+            name: "user"
+        }).then(
+            ()=> {
+                return uda.insert({
+                        name: "user",
+                        data: {
+                            name: "wangyuef",
+                            age: 25
+                        }
+                    })
+                    .then(
+                        (row) => {
+                            return uda.find({
+                                    name: "user",
+                                    query: {
+                                        $and: [
+                                            {
+                                                age: {
+                                                    $lte: 30
+                                                }
+                                            },
+                                            {
+                                                name: {
+                                                    $exists: true
+                                                }
+                                            }
+                                        ]
+                                    },
+                                    indexFrom: 0,
+                                    count: 10,
+                                    useStorage: true
+                                })
+                                .then(
+                                    (users)=> {
+                                        expect(users.length).to.equal(1);
+                                        return uda.updateOneById({
+                                            name: "user",
+                                            data: {
+                                                age: 999
+                                            },
+                                            id: users[0].id
+                                        }).then(
+                                            ()=> {
+                                                return uda.find({
+                                                    name: "user",
+                                                    query: {
+                                                        $and: [
+                                                            {
+                                                                age: {
+                                                                    $lte: 30
+                                                                }
+                                                            },
+                                                            {
+                                                                name: {
+                                                                    $exists: true
+                                                                }
+                                                            }
+                                                        ]
+                                                    },
+                                                    indexFrom: 0,
+                                                    count: 10,
+                                                    useStorage: true
+                                                }).then(
+                                                    (users)=> {
+                                                        expect(users.length).to.equal(1)
+                                                    })
+                                                    .then(
+                                                        ()=>new Promise(
+                                                            (resolve)=> {
+                                                                setTimeout(()=>resolve(), 3000)
+                                                            }
+                                                        )
+                                                    )
+                                                    .then(
+                                                        ()=> {
+                                                            return uda.find({
+                                                                name: "user",
+                                                                query: {
+                                                                    $and: [
+                                                                        {
+                                                                            age: {
+                                                                                $lte: 30
+                                                                            }
+                                                                        },
+                                                                        {
+                                                                            name: {
+                                                                                $exists: true
+                                                                            }
+                                                                        }
+                                                                    ]
+                                                                },
+                                                                indexFrom: 0,
+                                                                count: 10,
+                                                                useStorage: true
+                                                            }).then(
+                                                                (users)=>expect(users.length).to.equal(0)
+                                                            )
+                                                        }
+                                                    )
+                                            }
+                                        )
+                                    }
+                                )
+                        }
+                    )
+            }
+        )
+    });
+
     after(() => {
         server.kill("SIGTERM");
         // server.on("exit", done);

@@ -3,8 +3,10 @@
  */
 const keys = require("lodash/keys");
 const merge = require("lodash/merge");
+const assign = require("lodash/assign");
 const assert = require("assert");
 const values = require("lodash/values");
+const constants = require("../constants");
 
 function compareAttr(comparer, stander) {
     if (keys(stander).some((ele)=>stander[ele] !== comparer[ele])) {
@@ -184,7 +186,7 @@ class mtStorage {
                     obj[key] = objTmp;
                 }
                 if (obj.cover) {
-                    this.globalData.entities[key] = obj[key];
+                    this.globalData.entities[key] = obj[key].map((ele)=>assign({}, ele, {$timeout: Date.now() + constants.storageInterval}));
                 }
                 else {
                     keys(obj[key]).forEach(
@@ -195,7 +197,7 @@ class mtStorage {
                             }
                             else {
                                 this.entities[key] = this.entities[key] || {};
-                                this.entities[key][id] = obj[key][id];
+                                this.entities[key][id] = assign({}, obj[key][id], {$timeout: Date.now() + constants.storageInterval});
                             }
                         }
                     )
@@ -218,10 +220,22 @@ class mtStorage {
         keys(this.entities[table]).forEach(
             (eleKey) => {
                 if (!query) {
-                    result.push(this.entities[table][eleKey]);
+                    //  若是发现缓存已过期，则删除
+                    if (this.entities[table][eleKey] && this.entities[table][eleKey].$timeout < Date.now()) {
+                        delete this.entities[table][eleKey];
+                    }
+                    else {
+                        result.push(this.entities[table][eleKey]);
+                    }
                 }
                 else if (satisfy(this.entities[table][eleKey], query)) {
-                    result.push(this.entities[table][eleKey]);
+                    //  若是发现缓存已过期，则删除
+                    if (this.entities[table][eleKey] && this.entities[table][eleKey].$timeout < Date.now()) {
+                        delete this.entities[table][eleKey];
+                    }
+                    else {
+                        result.push(this.entities[table][eleKey]);
+                    }
                 }
             }
         );

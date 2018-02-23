@@ -38,6 +38,7 @@ module.exports = {
     defaultRemoteUrls: urls,
     parellelCount: 50,
     parellelIndex: 0,
-    queue: []
+    queue: [],
+    storageInterval: 3600 * 1000
 }
 ;
