@@ -160,8 +160,19 @@ class Remote {
                 return this.accessRemoteApi(this.apis.urlFind, init)
                     .then(
                         (result)=> {
-                            //  这里有种情况query中的属性，并没有select出来，如 select id from user where name = "wangyuef"，此时做个merge。query中$lte算子存在会导致entity中保留，不过没有影响，
-                            this.mtStorage.mergeGlobalEntities({[name]: merge({}, execTree.query, result)});
+                            //  这里有种情况query中的属性，并没有select出来，如 select id from user where name = "wangyuef"，此时做个merge。
+                            if (result && result.length) {
+                                let query = assign({}, execTree.query);
+                                //  去除query中$lte等算子的保留。
+                                keys(query).forEach(
+                                    (field)=> {
+                                        if (typeof query[field] === "object") {
+                                            delete query[field];
+                                        }
+                                    }
+                                );
+                                this.mtStorage.mergeGlobalEntities({[name]: result.map((ele)=>merge({}, query, ele))});
+                            }
                             return result;
                         }
                     );
@@ -171,13 +182,17 @@ class Remote {
         return this.accessRemoteApi(this.apis.urlFind, init)
             .then(
                 (result)=> {
-                    result.forEach(
-                        (entity)=> {
-                            if (this.mtStorage && this.mtStorage.entities && this.mtStorage.entities[name] && this.mtStorage.entities[name][entity.id]) {
-                                this.mtStorage.mergeGlobalEntities({[name]: merge({}, execTree.query, result)});
+                    if (result && result.length) {
+                        let query = assign({}, execTree.query);
+                        keys(query).forEach(
+                            (field)=> {
+                                if (typeof query[field] === "object") {
+                                    delete query[field];
+                                }
                             }
-                        }
-                    );
+                        );
+                        this.mtStorage.mergeGlobalEntities({[name]: result.map((ele)=>merge({}, query, ele))});
+                    }
                     return result;
                 }
             )
