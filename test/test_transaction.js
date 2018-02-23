@@ -710,7 +710,7 @@ describe('test concurrent transaction in mysql', function () {
                                 projection:{
                                     area: 1,
                                 },
-                                id:houseInfo.id 
+                                id:houseInfo.id
                         })
                             .then(
                                 (houseInfo3) => {

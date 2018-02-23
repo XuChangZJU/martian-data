@@ -441,12 +441,12 @@ function destructSelect(name, projection, query, sort, isCounting, findDel) {
     }
 
     /*if ((!settings || !settings.disableDeleteAt)) {
-        if (!query[constants.deleteAtColumn]) {
-            query[constants.deleteAtColumn] = {
-                $exists: false
-            }
-        }
-    }*/
+     if (!query[constants.deleteAtColumn]) {
+     query[constants.deleteAtColumn] = {
+     $exists: false
+     }
+     }
+     }*/
 
     for (let attr in schema.attributes) {
         const attrDef = schema.attributes[attr];
@@ -736,7 +736,7 @@ function checkRightNodeQuerySatisfyNull(node, root) {
  * @description 本函数负责将当前子树的查询结果与父树或子树连接，并在需要的时候发出新的JOIN请求。
  *                  在两种情况下结束，1）当前子树的查询结果为空；2）当前子树是森林中的最后一棵查询子树
  */
-function joinNext(forest, me, result) {
+function joinNext(forest, me, result, useStorage) {
     const nodeMe = forest[me];
     let promises = [];
     nodeMe.result = result;
@@ -806,10 +806,10 @@ function joinNext(forest, me, result) {
                 let connection = this.connections[this.schemas[name].source];
 
                 promises.push(
-                    connection.find(name, nodeParent, 0, result.length)
+                    connection.find(name, nodeParent, 0, result.length, useStorage)
                         .then(
                             (result2) => {
-                                return joinNext.call(this, forest, nodeMe.referencedBy, result2);
+                                return joinNext.call(this, forest, nodeMe.referencedBy, result2, useStorage);
                             },
                             (err) => {
                                 return Promise.reject(err);
@@ -925,7 +925,7 @@ function joinNext(forest, me, result) {
                      }
                      }*/
                     let query;
-                    if (keys(nodeSon.query).length > 0){
+                    if (keys(nodeSon.query).length > 0) {
                         query = {
                             $and: [
                                 nodeSon.query,
@@ -953,10 +953,10 @@ function joinNext(forest, me, result) {
                     let connection = this.connections[this.schemas[name].source];
 
                     promises.push(
-                        connection.find(name, nodeSon, 0, result.length)
+                        connection.find(name, nodeSon, 0, result.length, useStorage)
                             .then(
                                 (result3) => {
-                                    return joinNext.call(this, forest, i, result3);
+                                    return joinNext.call(this, forest, i, result3, useStorage);
                                 },
                                 (err) => {
                                     return Promise.reject(err);
@@ -988,7 +988,7 @@ function joinNext(forest, me, result) {
  * @param count
  * @returns {Promise.<TResult>}
  */
-function execOverSourceQuery(name, forest, indexFrom, count, txn, forceIndex) {
+function execOverSourceQuery(name, forest, indexFrom, count, txn, forceIndex, useStorage) {
     for (let i in forest) {
         const tree = forest[i];
         if (i !== name && hasOperator(tree, "sort")) {
@@ -1003,10 +1003,10 @@ function execOverSourceQuery(name, forest, indexFrom, count, txn, forceIndex) {
     const connection = this.connections[schema.source];
     const txn2 = (txn && txn.source === schema.source) ? txn.txn : undefined;
 
-    return connection.find(name, firstRel, indexFrom, count, false, txn2, forceIndex)
+    return connection.find(name, firstRel, indexFrom, count, false, txn2, forceIndex, useStorage)
         .then(
             (result) => {
-                return joinNext.call(this, forest, name, result)
+                return joinNext.call(this, forest, name, result, useStorage)
                     .then(
                         () => {
                             return Promise.resolve(root.result);
@@ -1280,13 +1280,14 @@ class DataAccess extends EventEmitter {
 
     find(paramObj) {
         const name = paramObj.name;
-        const projection = paramObj.projection;
+        const projection = paramObj.projection && assign({}, {id: 1}, paramObj.projection);
         const query = paramObj.query;
         const sort = paramObj.sort;
         const indexFrom = paramObj.indexFrom;
         const count = paramObj.count;
         const txn = paramObj.txn;
         const forceIndex = paramObj.forceIndex;
+        const useStorage = paramObj.useStorage;
         if (!name || !this.schemas[name]) {
             throw new Error("查询必须输入有效表名");
         }
@@ -1299,7 +1300,7 @@ class DataAccess extends EventEmitter {
         //  若是上层是根据id查询的，下层无视deleteAt
         let execTree = destructSelect.call(this, name, projection, query, sort, null, query && query.hasOwnProperty("id"));
 
-        return this.findByExecTreeDirectly(name, execTree, indexFrom, count, false, txn, forceIndex)
+        return this.findByExecTreeDirectly(name, execTree, indexFrom, count, false, txn, forceIndex, useStorage)
             .then(
                 (result) => {
                     assert(result instanceof Array);
@@ -1379,9 +1380,10 @@ class DataAccess extends EventEmitter {
 
     findById(paramObj) {
         const name = paramObj.name;
-        const projection = paramObj.projection;
+        const projection = paramObj.projection && assign({}, {id: 1}, paramObj.projection);
         const id = paramObj.id;
         const txn = paramObj.txn;
+        const useStorage = paramObj.useStorage;
         if (!name || !this.schemas[name]) {
             throw new Error("查询必须输入有效表名");
         }
@@ -1404,7 +1406,7 @@ class DataAccess extends EventEmitter {
 
         //  若是上层是根据id查询的，下层无视deleteAt
         let execTree = destructSelect.call(this, name, projection, query, null, null, true);
-        return this.findByExecTreeDirectly(name, execTree, 0, 1, null, txn)
+        return this.findByExecTreeDirectly(name, execTree, 0, 1, null, txn, null, useStorage)
             .then(
                 (result) => {
                     switch (result.length) {
@@ -1478,7 +1480,7 @@ class DataAccess extends EventEmitter {
             );
     }
 
-    findByExecTreeDirectly(name, execTree, indexFrom, count, isCounting, txn, forceIndex) {
+    findByExecTreeDirectly(name, execTree, indexFrom, count, isCounting, txn, forceIndex, useStorage) {
         let execForest = distributeSelect.call(this, name, execTree);
 
         let trees = Object.getOwnPropertyNames(execForest);
@@ -1488,7 +1490,7 @@ class DataAccess extends EventEmitter {
                 throw new Error("当前不支持跨源的count查询");
             }
 
-            return execOverSourceQuery.call(this, name, execForest, indexFrom, count, txn, forceIndex);
+            return execOverSourceQuery.call(this, name, execForest, indexFrom, count, txn, forceIndex, useStorage);
         }
         else {
             // 单源的查询直接PUSH给相应的数据源
@@ -1496,7 +1498,7 @@ class DataAccess extends EventEmitter {
             const connection = this.connections[schema.source];
             const txn2 = (txn && txn.source === schema.source) ? txn.txn : undefined;
 
-            return connection.find(name, execTree, indexFrom, count, isCounting, txn2, forceIndex);
+            return connection.find(name, execTree, indexFrom, count, isCounting, txn2, forceIndex, useStorage);
         }
     }
 

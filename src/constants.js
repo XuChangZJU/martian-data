@@ -36,7 +36,7 @@ module.exports = {
     defaultRemoteApis: apis,
     defaultRemoteApiRouter: '/client',
     defaultRemoteUrls: urls,
-    parellelCount: 8,
+    parellelCount: 50,
     parellelIndex: 0,
     queue: []
 }

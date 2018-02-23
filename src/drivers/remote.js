@@ -5,8 +5,8 @@
 
 const merge = require("lodash/merge");
 const keys = require("lodash/keys");
+const MtStorage = require("../utils/mtStorage");
 require('isomorphic-fetch');
-
 const constants = require('../constants');
 
 function replicateExecTree(execTree) {
@@ -53,6 +53,7 @@ class Remote {
             }
         };
         this.settings = merge({}, defaultSettings, settings);
+        this.mtStorage = new MtStorage();
     }
 
 
@@ -73,12 +74,12 @@ class Remote {
 
         return new Promise(
             (resolve, reject)=> {
-                if (constants.parallIndex < constants.parallCount) {
-                    constants.parallIndex++;
+                if (constants.parellelIndex < constants.parellelCount) {
+                    constants.parellelIndex++;
                     return fetch(url, init2)
                         .then(
                             (res) => {
-                                constants.parallIndex--;
+                                constants.parellelIndex--;
                                 const callBackObj = constants.queue.shift();
                                 if (callBackObj) {
                                     callBackObj.fun.apply(this, callBackObj.params);
@@ -86,7 +87,7 @@ class Remote {
                                 return resolve(this.settings.resolveResponse(res));
                             },
                             (err) => {
-                                constants.parallIndex--;
+                                constants.parellelIndex--;
                                 return reject(err);
                             }
                         );
@@ -133,7 +134,7 @@ class Remote {
         return Promise.resolve();
     }
 
-    find(name, execTree, indexFrom, count, isCounting, forceIndex) {
+    find(name, execTree, indexFrom, count, isCounting, txn, forceIndex, useStorage) {
         let body = {
             name,
             execTree: replicateExecTree(execTree),
@@ -150,7 +151,33 @@ class Remote {
             },
             body: JSON.stringify(body)
         }
-        return this.accessRemoteApi(this.apis.urlFind, init);
+        if (useStorage && execTree.query) {
+            //  先去mtStorage中查询，若是没有符合条件的，则直接去远端查询
+            const entities = this.mtStorage.getEntities(name, execTree.query)
+            if (entities.length === 0) {
+                return this.accessRemoteApi(this.apis.urlFind, init)
+                    .then(
+                        (result)=> {
+                            this.mtStorage.mergeGlobalEntities({[name]: result});
+                            return result;
+                        }
+                    );
+            }
+            return Promise.resolve(entities);
+        }
+        return this.accessRemoteApi(this.apis.urlFind, init)
+            .then(
+                (result)=> {
+                    result.forEach(
+                        (entity)=> {
+                            if (this.mtStorage && this.mtStorage.entities && this.mtStorage.entities[name] && this.mtStorage.entities[name][entity.id]) {
+                                this.mtStorage.mergeGlobalEntities({[name]: entity});
+                            }
+                        }
+                    );
+                    return result;
+                }
+            )
     }
 
 

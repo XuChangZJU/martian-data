@@ -1517,7 +1517,7 @@ describe("test select with null in mysql 1", function () {
             const indexFrom = 0, count = 1;
 
             uda.find({
-                    name: "house", projection, query, sort, indexFrom, count   
+                    name: "house", projection, query, sort, indexFrom, count
             })
                 .then(
                     (result) => {

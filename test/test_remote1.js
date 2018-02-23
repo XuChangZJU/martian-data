@@ -17,6 +17,7 @@ const schemaRemote1 = require("./testRemote/schemas/schemaRemote1");
 const schemaRemote2 = require("./testRemote/schemas/schemaRemote2");
 
 const merge = require("lodash/merge");
+const keys = require("lodash/keys");
 
 
 function init(schemaRemote) {
@@ -278,8 +279,21 @@ describe("test remote 2", function () {
             .then((serv)=> {
                 server = serv;
             })
-        
+
     });
+
+    beforeEach(
+        ()=> {
+            //  清空缓存
+            keys(uda.connections).forEach(
+                (connectionIdx)=> {
+                    if (uda.connections[connectionIdx] && uda.connections[connectionIdx].mtStorage) {
+                        uda.connections[connectionIdx].mtStorage.clearStorage();
+                    }
+                }
+            )
+        }
+    )
 
 
     it("[tre1.0]", () => {
@@ -447,6 +461,1123 @@ describe("test remote 2", function () {
                         );
                 }
             )
+    });
+
+    it("[tre0.3]测试mtStorage，带着useStorage进行查询时，不会实时读取远端数据", () => {
+        // 尝试增删改查
+        return uda.insert({
+                name: "user",
+                data: {
+                    name: "wangyuef",
+                    age: 25
+                }
+            })
+            .then(
+                (row) => {
+                    let id = row.hasOwnProperty("id") ? row.id : row._id;
+
+                    return uda.findById({
+                            name: "user",
+                            projection: {
+                                name: 1,
+                                age: 1
+                            },
+                            useStorage: true,
+                            id
+                        })
+                        .then(
+                            (result) => {
+                                expect(result).to.be.an("object");
+                                expect(result.name).to.eql("wangyuef");
+                                expect(result.age).to.eql(25);
+
+                                return uda.updateOneById({
+                                        name: "user",
+                                        data: {
+                                            $set: {
+                                                age: 26
+                                            }
+                                        },
+                                        id
+                                    })
+                                    .then(
+                                        () => {
+                                            //  缓存查询还为更改前的值
+                                            return uda.findById({
+                                                    name: "user",
+                                                    projection: {
+                                                        name: 1,
+                                                        age: 1
+                                                    },
+                                                    useStorage: true,
+                                                    id
+                                                })
+                                                .then(
+                                                    (result) => {
+                                                        expect(result).to.be.an("object");
+                                                        expect(result.name).to.eql("wangyuef");
+                                                        expect(result.age).to.eql(25);
+                                                        //  不使用缓存查询，得到最新值
+                                                        return uda.findById({
+                                                                name: "user",
+                                                                projection: {
+                                                                    name: 1,
+                                                                    age: 1
+                                                                },
+                                                                id
+                                                            })
+                                                            .then(
+                                                                (result) => {
+                                                                    expect(result).to.be.an("object");
+                                                                    expect(result.name).to.eql("wangyuef");
+                                                                    expect(result.age).to.eql(26);
+                                                                    //  此时再用缓存查询，可以得到最新值
+                                                                    return uda.findById({
+                                                                            name: "user",
+                                                                            projection: {
+                                                                                name: 1,
+                                                                                age: 1
+                                                                            },
+                                                                            useStorage: true,
+                                                                            id
+                                                                        })
+                                                                        .then(
+                                                                            (result) => {
+                                                                                expect(result).to.be.an("object");
+                                                                                expect(result.name).to.eql("wangyuef");
+                                                                                expect(result.age).to.eql(25);
+                                                                            });
+                                                                }
+                                                            );
+                                                    }
+                                                );
+                                        }
+                                    );
+                            }
+                        );
+                }
+            )
+    });
+
+    it("[tre0.4]mtStorage，测试$lte算子", () => {
+        return uda.remove({
+            name: "user"
+        }).then(
+            ()=> {
+                return uda.insert({
+                        name: "user",
+                        data: {
+                            name: "wangyuef",
+                            age: 25
+                        }
+                    })
+                    .then(
+                        (row) => {
+                            return uda.find({
+                                    name: "user",
+                                    query: {
+                                        age: {
+                                            $lte: 25
+                                        }
+                                    },
+                                    indexFrom: 0,
+                                    count: 10,
+                                    useStorage: true
+                                })
+                                .then(
+                                    (users)=> {
+                                        expect(users.length).to.equal(1);
+                                        return uda.updateOneById({
+                                            name: "user",
+                                            data: {
+                                                age: 999
+                                            },
+                                            id: users[0].id
+                                        }).then(
+                                            ()=> {
+                                                return uda.find({
+                                                    name: "user",
+                                                    query: {
+                                                        age: {
+                                                            $lte: 25
+                                                        }
+                                                    },
+                                                    indexFrom: 0,
+                                                    count: 10,
+                                                    useStorage: true
+                                                }).then(
+                                                    (users)=> {
+                                                        expect(users.length).to.equal(1)
+                                                    })
+                                                    .then(
+                                                        ()=> {
+                                                            return uda.find({
+                                                                name: "user",
+                                                                query: {
+                                                                    age: {
+                                                                        $lte: 25
+                                                                    }
+                                                                },
+                                                                indexFrom: 0,
+                                                                count: 10
+                                                            }).then(
+                                                                (users)=>expect(users.length).to.equal(0)
+                                                                )
+                                                                .then(
+                                                                    ()=> {
+                                                                        //  todo    这块需要增加逻辑，dummy主动通知id的entity过期
+                                                                        // return uda.find({
+                                                                        //     name: "user",
+                                                                        //     query: {
+                                                                        //         age: {
+                                                                        //             $lte: 30
+                                                                        //         }
+                                                                        //     },
+                                                                        //     indexFrom: 0,
+                                                                        //     count: 10,
+                                                                        //     useStorage: true
+                                                                        // }).then(
+                                                                        //     (users)=>expect(users.length).to.equal(0)
+                                                                        // )
+                                                                    }
+                                                                )
+                                                        }
+                                                    )
+                                            }
+                                        )
+                                    }
+                                )
+                        }
+                    )
+            }
+        )
+    });
+
+    it("[tre0.5]mtStorage，测试$lt算子", () => {
+        return uda.remove({
+            name: "user"
+        }).then(
+            ()=> {
+                return uda.insert({
+                        name: "user",
+                        data: {
+                            name: "wangyuef",
+                            age: 25
+                        }
+                    })
+                    .then(
+                        (row) => {
+                            return uda.find({
+                                    name: "user",
+                                    query: {
+                                        age: {
+                                            $lt: 30
+                                        }
+                                    },
+                                    indexFrom: 0,
+                                    count: 10,
+                                    useStorage: true
+                                })
+                                .then(
+                                    (users)=> {
+                                        expect(users.length).to.equal(1);
+                                        return uda.updateOneById({
+                                            name: "user",
+                                            data: {
+                                                age: 999
+                                            },
+                                            id: users[0].id
+                                        }).then(
+                                            ()=> {
+                                                return uda.find({
+                                                    name: "user",
+                                                    query: {
+                                                        age: {
+                                                            $lt: 30
+                                                        }
+                                                    },
+                                                    indexFrom: 0,
+                                                    count: 10,
+                                                    useStorage: true
+                                                }).then(
+                                                    (users)=> {
+                                                        expect(users.length).to.equal(1)
+                                                    })
+                                                    .then(
+                                                        ()=> {
+                                                            return uda.find({
+                                                                name: "user",
+                                                                query: {
+                                                                    age: {
+                                                                        $lt: 30
+                                                                    }
+                                                                },
+                                                                indexFrom: 0,
+                                                                count: 10
+                                                            }).then(
+                                                                (users)=>expect(users.length).to.equal(0)
+                                                                )
+                                                                .then(
+                                                                    ()=> {
+                                                                        //  todo    这块需要增加逻辑，dummy主动通知id的entity过期
+                                                                        // return uda.find({
+                                                                        //     name: "user",
+                                                                        //     query: {
+                                                                        //         age: {
+                                                                        //             $lte: 30
+                                                                        //         }
+                                                                        //     },
+                                                                        //     indexFrom: 0,
+                                                                        //     count: 10,
+                                                                        //     useStorage: true
+                                                                        // }).then(
+                                                                        //     (users)=>expect(users.length).to.equal(0)
+                                                                        // )
+                                                                    }
+                                                                )
+                                                        }
+                                                    )
+                                            }
+                                        )
+                                    }
+                                )
+                        }
+                    )
+            }
+        )
+    });
+
+    it("[tre0.6]mtStorage，测试$gt算子", () => {
+        return uda.remove({
+            name: "user"
+        }).then(
+            ()=> {
+                return uda.insert({
+                        name: "user",
+                        data: {
+                            name: "wangyuef",
+                            age: 25
+                        }
+                    })
+                    .then(
+                        (row) => {
+                            return uda.find({
+                                    name: "user",
+                                    query: {
+                                        age: {
+                                            $gt: 10
+                                        }
+                                    },
+                                    indexFrom: 0,
+                                    count: 10,
+                                    useStorage: true
+                                })
+                                .then(
+                                    (users)=> {
+                                        expect(users.length).to.equal(1);
+                                        return uda.updateOneById({
+                                            name: "user",
+                                            data: {
+                                                age: 0
+                                            },
+                                            id: users[0].id
+                                        }).then(
+                                            ()=> {
+                                                return uda.find({
+                                                    name: "user",
+                                                    query: {
+                                                        age: {
+                                                            $gt: 10
+                                                        }
+                                                    },
+                                                    indexFrom: 0,
+                                                    count: 10,
+                                                    useStorage: true
+                                                }).then(
+                                                    (users)=> {
+                                                        expect(users.length).to.equal(1)
+                                                    })
+                                                    .then(
+                                                        ()=> {
+                                                            return uda.find({
+                                                                name: "user",
+                                                                query: {
+                                                                    age: {
+                                                                        $gt: 10
+                                                                    }
+                                                                },
+                                                                indexFrom: 0,
+                                                                count: 10
+                                                            }).then(
+                                                                (users)=>expect(users.length).to.equal(0)
+                                                                )
+                                                                .then(
+                                                                    ()=> {
+                                                                        //  todo    这块需要增加逻辑，dummy主动通知id的entity过期
+                                                                        // return uda.find({
+                                                                        //     name: "user",
+                                                                        //     query: {
+                                                                        //         age: {
+                                                                        //             $lte: 30
+                                                                        //         }
+                                                                        //     },
+                                                                        //     indexFrom: 0,
+                                                                        //     count: 10,
+                                                                        //     useStorage: true
+                                                                        // }).then(
+                                                                        //     (users)=>expect(users.length).to.equal(0)
+                                                                        // )
+                                                                    }
+                                                                )
+                                                        }
+                                                    )
+                                            }
+                                        )
+                                    }
+                                )
+                        }
+                    )
+            }
+        )
+    });
+
+    it("[tre0.7]mtStorage，测试$gte算子", () => {
+        return uda.remove({
+            name: "user"
+        }).then(
+            ()=> {
+                return uda.insert({
+                        name: "user",
+                        data: {
+                            name: "wangyuef",
+                            age: 25
+                        }
+                    })
+                    .then(
+                        (row) => {
+                            return uda.find({
+                                    name: "user",
+                                    query: {
+                                        age: {
+                                            $gte: 25
+                                        }
+                                    },
+                                    indexFrom: 0,
+                                    count: 10,
+                                    useStorage: true
+                                })
+                                .then(
+                                    (users)=> {
+                                        expect(users.length).to.equal(1);
+                                        return uda.updateOneById({
+                                            name: "user",
+                                            data: {
+                                                age: 0
+                                            },
+                                            id: users[0].id
+                                        }).then(
+                                            ()=> {
+                                                return uda.find({
+                                                    name: "user",
+                                                    query: {
+                                                        age: {
+                                                            $gte: 25
+                                                        }
+                                                    },
+                                                    indexFrom: 0,
+                                                    count: 10,
+                                                    useStorage: true
+                                                }).then(
+                                                    (users)=> {
+                                                        expect(users.length).to.equal(1)
+                                                    })
+                                                    .then(
+                                                        ()=> {
+                                                            return uda.find({
+                                                                name: "user",
+                                                                query: {
+                                                                    age: {
+                                                                        $gte: 25
+                                                                    }
+                                                                },
+                                                                indexFrom: 0,
+                                                                count: 10
+                                                            }).then(
+                                                                (users)=>expect(users.length).to.equal(0)
+                                                                )
+                                                                .then(
+                                                                    ()=> {
+                                                                        //  todo    这块需要增加逻辑，dummy主动通知id的entity过期
+                                                                        // return uda.find({
+                                                                        //     name: "user",
+                                                                        //     query: {
+                                                                        //         age: {
+                                                                        //             $lte: 30
+                                                                        //         }
+                                                                        //     },
+                                                                        //     indexFrom: 0,
+                                                                        //     count: 10,
+                                                                        //     useStorage: true
+                                                                        // }).then(
+                                                                        //     (users)=>expect(users.length).to.equal(0)
+                                                                        // )
+                                                                    }
+                                                                )
+                                                        }
+                                                    )
+                                            }
+                                        )
+                                    }
+                                )
+                        }
+                    )
+            }
+        )
+    });
+
+    it("[tre0.8]mtStorage，测试$ne算子", () => {
+        return uda.remove({
+            name: "user"
+        }).then(
+            ()=> {
+                return uda.insert({
+                        name: "user",
+                        data: {
+                            name: "wangyuef",
+                            age: 25
+                        }
+                    })
+                    .then(
+                        (row) => {
+                            return uda.find({
+                                    name: "user",
+                                    query: {
+                                        age: {
+                                            $ne: 1
+                                        }
+                                    },
+                                    indexFrom: 0,
+                                    count: 10,
+                                    useStorage: true
+                                })
+                                .then(
+                                    (users)=> {
+                                        expect(users.length).to.equal(1);
+                                        return uda.updateOneById({
+                                            name: "user",
+                                            data: {
+                                                age: 1
+                                            },
+                                            id: users[0].id
+                                        }).then(
+                                            ()=> {
+                                                return uda.find({
+                                                    name: "user",
+                                                    query: {
+                                                        age: {
+                                                            $ne: 1
+                                                        }
+                                                    },
+                                                    indexFrom: 0,
+                                                    count: 10,
+                                                    useStorage: true
+                                                }).then(
+                                                    (users)=> {
+                                                        expect(users.length).to.equal(1)
+                                                    })
+                                                    .then(
+                                                        ()=> {
+                                                            return uda.find({
+                                                                name: "user",
+                                                                query: {
+                                                                    age: {
+                                                                        $ne: 1
+                                                                    }
+                                                                },
+                                                                indexFrom: 0,
+                                                                count: 10
+                                                            }).then(
+                                                                (users)=>expect(users.length).to.equal(0)
+                                                                )
+                                                                .then(
+                                                                    ()=> {
+                                                                        //  todo    这块需要增加逻辑，dummy主动通知id的entity过期
+                                                                        // return uda.find({
+                                                                        //     name: "user",
+                                                                        //     query: {
+                                                                        //         age: {
+                                                                        //             $lte: 30
+                                                                        //         }
+                                                                        //     },
+                                                                        //     indexFrom: 0,
+                                                                        //     count: 10,
+                                                                        //     useStorage: true
+                                                                        // }).then(
+                                                                        //     (users)=>expect(users.length).to.equal(0)
+                                                                        // )
+                                                                    }
+                                                                )
+                                                        }
+                                                    )
+                                            }
+                                        )
+                                    }
+                                )
+                        }
+                    )
+            }
+        )
+    });
+
+    it("[tre0.9]mtStorage，测试$nin算子", () => {
+        return uda.remove({
+            name: "user"
+        }).then(
+            ()=> {
+                return uda.insert({
+                        name: "user",
+                        data: {
+                            name: "wangyuef",
+                            age: 20
+                        }
+                    })
+                    .then(
+                        (row) => {
+                            return uda.find({
+                                    name: "user",
+                                    query: {
+                                        age: {
+                                            $nin: [1, 25]
+                                        }
+                                    },
+                                    indexFrom: 0,
+                                    count: 10,
+                                    useStorage: true
+                                })
+                                .then(
+                                    (users)=> {
+                                        expect(users.length).to.equal(1);
+                                        return uda.updateOneById({
+                                            name: "user",
+                                            data: {
+                                                age: 1
+                                            },
+                                            id: users[0].id
+                                        }).then(
+                                            ()=> {
+                                                return uda.find({
+                                                    name: "user",
+                                                    query: {
+                                                        age: {
+                                                            $nin: [1, 25]
+                                                        }
+                                                    },
+                                                    indexFrom: 0,
+                                                    count: 10,
+                                                    useStorage: true
+                                                }).then(
+                                                    (users)=> {
+                                                        expect(users.length).to.equal(1)
+                                                    })
+                                                    .then(
+                                                        ()=> {
+                                                            return uda.find({
+                                                                name: "user",
+                                                                query: {
+                                                                    age: {
+                                                                        $nin: [1, 25]
+                                                                    }
+                                                                },
+                                                                indexFrom: 0,
+                                                                count: 10
+                                                            }).then(
+                                                                (users)=>expect(users.length).to.equal(0)
+                                                                )
+                                                                .then(
+                                                                    ()=> {
+                                                                        //  todo    这块需要增加逻辑，dummy主动通知id的entity过期
+                                                                        // return uda.find({
+                                                                        //     name: "user",
+                                                                        //     query: {
+                                                                        //         age: {
+                                                                        //             $lte: 30
+                                                                        //         }
+                                                                        //     },
+                                                                        //     indexFrom: 0,
+                                                                        //     count: 10,
+                                                                        //     useStorage: true
+                                                                        // }).then(
+                                                                        //     (users)=>expect(users.length).to.equal(0)
+                                                                        // )
+                                                                    }
+                                                                )
+                                                        }
+                                                    )
+                                            }
+                                        )
+                                    }
+                                )
+                        }
+                    )
+            }
+        )
+    });
+
+    it("[tre0.10]mtStorage，测试$between算子", () => {
+        return uda.remove({
+            name: "user"
+        }).then(
+            ()=> {
+                return uda.insert({
+                        name: "user",
+                        data: {
+                            name: "wangyuef",
+                            age: 25
+                        }
+                    })
+                    .then(
+                        (row) => {
+                            return uda.find({
+                                    name: "user",
+                                    query: {
+                                        age: {
+                                            $between: {
+                                                $left: {
+                                                    $closed: true,
+                                                    $value: 10
+                                                },
+                                                $right: {
+                                                    $closed: true,
+                                                    $value: 30
+                                                }
+                                            }
+                                        }
+                                    },
+                                    indexFrom: 0,
+                                    count: 10,
+                                    useStorage: true
+                                })
+                                .then(
+                                    (users)=> {
+                                        expect(users.length).to.equal(1);
+                                        return uda.updateOneById({
+                                            name: "user",
+                                            data: {
+                                                age: 999
+                                            },
+                                            id: users[0].id
+                                        }).then(
+                                            ()=> {
+                                                return uda.find({
+                                                    name: "user",
+                                                    query: {
+                                                        age: {
+                                                            $between: {
+                                                                $left: {
+                                                                    $closed: true,
+                                                                    $value: 10
+                                                                },
+                                                                $right: {
+                                                                    $closed: true,
+                                                                    $value: 30
+                                                                }
+                                                            }
+                                                        }
+                                                    },
+                                                    indexFrom: 0,
+                                                    count: 10,
+                                                    useStorage: true
+                                                }).then(
+                                                    (users)=> {
+                                                        expect(users.length).to.equal(1)
+                                                    })
+                                                    .then(
+                                                        ()=> {
+                                                            return uda.find({
+                                                                name: "user",
+                                                                query: {
+                                                                    age: {
+                                                                        $between: {
+                                                                            $left: {
+                                                                                $closed: true,
+                                                                                $value: 10
+                                                                            },
+                                                                            $right: {
+                                                                                $closed: true,
+                                                                                $value: 30
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                },
+                                                                indexFrom: 0,
+                                                                count: 10
+                                                            }).then(
+                                                                (users)=>expect(users.length).to.equal(0)
+                                                                )
+                                                                .then(
+                                                                    ()=> {
+                                                                        //  todo    这块需要增加逻辑，dummy主动通知id的entity过期
+                                                                        // return uda.find({
+                                                                        //     name: "user",
+                                                                        //     query: {
+                                                                        //         age: {
+                                                                        //             $lte: 30
+                                                                        //         }
+                                                                        //     },
+                                                                        //     indexFrom: 0,
+                                                                        //     count: 10,
+                                                                        //     useStorage: true
+                                                                        // }).then(
+                                                                        //     (users)=>expect(users.length).to.equal(0)
+                                                                        // )
+                                                                    }
+                                                                )
+                                                        }
+                                                    )
+                                            }
+                                        )
+                                    }
+                                )
+                        }
+                    )
+            }
+        )
+    });
+
+    it("[tre0.11]mtStorage，测试$exists算子", () => {
+        return uda.remove({
+            name: "user"
+        }).then(
+            ()=> {
+                return uda.insert({
+                        name: "user",
+                        data: {
+                            name: "wangyuef",
+                            age: 25
+                        }
+                    })
+                    .then(
+                        (row) => {
+                            return uda.find({
+                                    name: "user",
+                                    query: {
+                                        age: {
+                                            $exists: true
+                                        }
+                                    },
+                                    indexFrom: 0,
+                                    count: 10,
+                                    useStorage: true
+                                })
+                                .then(
+                                    (users)=> {
+                                        expect(users.length).to.equal(1);
+                                        return uda.updateOneById({
+                                            name: "user",
+                                            data: {
+                                                age: null
+                                            },
+                                            id: users[0].id
+                                        }).then(
+                                            ()=> {
+                                                return uda.find({
+                                                    name: "user",
+                                                    query: {
+                                                        age: {
+                                                            $exists: true
+                                                        }
+                                                    },
+                                                    indexFrom: 0,
+                                                    count: 10,
+                                                    useStorage: true
+                                                }).then(
+                                                    (users)=> {
+                                                        expect(users.length).to.equal(1)
+                                                    })
+                                                    .then(
+                                                        ()=> {
+                                                            return uda.find({
+                                                                name: "user",
+                                                                query: {
+                                                                    age: {
+                                                                        $exists: true
+                                                                    }
+                                                                },
+                                                                indexFrom: 0,
+                                                                count: 10
+                                                            }).then(
+                                                                (users)=>expect(users.length).to.equal(0)
+                                                                )
+                                                                .then(
+                                                                    ()=> {
+                                                                        //  todo    这块需要增加逻辑，dummy主动通知id的entity过期
+                                                                        // return uda.find({
+                                                                        //     name: "user",
+                                                                        //     query: {
+                                                                        //         age: {
+                                                                        //             $lte: 30
+                                                                        //         }
+                                                                        //     },
+                                                                        //     indexFrom: 0,
+                                                                        //     count: 10,
+                                                                        //     useStorage: true
+                                                                        // }).then(
+                                                                        //     (users)=>expect(users.length).to.equal(0)
+                                                                        // )
+                                                                    }
+                                                                )
+                                                        }
+                                                    )
+                                            }
+                                        )
+                                    }
+                                )
+                        }
+                    )
+            }
+        )
+    });
+
+    it("[tre0.12]mtStorage，测试$or算子", () => {
+        return uda.remove({
+            name: "user"
+        }).then(
+            ()=> {
+                return uda.insert({
+                        name: "user",
+                        data: {
+                            name: "wangyuef",
+                            age: 25
+                        }
+                    })
+                    .then(
+                        (row) => {
+                            return uda.find({
+                                    name: "user",
+                                    query: {
+                                        $or: [
+                                            {
+                                                age: {
+                                                    $lte: 30
+                                                }
+                                            },
+                                            {
+                                                name: {
+                                                    $exists: false
+                                                }
+                                            }
+                                        ]
+                                    },
+                                    indexFrom: 0,
+                                    count: 10,
+                                    useStorage: true
+                                })
+                                .then(
+                                    (users)=> {
+                                        expect(users.length).to.equal(1);
+                                        return uda.updateOneById({
+                                            name: "user",
+                                            data: {
+                                                age: 999
+                                            },
+                                            id: users[0].id
+                                        }).then(
+                                            ()=> {
+                                                return uda.find({
+                                                    name: "user",
+                                                    query: {
+                                                        $or: [
+                                                            {
+                                                                age: {
+                                                                    $lte: 30
+                                                                }
+                                                            },
+                                                            {
+                                                                name: {
+                                                                    $exists: false
+                                                                }
+                                                            }
+                                                        ]
+                                                    },
+                                                    indexFrom: 0,
+                                                    count: 10,
+                                                    useStorage: true
+                                                }).then(
+                                                    (users)=> {
+                                                        expect(users.length).to.equal(1)
+                                                    })
+                                                    .then(
+                                                        ()=> {
+                                                            return uda.find({
+                                                                name: "user",
+                                                                query: {
+                                                                    $or: [
+                                                                        {
+                                                                            age: {
+                                                                                $lte: 30
+                                                                            }
+                                                                        },
+                                                                        {
+                                                                            name: {
+                                                                                $exists: false
+                                                                            }
+                                                                        }
+                                                                    ]
+                                                                },
+                                                                indexFrom: 0,
+                                                                count: 10
+                                                            }).then(
+                                                                (users)=>expect(users.length).to.equal(0)
+                                                                )
+                                                                .then(
+                                                                    ()=> {
+                                                                        //  todo    这块需要增加逻辑，dummy主动通知id的entity过期
+                                                                        // return uda.find({
+                                                                        //     name: "user",
+                                                                        //     query: {
+                                                                        //         age: {
+                                                                        //             $lte: 30
+                                                                        //         }
+                                                                        //     },
+                                                                        //     indexFrom: 0,
+                                                                        //     count: 10,
+                                                                        //     useStorage: true
+                                                                        // }).then(
+                                                                        //     (users)=>expect(users.length).to.equal(0)
+                                                                        // )
+                                                                    }
+                                                                )
+                                                        }
+                                                    )
+                                            }
+                                        )
+                                    }
+                                )
+                        }
+                    )
+            }
+        )
+    });
+
+    it("[tre0.13]mtStorage，测试$and算子", () => {
+        return uda.remove({
+            name: "user"
+        }).then(
+            ()=> {
+                return uda.insert({
+                        name: "user",
+                        data: {
+                            name: "wangyuef",
+                            age: 25
+                        }
+                    })
+                    .then(
+                        (row) => {
+                            return uda.find({
+                                    name: "user",
+                                    query: {
+                                        $and: [
+                                            {
+                                                age: {
+                                                    $lte: 30
+                                                }
+                                            },
+                                            {
+                                                name: {
+                                                    $exists: true
+                                                }
+                                            }
+                                        ]
+                                    },
+                                    indexFrom: 0,
+                                    count: 10,
+                                    useStorage: true
+                                })
+                                .then(
+                                    (users)=> {
+                                        expect(users.length).to.equal(1);
+                                        return uda.updateOneById({
+                                            name: "user",
+                                            data: {
+                                                age: 999
+                                            },
+                                            id: users[0].id
+                                        }).then(
+                                            ()=> {
+                                                return uda.find({
+                                                    name: "user",
+                                                    query: {
+                                                        $and: [
+                                                            {
+                                                                age: {
+                                                                    $lte: 30
+                                                                }
+                                                            },
+                                                            {
+                                                                name: {
+                                                                    $exists: true
+                                                                }
+                                                            }
+                                                        ]
+                                                    },
+                                                    indexFrom: 0,
+                                                    count: 10,
+                                                    useStorage: true
+                                                }).then(
+                                                    (users)=> {
+                                                        expect(users.length).to.equal(1)
+                                                    })
+                                                    .then(
+                                                        ()=> {
+                                                            return uda.find({
+                                                                name: "user",
+                                                                query: {
+                                                                    $and: [
+                                                                        {
+                                                                            age: {
+                                                                                $lte: 30
+                                                                            }
+                                                                        },
+                                                                        {
+                                                                            name: {
+                                                                                $exists: true
+                                                                            }
+                                                                        }
+                                                                    ]
+                                                                },
+                                                                indexFrom: 0,
+                                                                count: 10
+                                                            }).then(
+                                                                (users)=>expect(users.length).to.equal(0)
+                                                                )
+                                                                .then(
+                                                                    ()=> {
+                                                                        //  todo    这块需要增加逻辑，dummy主动通知id的entity过期
+                                                                        // return uda.find({
+                                                                        //     name: "user",
+                                                                        //     query: {
+                                                                        //         age: {
+                                                                        //             $lte: 30
+                                                                        //         }
+                                                                        //     },
+                                                                        //     indexFrom: 0,
+                                                                        //     count: 10,
+                                                                        //     useStorage: true
+                                                                        // }).then(
+                                                                        //     (users)=>expect(users.length).to.equal(0)
+                                                                        // )
+                                                                    }
+                                                                )
+                                                        }
+                                                    )
+                                            }
+                                        )
+                                    }
+                                )
+                        }
+                    )
+            }
+        )
     });
 
     after(() => {
