@@ -5,6 +5,7 @@
 
 const merge = require("lodash/merge");
 const keys = require("lodash/keys");
+const assign = require("lodash/assign");
 const MtStorage = require("../utils/mtStorage");
 require('isomorphic-fetch');
 const constants = require('../constants');
@@ -154,12 +155,13 @@ class Remote {
         }
         if (useStorage && execTree.query) {
             //  先去mtStorage中查询，若是没有符合条件的，则直接去远端查询
-            const entities = this.mtStorage.getEntities(name, execTree.query)
+            const entities = this.mtStorage.getEntities(name, execTree.query);
             if (entities.length === 0) {
                 return this.accessRemoteApi(this.apis.urlFind, init)
                     .then(
                         (result)=> {
-                            this.mtStorage.mergeGlobalEntities({[name]: result});
+                            //  这里有种情况query中的属性，并没有select出来，如 select id from user where name = "wangyuef"，此时做个merge。query中$lte算子存在会导致entity中保留，不过没有影响，
+                            this.mtStorage.mergeGlobalEntities({[name]: merge({}, execTree.query, result)});
                             return result;
                         }
                     );
@@ -172,7 +174,7 @@ class Remote {
                     result.forEach(
                         (entity)=> {
                             if (this.mtStorage && this.mtStorage.entities && this.mtStorage.entities[name] && this.mtStorage.entities[name][entity.id]) {
-                                this.mtStorage.mergeGlobalEntities({[name]: entity});
+                                this.mtStorage.mergeGlobalEntities({[name]: merge({}, execTree.query, result)});
                             }
                         }
                     );
