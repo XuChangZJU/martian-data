@@ -5,6 +5,8 @@
 const assert = require("assert");
 const mysql = require('mysql');
 const merge = require("lodash").merge;
+const keys = require("lodash").keys;
+const assign = require("lodash").assign;
 const omit = require("lodash/omit");
 
 const constants = require("./../constants");
@@ -12,6 +14,8 @@ const SQLTransformer = require("./../utils/sqlTransformer");
 const resultTransformer = require("./../utils/resultTransformer");
 
 const _DEBUG_SQL = process.env.DEBUG;
+
+const MtStorage = require("../utils/mtStorage");
 
 function convertTypeDefToDbFormat(typeDef) {
 	if(typeof typeDef === "object") {
@@ -307,6 +311,7 @@ class Mysql {
 		this.settings = settings;
 		this.schemas = schemas;
 		this.sqlTransformer = new SQLTransformer(schemas, convertValueToDbFormat.bind(this));
+		this.mtStorage = new MtStorage();
 	}
 
 
@@ -355,6 +360,35 @@ class Mysql {
 
 	find(name, execTree, indexFrom, count, isCounting, con, forceIndex, useStorage) {
 		const sql = this.sqlTransformer.transformSelect(name, execTree, indexFrom, count, isCounting, null, forceIndex);
+		if (useStorage && execTree.query) {
+			//  先去mtStorage中查询，若是没有符合条件的，再去查询
+			const entities = this.mtStorage.getEntities(name, execTree.query);
+			if (entities.length === 0) {
+				return queryToPromise(con || this.db, sql, true)
+					.then(
+						(result) => {
+							//  这里有种情况query中的属性，并没有select出来，如 select id from user where name = "wangyuef"，此时做个merge。
+							if (result && result.length) {
+								let query = assign({}, execTree.query);
+								//  去除query中$lte等算子的保留。
+								keys(query).forEach(
+									(field)=> {
+										if (typeof query[field] === "object") {
+											delete query[field];
+										}
+									}
+								);
+								this.mtStorage.mergeGlobalEntities({[name]: result.map((ele)=>merge({}, query, ele))});
+							}
+							if(isCounting) {
+								return Promise.resolve(result[0]);
+							}
+							return Promise.resolve(result);
+						}
+					)
+			}
+			return Promise.resolve(entities);
+		}
 		
 		return queryToPromise(con || this.db, sql, true)
 			.then(

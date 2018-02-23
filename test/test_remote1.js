@@ -1692,6 +1692,79 @@ describe("test remote 2", function () {
         )
     });
 
+    it("[tre3.0]mtStorage，测试不影响subQuery查询（在mtStorage中直接滤过，进行远端查询）", () => {
+        return uda.remove({
+            name: "user"
+        }).then(
+            ()=> {
+                return uda.insert({
+                        name: "user",
+                        data: {
+                            name: "wangyuef",
+                            age: 25
+                        }
+                    })
+                    .then(
+                        (user)=>uda.insert({
+                            name: "account",
+                            data: {
+                                ownerId: user.id,
+                                deposit: 1111
+                            }
+                        })
+                    )
+                    .then(
+                        (row) => {
+                            return uda.find({
+                                    name: "account",
+                                    query: {
+                                        owner: {
+                                            id: row.ownerId
+                                        }
+                                    },
+                                    indexFrom: 0,
+                                    count: 10,
+                                    useStorage: true
+                                })
+                                .then(
+                                    (account)=> {
+                                        expect(account.length).to.equal(1);
+                                        console.log("account: ", account);
+                                        return uda.updateOneById({
+                                            name: "account",
+                                            data: {
+                                                deposit: 222
+                                            },
+                                            id: account[0]._id
+                                        }).then(
+                                            ()=> {
+                                                return uda.find({
+                                                        name: "account",
+                                                        query: {
+                                                            owner: {
+                                                                id: row.ownerId
+                                                            },
+                                                            deposit: 222
+                                                        },
+                                                        indexFrom: 0,
+                                                        count: 10,
+                                                        useStorage: true
+                                                    })
+                                                    .then(
+                                                        (account)=> {
+                                                            expect(account.length).to.equal(1);
+                                                        }
+                                                    )
+                                            }
+                                        )
+                                    }
+                                )
+                        }
+                    )
+            }
+        )
+    });
+
     after(() => {
         server.kill("SIGTERM");
         // server.on("exit", done);
