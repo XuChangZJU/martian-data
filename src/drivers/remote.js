@@ -76,6 +76,7 @@ class Remote {
             (resolve, reject)=> {
                 if (constants.parellelIndex < constants.parellelCount) {
                     constants.parellelIndex++;
+
                     return fetch(url, init2)
                         .then(
                             (res) => {
@@ -93,8 +94,8 @@ class Remote {
                         );
                 }
                 constants.queue.push({
-                    fun: (params)=> {
-                        return fetch(params)
+                    fun: (url, init)=> {
+                        return fetch(url, init)
                             .then(
                                 (res) => {
                                     const callBackObj = constants.queue.shift();
