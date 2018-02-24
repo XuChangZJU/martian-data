@@ -806,7 +806,7 @@ function joinNext(forest, me, result, useStorage) {
                 let connection = this.connections[this.schemas[name].source];
 
                 promises.push(
-                    connection.find(name, nodeParent, 0, result.length, useStorage)
+                    connection.find(name, nodeParent, 0, result.length, false, null, null, useStorage)
                         .then(
                             (result2) => {
                                 return joinNext.call(this, forest, nodeMe.referencedBy, result2, useStorage);
@@ -953,7 +953,7 @@ function joinNext(forest, me, result, useStorage) {
                     let connection = this.connections[this.schemas[name].source];
 
                     promises.push(
-                        connection.find(name, nodeSon, 0, result.length, useStorage)
+                        connection.find(name, nodeSon, 0, result.length, false, null, null, useStorage)
                             .then(
                                 (result3) => {
                                     return joinNext.call(this, forest, i, result3, useStorage);

@@ -184,6 +184,7 @@ class Remote {
                 (result)=> {
                     if (result && result.length) {
                         let query = assign({}, execTree.query);
+
                         keys(query).forEach(
                             (field)=> {
                                 if (typeof query[field] === "object") {
