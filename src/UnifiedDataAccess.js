@@ -1280,7 +1280,7 @@ class DataAccess extends EventEmitter {
 
     find(paramObj) {
         const name = paramObj.name;
-        const projection = paramObj.projection && assign({}, {id: 1}, paramObj.projection);
+        const projection = (paramObj.useStorage && paramObj.projection && assign({}, {id: 1}, paramObj.projection)) || paramObj.projection;
         const query = paramObj.query;
         const sort = paramObj.sort;
         const indexFrom = paramObj.indexFrom;
@@ -1380,7 +1380,7 @@ class DataAccess extends EventEmitter {
 
     findById(paramObj) {
         const name = paramObj.name;
-        const projection = paramObj.projection && assign({}, {id: 1}, paramObj.projection);
+        const projection = (paramObj.useStorage && paramObj.projection && assign({}, {id: 1}, paramObj.projection)) || paramObj.projection;
         const id = paramObj.id;
         const txn = paramObj.txn;
         const useStorage = paramObj.useStorage;
