@@ -136,7 +136,7 @@ class Remote {
         return Promise.resolve();
     }
 
-    find(name, execTree, indexFrom, count, isCounting, txn, forceIndex, useStorage) {
+    find(name, execTree, indexFrom, count, isCounting, txn, forceIndex, useCache, cacheExpiredTime) {
         let body = {
             name,
             execTree: replicateExecTree(execTree),
@@ -153,7 +153,7 @@ class Remote {
             },
             body: JSON.stringify(body)
         }
-        if (useStorage && execTree.query) {
+        if (useCache && execTree.query) {
             //  先去mtStorage中查询，若是没有符合条件的，则直接去远端查询
             const entities = this.mtStorage.getEntities(name, execTree.query);
             if (entities.length === 0) {
@@ -171,7 +171,7 @@ class Remote {
                                         }
                                     }
                                 );
-                                this.mtStorage.mergeGlobalEntities({[name]: result.map((ele)=>merge({}, query, ele))});
+                                this.mtStorage.mergeGlobalEntities({[name]: result.map((ele)=>merge({}, query, ele))}, cacheExpiredTime);
                             }
                             return result;
                         }
@@ -192,7 +192,7 @@ class Remote {
                                 }
                             }
                         );
-                        this.mtStorage.mergeGlobalEntities({[name]: result.map((ele)=>merge({}, query, ele))});
+                        this.mtStorage.mergeGlobalEntities({[name]: result.map((ele)=>merge({}, query, ele))}, cacheExpiredTime);
                     }
                     return result;
                 }
@@ -356,6 +356,14 @@ class Remote {
             }
         };
         return this.accessRemoteApi(this.apis.urlSchemas, init);
+    }
+
+    disableStorageBy(entity, query) {
+        return this.mtStorage.clearStorageBy(entity, query)
+    }
+
+    clearStorage(table){
+        return this.mtStorage.clearStorage(table);
     }
 }
 

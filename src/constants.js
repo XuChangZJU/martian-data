@@ -12,7 +12,8 @@ const apis = {
     urlRemoveOneById: "/removeOneById",
     urlKeyName: "/keyName",
     urlKeyType: "/keyType",
-    urlSchemas: "/schemas"
+    urlSchemas: "/schemas",
+    urlDeleteStorage: "/deleteStorage"
 };
 
 let urls = [];
@@ -39,6 +40,6 @@ module.exports = {
     parellelCount: 50,
     parellelIndex: 0,
     queue: [],
-    storageInterval: 3600 * 1000
+    storageInterval: 5 * 6000
 }
 ;

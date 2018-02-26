@@ -13,7 +13,7 @@ class Common {
     }
 
     init(option) {
-        const { uda, schema } = option;
+        const {uda, schema} = option;
         this._router.post(apis.urlFind, (req, res, next) => {
             let data = req.body;
             try {
@@ -29,7 +29,7 @@ class Common {
                         }
                     );
             }
-            catch(err) {
+            catch (err) {
                 next(err);
             }
         });
@@ -39,9 +39,9 @@ class Common {
             let data = req.body;
             try {
                 uda.insert({
-                    name:data.name,
-                    data:data.data
-                })
+                        name: data.name,
+                        data: data.data
+                    })
                     .then(
                         (result) => {
                             res.json(result);
@@ -53,7 +53,7 @@ class Common {
                         }
                     );
             }
-            catch(err) {
+            catch (err) {
                 next(err);
             }
         });
@@ -62,8 +62,8 @@ class Common {
             let data = req.body;
             try {
                 uda.update({
-                    name: data.name, data: data.updatePart, query: data.query
-                })
+                        name: data.name, data: data.updatePart, query: data.query
+                    })
                     .then(
                         (result) => {
                             res.json(result);
@@ -75,7 +75,7 @@ class Common {
                         }
                     );
             }
-            catch(err) {
+            catch (err) {
                 next(err);
             }
         });
@@ -84,8 +84,8 @@ class Common {
             let data = req.body;
             try {
                 uda.updateOneById({
-                    name: data.name, data: data.updatePart, id: data.id
-                })
+                        name: data.name, data: data.updatePart, id: data.id
+                    })
                     .then(
                         (result) => {
                             res.json(result);
@@ -97,7 +97,7 @@ class Common {
                         }
                     );
             }
-            catch(err) {
+            catch (err) {
                 next(err);
             }
         });
@@ -107,8 +107,8 @@ class Common {
             let data = req.body;
             try {
                 uda.remove({
-                    name: data.name, query: data.query
-                })
+                        name: data.name, query: data.query
+                    })
                     .then(
                         (result) => {
                             res.json(result);
@@ -120,7 +120,7 @@ class Common {
                         }
                     );
             }
-            catch(err) {
+            catch (err) {
                 next(err);
             }
         });
@@ -130,8 +130,8 @@ class Common {
             let data = req.body;
             try {
                 uda.removeOneById({
-                    name: data.name, id: data.id
-                })
+                        name: data.name, id: data.id
+                    })
                     .then(
                         (result) => {
                             res.json(result);
@@ -143,7 +143,7 @@ class Common {
                         }
                     );
             }
-            catch(err) {
+            catch (err) {
                 next(err);
             }
         });
@@ -151,7 +151,7 @@ class Common {
 
         this._router.post(apis.urlKeyName, (req, res, next) => {
             let data = req.body;
-            try{
+            try {
                 res.json(uda.getKeyName(data.name));
             }
             catch (err) {
@@ -161,7 +161,7 @@ class Common {
 
         this._router.post(apis.urlKeyType, (req, res, next) => {
             let data = req.body;
-            try{
+            try {
                 res.json(uda.getKeyType(data.name));
             }
             catch (err) {
@@ -172,6 +172,16 @@ class Common {
         this._router.post(apis.urlSchemas, (req, res, next) => {
             res.json(schema);
         });
+
+        // this._router.post(apis.urlDeleteStorage, (req, res, next)=> {
+        //     try {
+        //         uda.disableStorageBy(req.body.entity, req.body.query);
+        //     }
+        //     catch (err) {
+        //         next(err);
+        //     }
+        //     res.json({success: true});
+        // })
 
     }
 
