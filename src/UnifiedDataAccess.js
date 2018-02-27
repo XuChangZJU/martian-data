@@ -1844,8 +1844,8 @@ class DataAccess extends EventEmitter {
     // }
 
     clearStorage(table) {
-        return Promise.all(this.connections.map(
-            (connection)=>connection.clearStorage(table)
+        return Promise.all(keys(this.connections).map(
+            (ele)=>this.connections[ele].clearStorage(table)
         ));
     }
 }
