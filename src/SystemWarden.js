@@ -1,0 +1,1073 @@
+/**
+ * SystemWarden 系统守望者
+ * 本模块用于维护系统数据间的一致性
+ * coded by Xc  20161209
+ *
+ */
+'use strict';
+const assert = require('assert');
+const assign = require('lodash/assign');
+const keys = require('lodash/keys');
+const flatten = require('lodash/flatten');
+const groupBy = require('lodash/groupBy');
+const pick = require('lodash/pick');
+const omit = require('lodash/omit');
+const values = require('lodash/values');
+const ObjectID = require("mongodb").ObjectID;
+require("./utils/promiseUtils");
+const ITER_COUNT = 64;
+
+function emptyDtLocalAttr(trigger, entity, remoteEntity) {
+    return this.uda.startTransaction("mysql", {
+        isolationLevel: "SERIALIZABLE"
+    }).then(
+        (txn) => {
+            return this.uda.getSource(this.txnSource).execSql(
+                `select * from ${trigger.entity} where id = ${entity.id} for update`, true, txn.txn)
+                .then(
+                    //         ()=>{
+                    // return this.uda.findById(trigger.entity, null, entity.id, txn)
+                    //     .then(
+                    (entityInfo)=> {
+                        assert(entityInfo.length === 1);
+                        entityInfo[0][trigger.dtLocalAttr] = JSON.parse(entityInfo[0][trigger.dtLocalAttr]);
+                        if (!(entityInfo[0][trigger.dtLocalAttr] instanceof Array)) {
+                            console.log(entityInfo);
+                        }
+                        assert(entityInfo[0][trigger.dtLocalAttr] instanceof Array);
+                        const destDtr = entityInfo[0][trigger.dtLocalAttr].find((ele)=>ele.endsWith(trigger.id));
+                        const dtrIndex = entityInfo[0][trigger.dtLocalAttr].indexOf(destDtr);
+                        let data = {
+                            //  执行完一个txn，清除自己的txn标记
+                            [trigger.dtLocalAttr]: dtrIndex === -1 ? entityInfo[0][trigger.dtLocalAttr] : entityInfo[0][trigger.dtLocalAttr].slice(0, dtrIndex).concat(entityInfo[0][trigger.dtLocalAttr].slice(dtrIndex + 1, entityInfo[0][trigger.dtLocalAttr].length))
+                        };
+                        if (data[[trigger.dtLocalAttr]].length === 0) {
+                            data = assign({}, data, {txnState: 10});
+                        }
+                        if (remoteEntity && trigger.hasOwnProperty('localJoinCol')) {
+                            if (trigger.localAppend) {
+                                if (!(remoteEntity instanceof Array)) {
+                                    assert(remoteEntity instanceof Object);
+                                    remoteEntity = [remoteEntity];
+                                }
+                                if (!trigger.localJoinCol) {
+                                    throw new Error("存在localAppend属性，必须传入【" + trigger.localJoinCol + "】");
+                                }
+                                data[trigger.localJoinCol] = entity[trigger.localJoinCol].concat(
+                                    remoteEntity.map((ele) => ele.id));
+                            }
+                            else {
+                                data[trigger.localJoinCol] = remoteEntity.id;
+                            }
+                        }
+                        return this.updateEntity(trigger.entity, data, entityInfo[0].id, txn)
+                            .then(
+                                () => {
+                                    return this.uda.commitTransaction(txn, {
+                                        isolationLevel: "REPEATABLE READ"
+                                    }).then(
+                                        () => {
+                                            return Promise.resolve();
+                                        }
+                                    );
+                                }
+                            )
+                    }
+                ).catch(
+                    (err) => {
+                        return this.uda.rollbackTransaction(
+                            txn, {
+                                isolationLevel: 'REPEATABLE READ'
+                            }
+                        ).then(
+                            () => {
+                                throw err;
+                            }
+                        );
+                    }
+                );
+        }
+    );
+}
+
+function PromisesWithSerial(promises) {
+    const RESULT = [];
+    if (promises.length === 0) {
+        return Promise.resolve([]);
+    }
+
+    const promisesIter = (idx) => {
+        if (idx === promises.length) {
+            return Promise.resolve();
+        }
+        return promises[idx].fn.apply(promises[idx].me, promises[idx].params)
+            .then(
+                (result) => {
+                    RESULT.push(result);
+                    if (result > 0) {
+                        console.log(`触发器【${promises[idx].params[0].name}】结束，共有【${result}】条数据在同一事务内被处理`);
+                    }
+                    return promisesIter(idx + 1);
+                }
+            );
+    };
+
+    return promisesIter(0)
+        .then(
+            () => {
+                return Promise.resolve(RESULT);
+            }
+        ).catch(
+            (err) => {
+                console.error(err);
+                throw err;
+            }
+        );
+}
+
+function doTrigger(trigger, entity, txn, preEntity) {
+    //  因为现在一条数据由txnUuid一个任务队列完成，需要定位到触发器对应的txn
+    let dtr = entity[trigger.dtLocalAttr] && entity[trigger.dtLocalAttr].find((ele)=>ele.endsWith(trigger.id));
+    if (trigger.create) {
+        if (trigger.volatile && trigger.dtLocalAttr && trigger.remoteEntity && trigger.dtRemoteAttr && dtr) {
+            return this.uda.find({
+                name: trigger.remoteEntity,
+                projection: {
+                    id: 1,
+                },
+                query: {
+                    [trigger.dtRemoteAttr]: dtr,
+                }, indexFrom: 0, count: 100
+            }).then(
+                (result) => {
+                    if (!result || result.length === 0) {
+                        return trigger.create(entity, txn, preEntity);
+                    }
+                    //  todo    这里存在问题，local的一个txnId对应于远端的一个operation。而不是一个entity。这里可能会有多个。暂且先返回第一个，代码中规避
+                    // assert(result.length === 1);
+                    return Promise.resolve(result[0]);
+                }
+            );
+        }
+        return trigger.create(entity, txn, preEntity);
+    }
+    else if (trigger.update || trigger.remove) {
+        const fn = trigger.update || trigger.remove;
+        const doTriggerInner = (indexFrom) => {
+            return this.uda.find({
+                    name: trigger.triggerEntity,
+                    projection: trigger.triggerProjection && trigger.triggerProjection(entity),
+                    query: trigger.triggerWhere(entity),
+                    indexFrom,
+                    count: ITER_COUNT,
+                    txn
+                }
+            ).then(
+                (list) => {
+                    let promise;
+                    if (list.length === 0) {
+                        promise = Promise.resolve(0);
+                    }
+                    else if (trigger.hasOwnProperty('inGroup') && trigger.inGroup === true) {
+                        promise = fn(entity, list, txn, preEntity);
+                    }
+                    else {
+                        /**
+                         * 同一个事务对同一个触发器的多行处理还是串行
+                         * 以防止不必要的幻像读
+                         * @param indexFrom2
+                         */
+                        const doTriggerIter = (indexFrom2) => {
+                            return fn(entity, list[indexFrom2], txn, preEntity)
+                                .then(
+                                    (count) => {
+                                        if (indexFrom2 === list.length - 1) {
+                                            return Promise.resolve(count);
+                                        }
+                                        return doTriggerIter(indexFrom2 + 1)
+                                            .then(
+                                                (count2) => Promise.resolve(count + count2)
+                                            );
+                                    }
+                                );
+                        };
+                        promise = doTriggerIter(0);
+                    }
+                    return promise.then(
+                        (count) => {
+                            const count2 = typeof count === 'number' ? count : 0;
+                            if (list.length === ITER_COUNT) {
+                                return doTriggerInner(indexFrom + ITER_COUNT)
+                                    .then(
+                                        (count3) => Promise.resolve(count3 + count2)
+                                    );
+                            }
+                            return Promise.resolve(count2);
+                        }
+                    );
+                }
+            );
+        };
+        if (trigger.volatile && trigger.dtLocalAttr && trigger.remoteEntity && trigger.dtRemoteAttr && dtr) {
+            return this.uda.find({
+                name: trigger.remoteEntity,
+                projection: {
+                    id: 1,
+                },
+                query: {
+                    [trigger.dtRemoteAttr]: dtr,
+                },
+                indexFrom: 0, count: 100
+            }).then(
+                (result) => {
+                    if (!result || result.length === 0) {
+                        return doTriggerInner(0);
+                    }
+                    assert(result.length !== 0);
+                    return Promise.resolve(result);
+                }
+            );
+        }
+
+        return doTriggerInner(0);
+    }
+    // else if (trigger.waitSomeOne && trigger.todoTogether) {
+    //     const exsitedEle = this.execPool.get(trigger.waitSomeOne(entity, txn));
+    //     if (!exsitedEle) {
+    //         console.log(`运行池中创建了【1】个事件`);
+    //         this.execPool.set(trigger.waitSomeOne(entity, txn), {
+    //             injectedAt: Date.now(),
+    //             func: trigger.todoTogether,
+    //             params: [entity],
+    //             entities: [entity],
+    //             trigger: trigger,
+    //         });
+    //     }
+    //     else {
+    //         console.log(`运行池中补充了【1】个已存在的事件`);
+    //         console.log(`当前运行池中有${this.execPool.size}个事件`);
+    //         exsitedEle.entities = exsitedEle.entities.concat(entity);
+    //     }
+    // }
+    return Promise.resolve();
+}
+
+function execTrigger(trigger, entity, txn, preEntity) {
+    if (trigger.volatile) {
+        const onTxnCommitted = (txn2) => {
+            if (txn2 === txn) {
+                this.uda.removeListener('txnCommitted', onTxnCommitted);
+
+                return doTrigger.call(this, trigger, entity, null, preEntity)
+                    .then(
+                        (result) => {
+                            // 成功后将dtLocalAttr更新为null，若是在运行池的trigger，由运行池自身更新dtLocalAttr
+                            // if (trigger.dtLocalAttr && !trigger.intoPool) {
+                            if (trigger.dtLocalAttr) {
+                                // dtLocaAttr未必一定要有，如果不需要保证最终一致性，则可以不定
+                                return emptyDtLocalAttr.call(this, trigger, entity, trigger.create ? result : undefined)
+                                    .then(
+                                        () => {
+                                            if (trigger.localJoinCol) {
+                                                return Promise.resolve(1);
+                                            }
+                                            return Promise.resolve(result);
+                                        }
+                                    )
+                            }
+                            return Promise.resolve(result);
+                        }
+                    )
+                    .catch(
+                        (err) => {
+                            console.warn(err);
+                            throw err;
+                        }
+                    )
+            }
+        };
+
+        this.uda.on('txnCommitted', onTxnCommitted);
+        return Promise.resolve(0);
+    }
+    else {
+        return doTrigger.call(this, trigger, entity, txn, preEntity)
+    }
+}
+
+function execWatcher(watcher, entityId) {
+    let where = watcher.where();
+    if (entityId !== null && entityId !== undefined) {
+        where = assign({}, where, {id: entityId});
+    }
+    const checkWatcherInner = (indexFrom, txn) => {
+        return this.uda.find({
+            name: watcher.entity,
+            projection: watcher.projection,
+            query: where,
+            indexFrom,
+            count: ITER_COUNT,
+            forceIndex: watcher.forceIndex,
+            txn
+        }).then(
+            (list) => {
+                if (list.length === 0) {
+                    return Promise.resolve(0);
+                }
+                let promise;
+                if (watcher.hasOwnProperty('inGroup') && watcher.inGroup === true) {
+                    promise = watcher.trigger(list, txn);
+                    this.wtArray.find((wt)=>wt.name === watcher.name).executeAt = Date.now();
+                }
+                else {
+                    /**
+                     * 这里最好不要用Promise.every，因为这是同一个事务，可能触发幻象读
+                     */
+                    const execWatcherInner = (index) => {
+                        if (index === list.length) {
+                            return Promise.resolve();
+                        }
+                        this.wtArray.find((wt)=>wt.name === watcher.name).executeAt = Date.now();
+                        return watcher.trigger(list[index], txn)
+                            .then(
+                                () => {
+                                    return execWatcherInner(index + 1)
+                                }
+                            );
+                    };
+
+                    promise = execWatcherInner(0);
+                    /*promise = Promise.every(
+                     list.map(
+                     (ele) => {
+                     return watcher.trigger(ele, txn)
+                     }
+                     )
+                     );*/
+                }
+                return promise.then(
+                    () => {
+                        // if (list.length === ITER_COUNT) {
+                        //     return checkWatcherInner(indexFrom + ITER_COUNT, txn)
+                        //         .then(
+                        //             (count) => Promise.resolve(count + ITER_COUNT)
+                        //         )
+                        // }
+                        return Promise.resolve(list.length);
+                    }
+                );
+            }
+        );
+    };
+    let end = false;
+    // console.log(`状态监听器【${watcher.name}】开始`);
+    return new Promise(
+        (resolve, reject) => {
+            return this.uda.startTransaction(this.txnSource, {
+                isolationLevel: 'REPEATABLE READ'
+            }).then(
+                (txn) => {
+                    try {
+                        setTimeout(() => {
+                            if (!end) {
+                                console.error(`状态监听器【${watcher.name}】超时`);
+                                return reject(new Error(`状态监听器【${watcher.name}】超时`));
+                            }
+                        }, 5000);
+                        // console.log(`状态监听器【${watcher.name}】开始`);
+                        return checkWatcherInner(0, txn)
+                            .then(
+                                (count) => {
+                                    end = true;
+                                    // console.log(`状态监听器【${watcher.name}】结束`);
+                                    if (count > 0) {
+                                        console.log(`状态监听器【${watcher.name}】恢复了【${count}】条数据到一致状态`);
+                                    }
+                                    return this.uda.commitTransaction(txn, {
+                                        isolationLevel: 'REPEATABLE READ'
+                                    }).then(
+                                        () => {
+                                            return resolve(count);
+                                        }
+                                    );
+                                }
+                            )
+                            .catch(
+                                (err) => {
+                                    end = true;
+                                    console.error(`状态监听器【${watcher.name}】发生异常，异常信息是：`);
+                                    console.error(err);
+                                    return this.uda.rollbackTransaction(
+                                        txn, {
+                                            isolationLevel: 'REPEATABLE READ'
+                                        }
+                                    ).then(
+                                        () => {
+                                            return reject(err);
+                                        }
+                                    );
+                                }
+                            );
+                    }
+                    catch (err) {
+                        end = true;
+                        console.error(`状态监听器【${watcher.name}】发生异常，异常信息是：`);
+                        console.error(err);
+                        return this.uda.rollbackTransaction(
+                            txn, {
+                                isolationLevel: 'REPEATABLE READ'
+                            }
+                            )
+                            .then(
+                                () => {
+                                    return reject(err);
+                                }
+                            )
+                    }
+                }
+            );
+        }
+    );
+}
+
+class SystemWarden {
+    constructor(_uda, _txnSource) {
+        this.uda = _uda;
+        this.txnSource = _txnSource;
+        this.itMap = new Map();     // insert triggers
+        this.utMap = new Map();     // update triggers
+        this.rtMap = new Map();     // remove triggers
+        // this.execPool = new Map();     // 运行池
+        this.volatileArray = [];    // volatile triggers
+        this.wtArray = [];          // watchers
+        this.wtMap = new Map();     // watchers with ids
+        this.volatileTriggerLatency = 60000;    // 默认volatile的latency为一分钟
+        // this.execPoolLantency = 500;    //  注入运行池的时限为500
+    }
+
+    /**
+     * 允许后注入uda
+     * @param _uda
+     * @param _txnSource
+     */
+    setUda(_uda, _txnSource) {
+        this.uda = _uda;
+        this.txnSource = _txnSource;
+    }
+
+    /**
+     * 注册一个trigger
+     * @param trigger
+        {
+               name: '当产生leasePay时，生成相应的order',
+               action: 'insert'/'update'/'remove',
+               entity: 'leasePay',
+               attribute: 'state',             // update only
+               valueCheck: () => {},
+               create: (entity, txn) => {},
+               update: (entity, triggerEntity, txn) => {},
+               remove: (entity, triggerEntity, txn) => {},
+               dtLocalAttr: 'orderTxnUuid',
+               dtRemoteAttr: 'txnUuid',
+               volatile: true,                         // 这个域可以不填写，warden根据TxnSource来决定是否同源，但如果标识为non-volatile，则必须要同源！
+               triggerEntity: 'order',
+               triggerWhere: (entity) => {},            // update only
+               triggerProjection: (entity) => {},       // update only
+           }
+     */
+    registerTrigger(trigger) {
+        switch (trigger.action) {
+            case 'insert':
+            {
+                let entityTriggers = this.itMap.get(trigger.entity);
+                if (entityTriggers) {
+                    entityTriggers.push(trigger);
+                }
+                else {
+                    this.itMap.set(trigger.entity, [trigger]);
+                }
+                break;
+            }
+            case 'update':
+            {
+                assert(!trigger.valueCheck || typeof trigger.valueCheck === 'function');
+                let entityMap = this.utMap.get(trigger.entity);
+                if (entityMap) {
+                    let attrTriggers = entityMap.get(trigger.attribute);
+                    if (attrTriggers) {
+                        attrTriggers.push(trigger);
+                    }
+                    else {
+                        entityMap.set(trigger.attribute, [trigger]);
+                    }
+                }
+                else {
+                    entityMap = new Map();
+                    const attrTriggers = [trigger];
+                    entityMap.set(trigger.attribute, attrTriggers);
+                    this.utMap.set(trigger.entity, entityMap);
+                }
+                break;
+            }
+            case 'remove':
+            case 'delete':
+            {
+                let entityTriggers = this.rtMap.get(trigger.entity);
+                if (entityTriggers) {
+                    entityTriggers.push(trigger);
+                }
+                else {
+                    this.rtMap.set(trigger.entity, [trigger]);
+                }
+                break;
+            }
+            default:
+                throw new Error('trigger的action属性必须是insert/update/delete之一');
+        }
+        assert(trigger.volatile || this.uda.schemas[trigger.entity].source === this.txnSource);
+        if (trigger.volatile || this.uda.schemas[trigger.entity].source !== this.txnSource) {
+            assert(!trigger.hasOwnProperty("dtLocalAttr") || trigger.hasOwnProperty("id"));  // volatile且要求warden帮助实现最终一致性的Trigger必须有id，用于处理分布式一致性
+            trigger.volatile = true;
+            if (trigger.hasOwnProperty("dtLocalAttr")) {
+                // 也只有需要保证最终一致性的trigger，需要被放入patrol查看的数组
+                this.volatileArray.push(trigger);
+            }
+        }
+    }
+
+    /**
+     * 注册一个Watcher
+     * @param watcher
+     * {
+            name: '监听leasePay的相应order支付完成',
+            entity: 'leasePay',
+            where: () => {} ,
+            projection: {},
+            trigger: (entity, txn) => {}
+        }
+     */
+    registerWatcher(watcher) {
+        this.wtArray.push(watcher);
+        if (watcher.hasOwnProperty("id")) {
+            this.wtMap.set(watcher.id, watcher);
+        }
+    }
+
+    /**
+     * 插入一个对象
+     * @param name
+     * @param entity
+     * @param txn
+     * @returns {*}
+     */
+    insertEntity(name, entity, txn) {
+        assert(txn);
+        const me = this;
+        const allTriggers = this.itMap.get(name) && this.itMap.get(name).filter(
+                (ele) => (!ele.valueCheck || ele.valueCheck(entity))
+            );
+
+        let entity2 = assign({}, entity);
+        const insertTriggers = allTriggers && allTriggers;
+        const volatileTriggers = allTriggers && allTriggers.filter(
+                (ele) => ele.volatile
+            );
+
+        // const execPoolTriggers = insertTriggers && insertTriggers.filter(
+        //         (ele) => ele.intoPool
+        //     );
+        if (volatileTriggers && volatileTriggers.length > 0) {
+            volatileTriggers.forEach(
+                (volatileTrigger) => {
+                    // dtLocaAttr未必一定要有，如果不需要保证最终一致性，则可以不传
+                    // 如果有此属性，则需要靠这个域来保持最终一致性
+                    if (volatileTrigger.dtLocalAttr) {
+                        if (!entity2[volatileTrigger.dtLocalAttr]) {
+                            entity2[volatileTrigger.dtLocalAttr] = [];
+                        }
+                        entity2.txnState = 1;
+                        entity2[volatileTrigger.dtLocalAttr].push(
+                            new ObjectID().toString().concat(volatileTrigger.id));
+                    }
+                }
+            );
+        }
+
+        return this.uda.insert({
+                name: name, data: entity2, txn
+            })
+            .then(
+                (inserted) => {
+                    const promises = [];
+                    if (insertTriggers && insertTriggers.length > 0) {
+                        insertTriggers.forEach(
+                            (ele) => {
+                                let funMethod = {};
+                                // console.log(`触发器【${ele.name}】开始`);
+                                funMethod.fn = execTrigger;
+                                funMethod.me = me;
+                                funMethod.params = [ele, inserted, txn];
+                                promises.push(
+                                    funMethod
+                                );
+                            }
+                        );
+                        return PromisesWithSerial(promises)
+                            .then(
+                                () => Promise.resolve(inserted)
+                            )
+                    }
+                    return Promise.resolve(inserted);
+                }
+            );
+
+    }
+
+    /**
+     * 更新一个对象
+     * @param name
+     * @param data
+     * @param entityOrId
+     * @param txn
+     * @returns {*}
+     */
+    updateEntity(name, data, entityOrId, txn) {
+        assert(txn);
+        const me = this;
+        const entityMap = this.utMap.get(name);
+        const triggersArray = entityMap && keys(data).map(
+                (ele) => {
+                    const attrTriggers = entityMap.get(ele);
+                    return attrTriggers || [];
+                }
+            );
+
+        const updateInner = (entity2) => {
+            // 触发器要满足value变化条件
+            const updateTriggers = triggersArray && flatten(triggersArray).filter(
+                    (ele) => (!ele.valueCheck || ele.valueCheck(entity2, data))
+                );
+            let data2 = assign({}, data);
+            const volatileTriggers = updateTriggers && updateTriggers.filter(
+                    (ele) =>ele.volatile
+                );
+
+            if (volatileTriggers && volatileTriggers.length > 0) {
+                volatileTriggers.forEach(
+                    (volatileTrigger) => {
+                        if (volatileTrigger.dtLocalAttr) {
+                            if (!entity2.hasOwnProperty(volatileTrigger.dtLocalAttr)) {
+                                console.error(JSON.stringify(volatileTrigger));
+                                throw new Error(`跨源事务，必须传入${volatileTrigger.dtLocalAttr}字段`);
+                            }
+                            if (!data2[volatileTrigger.dtLocalAttr]) {
+                                data2[volatileTrigger.dtLocalAttr] = [];
+                            }
+                            //  todo    这里这种做法并不安全，并发情况下会出错
+                            //  稍微优化，push之前先检查一遍
+                            let uuid = new ObjectID().toString().concat(volatileTrigger.id);
+                            if (!data2[volatileTrigger.dtLocalAttr].find((ele)=>ele === uuid)) {
+                                data2.txnState = 1;
+                                data2[volatileTrigger.dtLocalAttr].push(uuid);
+                            }
+                        }
+                    }
+                );
+            }
+
+            //  todo    martian-data不支持$inc算子和其他属性的一次性更新，暂时分两步
+            const updatePromise = ()=> {
+                if (data2.$inc) {
+                    return this.uda.updateOneById({
+                        name: name, data: pick(data2, "$inc"), id: entity2.id, txn
+                    }).then(
+                        (updated1)=> {
+                            return this.uda.updateOneById({
+                                name: name, data: omit(data2, "$inc"), id: entity2.id, txn
+                            }).then(
+                                (updated2)=>assign({}, updated1, updated2)
+                            );
+                        });
+                }
+                return this.uda.updateOneById({
+                    name: name, data: data2, id: entity2.id, txn
+                });
+            };
+
+            return updatePromise()
+                .then(
+                    (updated) => {
+                        if (updateTriggers && updateTriggers.length > 0) {
+                            const promises = [];
+                            updateTriggers.forEach(
+                                (ele) => {
+                                    let funMethod = {};
+                                    // console.log(`触发器【${ele.name}】开始`);
+                                    funMethod.fn = execTrigger;
+                                    funMethod.me = me;
+                                    funMethod.params = [ele, assign({}, entity2, data2), txn, entity2];
+                                    promises.push(
+                                        funMethod
+                                    );
+                                }
+                            );
+                            return PromisesWithSerial(promises)
+                                .then(
+                                    () => Promise.resolve(updated)
+                                );
+                        }
+                        return Promise.resolve(updated);
+                    }
+                );
+        };
+
+        if (typeof entityOrId === 'object') {
+            return updateInner(entityOrId);
+        }
+        assert(typeof entityOrId === 'number');
+        return this.uda.findById({
+                name: name, id: entityOrId, txn
+            })
+            .then(
+                (entity) => {
+                    if (!entity) {
+                        console.error("***********************************************");
+                        console.error("触发触发器的时候，执行中的数据已被删除。");
+                        console.error("***********************************************");
+                        return Promise.resolve();
+                    }
+                    return updateInner(entity);
+                }
+            );
+    }
+
+    removeEntity(name, id, entity, txn) {
+        assert(txn);
+        const me = this;
+        const entityMap = this.rtMap.get(name);
+        const allTriggers = entityMap && this.rtMap.get(name).filter(
+                (ele) => (!ele.valueCheck || ele.valueCheck(entity))
+            );
+
+        const deleteInner = (entity2) => {
+            const removeTriggers = allTriggers;
+            const volatileTriggers = allTriggers && allTriggers.filter(
+                    (ele) => ele.volatile
+                );
+
+            if (volatileTriggers && volatileTriggers.length > 0) {
+                // const triggersBySameDtr = values(groupBy(volatileTriggers.filter((ele)=>ele.dtLocalAttr), (ele)=>ele.dtLocalAttr));
+                // if (triggersBySameDtr.some((triggersGourpByDtr)=>triggersGourpByDtr.length >= 2)) {
+                //     console.warn(JSON.stringify(triggersBySameDtr.filter((ele)=>ele.length >= 2)[0]) + "等多个不稳定触发器共用了同一个dtLocalAttr域");
+                //     throw new Error("多个不稳定的触发器无法共用一个dtLocalAttr域")
+                // }
+                volatileTriggers.forEach(
+                    (volatileTrigger) => {
+                        if (!entity2[volatileTrigger.dtLocalAttr]) {
+                            throw new Error(`跨源事务，必须传入${volatileTrigger.dtLocalAttr}字段`);
+                        }
+                        if (volatileTrigger.dtLocalAttr) {
+                            if (!entity2[volatileTrigger.dtLocalAttr]) {
+                                entity2[volatileTrigger.dtLocalAttr] = [];
+                            }
+                            let uuid = new ObjectID().toString().concat(volatileTrigger.id);
+                            if (!entity2[volatileTrigger.dtLocalAttr].find((ele)=>ele === uuid)) {
+                                entity2.txnState = 1;
+                                entity2[volatileTrigger.dtLocalAttr].push(uuid);
+                            }
+                        }
+                    }
+                );
+            }
+
+            return this.uda.removeOneById({
+                    name: name, id: entity2.id, txn
+                })
+                .then(
+                    (updated) => {
+                        if (removeTriggers && removeTriggers.length > 0) {
+                            const promises = [];
+                            removeTriggers.forEach(
+                                (ele) => {
+                                    let funMethod = {};
+                                    // console.log(`触发器【${ele.name}】开始`);
+                                    funMethod.fn = execTrigger;
+                                    funMethod.me = me;
+                                    funMethod.params = [ele, assign({}, entity2), txn];
+                                    promises.push(
+                                        funMethod
+                                    );
+                                }
+                            );
+                            return PromisesWithSerial(promises)
+                                .then(
+                                    () => Promise.resolve(updated)
+                                )
+                        }
+                        return Promise.resolve(updated);
+                    }
+                );
+        };
+
+        assert(typeof id === 'number');
+        return this.uda.findById({
+                name: name, id, txn
+            })
+            .then(
+                (entity) => {
+                    if (!entity) {
+                        console.error("***********************************************");
+                        console.error("触发触发器的时候，执行中的数据已被删除。");
+                        console.error("***********************************************");
+                        return Promise.resolve();
+                    }
+                    return deleteInner(entity);
+                }
+            );
+    }
+
+    doPatrol() {
+        const me = this;
+        const now = Date.now();
+        const vtPromise = Promise.every(me.volatileArray.map(
+            (trigger) => {
+                const checkTriggerInner = (indexFrom) => {
+                    // 寻找dtLocalAttr不为NULL的行
+                    return me.uda.find({
+                            name: trigger.entity,
+                            query: {
+                                txnState: {
+                                    $eq: 1
+                                },
+                            }, indexFrom, count: ITER_COUNT
+                        })
+                        .then(
+                            (list) => {
+                                return Promise.every(
+                                    list.map(
+                                        (ele) => {
+                                            assert(ele[trigger.dtLocalAttr].length >= 1);
+                                            const dtLocalAttr = ele[trigger.dtLocalAttr].find((dtr)=>dtr.endsWith(trigger.id));
+                                            // 对每一行，执行使之完整的操作
+                                            // 判断是否当前trigger留下的不完整
+                                            // 增加一个判断，只有当分布式事务的时间超过当前时间1分钟以上，才执行修补动作，这样可以避免一些重复的工作
+                                            // const timeTriggerExec = parseInt(dtLocalAttr.substr(0, 8), 16);
+                                            if (dtLocalAttr && now - (parseInt(dtLocalAttr.substr(0, 8), 16) * 1000) > me.volatileTriggerLatency) {
+                                                return doTrigger.call(this, trigger, ele)
+                                                    .then(
+                                                        (result) => {
+                                                            // 成功后将dtLocalAttr更新为null，运行池中的事件，等待运行完成才会更新为null
+                                                            // if (trigger.dtLocalAttr && !trigger.intoPool) {
+                                                            if (trigger.dtLocalAttr) {
+                                                                // dtLocaAttr未必一定要有，如果不需要保证最终一致性，则可以不定
+                                                                return emptyDtLocalAttr.call(this, trigger, ele,
+                                                                    trigger.create ? result : undefined)
+                                                                    .then(
+                                                                        () => {
+                                                                            if (trigger.localJoinCol) {
+                                                                                // 如果还有localJoinCol，则必然是create动作，且只有一行结果被返回（foreign id）
+                                                                                assert(trigger.create);
+                                                                                return Promise.resolve(1);
+                                                                            }
+                                                                            return Promise.resolve(result);
+                                                                        }
+                                                                    )
+                                                            }
+                                                            return Promise.resolve(result);
+                                                        }
+                                                    );
+                                            }
+                                            return Promise.resolve(0);
+                                        }
+                                    )
+                                ).then(
+                                    () => {
+                                        // let managedItems = 0;
+                                        // result.forEach(
+                                        //     (count) => managedItems += count
+                                        // );
+                                        // if (list.length === ITER_COUNT) {
+                                        //     return checkTriggerInner(indexFrom + ITER_COUNT)
+                                        //         .then(
+                                        //             (count2) => Promise.resolve(count2 + managedItems)
+                                        //         );
+                                        // }
+                                        return Promise.resolve(list.length);
+                                    }
+                                )
+                            }
+                        )
+                };
+                return checkTriggerInner(0)
+                    .then(
+                        (count) => {
+                            if (count > 0) {
+                                console.log(`状态触发器【${trigger.name}】恢复了【${count}】条数据到一致状态`);
+                            }
+                            return Promise.resolve(count);
+                        }
+                    ).catch(
+                        (err) => {
+                            console.error(`状态触发器【${trigger.name}】发生异常，异常信息是：`);
+                            console.error(err);
+                            return Promise.resolve();
+                        }
+                    );
+            }
+        ));
+        /*
+         1、watcher没有跑过
+         2、watcher跑了，并且不在冷却时间内
+         */
+        const noIntervalWt = me.wtArray.filter((ele) => !ele.executeInterval);
+        const intervalWt = me.wtArray.filter((ele) => ele.executeInterval).filter(
+            (ele) => {
+                if (!ele.executeAt) {
+                    ele.executeAt = Date.now();
+                    return true;
+                }
+                return ele.executeAt < Date.now() - ele.executeInterval;
+            });
+        const finalWt = noIntervalWt.concat(intervalWt).filter((ele) => !ele.gyroscope);
+
+        /*  todo    这个机制先保留
+         *  所有的watcher执行Promise.every，太猛了一点，至少保证相同entity的串行执行
+         */
+        const isGroupEntity = (entity) => {
+            if (["user", "externalCredit"].includes(entity)) {
+                return "userCredit";
+            }
+            else {
+                return entity;
+            }
+        };
+        const ppp = groupBy(finalWt, (ele) => isGroupEntity(ele.entity));
+        const wtPromise = values(groupBy(finalWt, (ele) => isGroupEntity(ele.entity))).map(
+            (entityWts) => {
+                return PromisesWithSerial(entityWts.map(
+                    (watcher) => {
+                        let funMethod = {};
+                        // console.log(`触发器【${ele.name}】开始`);
+                        funMethod.fn = execWatcher;
+                        funMethod.me = me;
+                        funMethod.params = [watcher];
+                        return funMethod;
+                    }
+                ));
+            }
+        );
+
+        // const wtPromise = Promise.every(finalWt.map(
+        //     (watcher) => execWatcher.call(me, watcher)
+        // ));
+
+        return Promise.every(wtPromise.concat(vtPromise))
+            .catch(
+                ()=> {
+                    return Promise.resolve();
+                }
+            );
+        // return Promise.every([vtPromise, wtPromise]);
+    }
+
+    callWatchers(watcherIds, entityId) {
+        const me = this;
+        const watchers = watcherIds.map(
+            (id) => me.wtMap.get(id)
+        ).filter((ele) => ele);
+        return Promise.all(
+            watchers.map(
+                (watcher) => execWatcher.call(me, watcher, entityId)
+            )
+        );
+    }
+
+    setVolatileTriggerLatency(latency) {
+        this.volatileTriggerLatency = latency;
+    }
+
+    // setExecPoolLantency(latency) {
+    //     this.execPoolLantency = latency;
+    // }
+    //
+    // execPoolRun() {
+    //     if (this.execPool.size != 0) {
+    //         let itemList = [];
+    //         for (let item of this.execPool.values()) {
+    //             console.log(JSON.stringify(item));
+    //             itemList.push(item);
+    //         }
+    //         console.log(`运行池中还有【${this.execPool.size}】个事件没有运行`);
+    //         console.log(`运行池中还有【${itemList.filter((item)=>item.injectedAt <= Date.now() - this.execPoolLantency).length}】个事件在等待运行`);
+    //         const iterator = (idx)=> {
+    //             if (idx === itemList.length) {
+    //                 return Promise.resolve();
+    //             }
+    //             //  运行超过了注入时间的exec
+    //             if (itemList[idx].injectedAt <= Date.now() - this.execPoolLantency) {
+    //                 return itemList[idx].func.apply(this, itemList[idx].params)
+    //                     .then(
+    //                         ()=> {
+    //                             //  运行结束，删除
+    //                             for (let key of this.execPool.keys()) {
+    //                                 if (this.execPool.get(key) === itemList[idx]) {
+    //                                     this.execPool.delete(key);
+    //                                     console.log(`运行池完成了一个事件的运行并且删除`);
+    //                                     break;
+    //                                 }
+    //                             }
+    //                             //  若是volatile的触发器，还得置空dtLocalAttr
+    //                             if (itemList[idx].trigger.volatile) {
+    //                                 return Promise.all(
+    //                                     itemList[idx].entities.map(
+    //                                         (entity)=> {
+    //                                             return emptyDtLocalAttr.call(this, itemList[idx].trigger, entity, null)
+    //                                         }
+    //                                     )
+    //                                     )
+    //                                     .then(
+    //                                         ()=> {
+    //                                             return iterator(idx + 1);
+    //                                         }
+    //                                     )
+    //                             }
+    //                             return iterator(idx + 1);
+    //                         },
+    //                         (err)=> {
+    //                             throw err;
+    //                         }
+    //                     ).catch(
+    //                         (err)=> {
+    //                             throw err;
+    //                         }
+    //                     )
+    //             }
+    //             return iterator(idx + 1);
+    //         };
+    //         try {
+    //             return iterator(0)
+    //                 .then(
+    //                     ()=> {
+    //                         return Promise.resolve();
+    //                     }
+    //                 )
+    //                 .catch(
+    //                     (err)=> {
+    //                         console.error("运行池中事件运行失败，原因是：");
+    //                         console.error(err);
+    //                         throw err;
+    //                     }
+    //                 )
+    //         }
+    //         catch (err) {
+    //             console.error("运行池中事件运行失败，原因是：");
+    //             console.error(err);
+    //             throw err;
+    //         }
+    //
+    //     }
+    //     return Promise.resolve();
+    // }
+}
+
+module.exports = SystemWarden;
