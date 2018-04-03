@@ -313,6 +313,66 @@ describe("test_insert_update_delete", ()=> {
             );
     });
 
+    it("[cud1.7]mtStorage在本地数据源也可起作用", () => {
+        let _schema = JSON.parse(JSON.stringify(schema));
+
+        _schema.houseInfo.source = "mysql";
+        return uda.setSchemas(_schema)
+            .then(
+                () => {
+                    const item =
+                    {
+                        area: 100.00,
+                        floor: 3
+                    };
+                    return uda.insert({
+                            name: "houseInfo",
+                            data: item
+                        })
+                        .then(
+                            (result) => {
+                                return uda.findById({
+                                    name: "houseInfo",
+                                    id: result.id,
+                                    useStorage: true
+                                }).then(
+                                    (house)=> {
+                                        expect(house.area).to.equal(100);
+                                        return uda.updateOneById({
+                                                name: 'houseInfo',
+                                                data: {
+                                                    area: 100000
+                                                },
+                                                id: result.id
+                                            })
+                                            .then(
+                                                (result2) => {
+                                                    return uda.findById({
+                                                        name: "houseInfo",
+                                                        id: result.id,
+                                                        useStorage: true
+                                                    }).then(
+                                                        (house)=> {
+                                                            expect(house.area).to.equal(100);
+                                                            return uda.findById({
+                                                                name: "houseInfo",
+                                                                id: result.id
+                                                            }).then(
+                                                                (house)=> {
+                                                                    expect(house.area).to.equal(100000);
+                                                                    return Promise.resolve();
+                                                                })
+                                                        })
+                                                }
+                                            )
+                                    }
+                                )
+                            }
+                        );
+                }
+            );
+    });
+
     after((done) => {
         uda.disconnect()
             .then(done);

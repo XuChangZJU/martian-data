@@ -12,12 +12,13 @@ const apis = {
     urlRemoveOneById: "/removeOneById",
     urlKeyName: "/keyName",
     urlKeyType: "/keyType",
-    urlSchemas: "/schemas"
+    urlSchemas: "/schemas",
+    urlDeleteStorage: "/deleteStorage"
 };
 
 let urls = [];
 
-for(let i in apis) {
+for (let i in apis) {
     urls.push({
         url: apis[i],
         methods: {
@@ -35,5 +36,10 @@ module.exports = {
     typeReference: "ref",
     defaultRemoteApis: apis,
     defaultRemoteApiRouter: '/client',
-    defaultRemoteUrls: urls
-};
+    defaultRemoteUrls: urls,
+    parellelCount: 50,
+    parellelIndex: 0,
+    queue: [],
+    storageInterval: 5 * 6000
+}
+;
