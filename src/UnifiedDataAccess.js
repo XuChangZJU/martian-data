@@ -1221,7 +1221,7 @@ class DataAccess extends EventEmitter {
     }
 
     insert(paramObj) {
-        const name = paramObj.name;
+        const name = paramObj.name || paramObj.entity;
         const data = paramObj.data;
         const txn = paramObj.txn;
         if (txn) {
@@ -1280,7 +1280,7 @@ class DataAccess extends EventEmitter {
     }
 
     find(paramObj) {
-        const name = paramObj.name;
+        const name = paramObj.name || paramObj.entity;
         const projection = (paramObj.useCache && paramObj.projection && assign({}, {id: 1}, paramObj.projection)) || paramObj.projection;
         const query = paramObj.query;
         const sort = paramObj.sort;
@@ -1343,7 +1343,7 @@ class DataAccess extends EventEmitter {
     }
 
     count(paramObj) {
-        const name = paramObj.name;
+        const name = paramObj.name || paramObj.entity;
         const query = paramObj.query;
         const txn = paramObj.txn;
         const forceIndex = paramObj.forceIndex;
@@ -1381,7 +1381,7 @@ class DataAccess extends EventEmitter {
     }
 
     findById(paramObj) {
-        const name = paramObj.name;
+        const name = paramObj.name || paramObj.entity;
         const projection = (paramObj.useCache && paramObj.projection && assign({}, {id: 1}, paramObj.projection)) || paramObj.projection;
         const id = paramObj.id;
         const txn = paramObj.txn;
@@ -1506,7 +1506,7 @@ class DataAccess extends EventEmitter {
     }
 
     update(paramObj) {
-        const name = paramObj.name;
+        const name = paramObj.name || paramObj.entity;
         const data = paramObj.data;
         let query = paramObj.query;
         const txn = paramObj.txn;
@@ -1558,7 +1558,7 @@ class DataAccess extends EventEmitter {
     }
 
     updateOneById(paramObj) {
-        const name = paramObj.name;
+        const name = paramObj.name || paramObj.entity;
         const data = paramObj.data;
         const id = paramObj.id;
         const txn = paramObj.txn;
@@ -1603,7 +1603,7 @@ class DataAccess extends EventEmitter {
     }
 
     remove(paramObj) {
-        const name = paramObj.name;
+        const name = paramObj.name || paramObj.entity;
         let query = paramObj.query;
         const txn = paramObj.txn;
         if (txn) {
@@ -1658,7 +1658,7 @@ class DataAccess extends EventEmitter {
     }
 
     removeOneById(paramObj) {
-        const name = paramObj.name;
+        const name = paramObj.name || paramObj.entity;
         const id = paramObj.id;
         const txn = paramObj.txn;
         if (typeof id !== "number" && typeof id !== "string" && !(id instanceof ObjectId)) {
