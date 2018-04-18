@@ -976,4 +976,81 @@ describe("test subquery", function () {
         });
     });
 
+    describe("[tino]测试$in算子支持子查询", ()=> {
+        it("{tino1.0}测试$in算子，支持子查询（暂时只支持同源查询）", () => {
+            return uda.remove({
+                name: "contract"
+            }).then(
+                ()=> {
+                    return uda.insert({
+                        name: "contract",
+                        data: {
+                            ownerId: 111,
+                            renterId: 111,
+                            price: 100
+                        }
+                    }).then(
+                        (contract)=> {
+                            return uda.find({
+                                name: "contract",
+                                query: {
+                                    id: {
+                                        $in: {
+                                            projection: "id",
+                                            name: "contract",
+                                            query: {
+                                                id: {
+                                                    $gte: 0
+                                                },
+                                                "_deleteAt_": {
+                                                    $exists: false
+                                                }
+                                            }
+                                        }
+                                    },
+                                    "_deleteAt_": {
+                                        $exists: false
+                                    }
+                                },
+                                indexFrom: 0,
+                                count: 10
+                            }).then(
+                                (list)=>expect(list.length).to.equal(1)
+                            );
+                        });
+                });
+        });
+
+        it("{tino1.1}测试$in算子，支持子查询（远端连接）", () => {
+            return uda.remove({
+                name: "contract"
+            }).then(
+                ()=> {
+                    return uda.insert({
+                        name: "contract",
+                        data: {
+                            ownerId: 111,
+                            renterId: 111,
+                            price: 100
+                        }
+                    }).then(
+                        (contract)=> {
+                            return uda.find({
+                                name: "contract",
+                                query: {
+                                    id: {
+                                        $in: `select id from house`
+                                    },
+                                    "_deleteAt_": {
+                                        $exists: false
+                                    }
+                                },
+                                indexFrom: 0,
+                                count: 10
+                            });
+                        });
+                });
+        });
+    })
+
 });

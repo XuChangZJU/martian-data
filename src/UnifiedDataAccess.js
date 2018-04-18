@@ -23,6 +23,14 @@ const constants = require("./constants");
 const events = require("./events");
 require('isomorphic-fetch');
 
+function isArray(object) {
+    return object && typeof object === 'object' &&
+        typeof object.length === 'number' &&
+        typeof object.splice === 'function' &&
+        //判断length属性是否是可枚举的 对于数组 将得到false
+        !(object.propertyIsEnumerable('length'));
+}
+
 function isSettingTrueStrictly(settings, option) {
     return settings && (settings[option] === true)
 }
@@ -583,6 +591,21 @@ function destructSelect(name, projection, query, sort, isCounting, findDel) {
             else {
                 throw new Error("检测到尚未支持的顶层算子: " + i);
             }
+        }
+        //  为了支持$in的子查询(Object)，（$in并非顶层算子）
+        else if (keys(query[i])[0] === "$in" && !isArray(query[i]["$in"]) && typeof query[i]["$in"] !== "string") {
+            query[i]["$in"] = {
+                name: query[i]["$in"].name,
+                execTree: destructSelect.call(this, query[i]["$in"].name, {[query[i]["$in"].projection]: 1}, query[i]["$in"].query, null)
+            };
+            result.query[i] = query[i];
+        }
+        else if (keys(query[i])[0] === "$nin" && !isArray(query[i]["$nin"]) && typeof query[i]["$nin"] !== "string") {
+            query[i]["$nin"] = {
+                name: query[i]["$nin"].name,
+                execTree: destructSelect.call(this, query[i]["$nin"].name, {[query[i]["$nin"].projection]: 1}, query[i]["$nin"].query, null)
+            };
+            result.query[i] = query[i];
         }
     }
     query["#execNode#"] = result;		// 这个指针为subquery未来找到所指向的execNode所使用

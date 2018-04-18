@@ -406,26 +406,42 @@ class SQLTransformer {
             }
             else if (where.hasOwnProperty("$in")) {
                 sql += " in (";
-                if (where.$in.length === 0) {
-                    throw new Error(`${attr} in算子的域集合为空`);
-                    return;
-                }
-                where.$in.forEach((ele, index) => {
-                    if (index > 0) {
-                        sql += ",";
+                if (where.$in instanceof Array) {
+                    if (where.$in.length === 0) {
+                        throw new Error(`${attr} in算子的域集合为空`);
+                        return;
                     }
-                    sql += this.typeConvertor(ele, type || typeof(ele));
-                });
+                    where.$in.forEach((ele, index) => {
+                        if (index > 0) {
+                            sql += ",";
+                        }
+                        sql += this.typeConvertor(ele, type || typeof(ele));
+                    });
+                }
+                else if (typeof where.$in === "string") {
+                    sql += where.$in;
+                }
+                else {
+                    sql += this.transformSelect(where.$in.name, where.$in.execTree, undefined, undefined, undefined, undefined);
+                }
                 sql += ")";
             }
             else if (where.hasOwnProperty("$nin")) {
                 sql += " not in (";
-                where.$nin.forEach((ele, index) => {
-                    if (index > 0) {
-                        sql += ",";
-                    }
-                    sql += this.typeConvertor(ele, type || typeof(ele));
-                });
+                if (where.$nin instanceof Array) {
+                    where.$nin.forEach((ele, index) => {
+                        if (index > 0) {
+                            sql += ",";
+                        }
+                        sql += this.typeConvertor(ele, type || typeof(ele));
+                    });
+                }
+                else if (typeof where.$nin === "string") {
+                    sql += where.$nin;
+                }
+                else {
+                    sql += this.transformSelect(where.$nin.name, where.$nin.execTree, undefined, undefined, undefined, undefined);
+                }
                 sql += ")";
             }
             else if (where.hasOwnProperty('$between')) {

@@ -334,7 +334,7 @@ describe("test_insert_update_delete", ()=> {
                                 return uda.findById({
                                     name: "houseInfo",
                                     id: result.id,
-                                    useStorage: true
+                                    useCache: true
                                 }).then(
                                     (house)=> {
                                         expect(house.area).to.equal(100);
@@ -350,7 +350,7 @@ describe("test_insert_update_delete", ()=> {
                                                     return uda.findById({
                                                         name: "houseInfo",
                                                         id: result.id,
-                                                        useStorage: true
+                                                        useCache: true
                                                     }).then(
                                                         (house)=> {
                                                             expect(house.area).to.equal(100);
