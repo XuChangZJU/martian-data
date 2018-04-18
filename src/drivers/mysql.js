@@ -145,7 +145,7 @@ function transformGeoData(data) {
                 if (idx > 0) {
                     result += ",";
                 }
-                result += transFormGeoData(ele);
+                result += transformGeoData(ele);
             }
         );
         result += ")";
