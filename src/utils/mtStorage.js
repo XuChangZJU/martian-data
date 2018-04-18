@@ -186,7 +186,7 @@ class mtStorage {
                     obj[key] = objTmp;
                 }
                 if (obj.cover) {
-                    this.globalData.entities[key] = obj[key].map((ele)=>assign({}, ele, {$timeout: Date.now() + cacheExpiredTime || constants.storageInterval}));
+                    this.globalData.entities[key] = obj[key].map((ele)=>assign({}, ele, {$timeout: Date.now() + (cacheExpiredTime || constants.storageInterval)}));
                 }
                 else {
                     keys(obj[key]).forEach(
@@ -197,7 +197,7 @@ class mtStorage {
                             }
                             else {
                                 this.entities[key] = this.entities[key] || {};
-                                this.entities[key][id] = assign({}, obj[key][id], {$timeout: Date.now() + cacheExpiredTime || constants.storageInterval});
+                                this.entities[key][id] = assign({}, obj[key][id], {$timeout: Date.now() + (cacheExpiredTime || constants.storageInterval)});
                             }
                         }
                     )
@@ -237,7 +237,7 @@ class mtStorage {
                     //  若是发现缓存已过期，则删除
                     if (this.entities[table][eleKey] && this.entities[table][eleKey].$timeout < Date.now()) {
                         delete this.entities[table][eleKey];
-                }
+                    }
                     else {
                         result.push(this.entities[table][eleKey]);
                     }
