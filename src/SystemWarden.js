@@ -165,7 +165,7 @@ function doTrigger(trigger, entity, txn, preEntity) {
             ).then(
                 (list) => {
                     let promise;
-                    if (list.length === 0) {
+                    if (list.length === 0 && !trigger.haveToCall) {
                         promise = Promise.resolve(0);
                     }
                     else if (trigger.hasOwnProperty('inGroup') && trigger.inGroup === true) {
@@ -177,17 +177,16 @@ function doTrigger(trigger, entity, txn, preEntity) {
                          * 以防止不必要的幻像读
                          * @param indexFrom2
                          */
+                        let count = 0;
                         const doTriggerIter = (indexFrom2) => {
+                            if (indexFrom2 === list.length) {
+                                return Promise.resolve(count);
+                            }
                             return fn(entity, list[indexFrom2], txn, preEntity)
                                 .then(
-                                    (count) => {
-                                        if (indexFrom2 === list.length - 1) {
-                                            return Promise.resolve(count);
-                                        }
-                                        return doTriggerIter(indexFrom2 + 1)
-                                            .then(
-                                                (count2) => Promise.resolve(count + count2)
-                                            );
+                                    (count2) => {
+                                        count += count2;
+                                        return doTriggerIter(indexFrom2 + 1);
                                     }
                                 );
                         };
