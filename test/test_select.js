@@ -1347,7 +1347,7 @@ describe("test select with null in mysql 1", function () {
             houseInfo: {
                 area: 1
             }
-        }
+        };
         const indexFrom = 0, count = 1;
 
         uda.find({
@@ -1394,7 +1394,7 @@ describe("test select with null in mysql 1", function () {
             houseInfo: {
                 area: 1
             }
-        }
+        };
         const indexFrom = 0, count = 1;
 
         uda.find({
@@ -1416,6 +1416,25 @@ describe("test select with null in mysql 1", function () {
         });
     });
 
+    it("[ts2.3] select with for update", (done) => {
+        const query = {
+            id: 1
+        };
+        const projection = {id: 1};
+
+        const indexFrom = 0, count = 1;
+        uda.find({
+            name: "house", projection, query, indexFrom, count, forUpdate: true
+        }).then(
+            (result)=>{
+                console.log(result);
+                done();
+            },
+            (err)=>{
+                done(err);
+            }
+        )
+    });
     describe("test select with null in mongodb 1", function () {
 
         const houses = JSON.parse(JSON.stringify(g_houses));
@@ -1518,7 +1537,7 @@ describe("test select with null in mysql 1", function () {
 
             uda.find({
                     name: "house", projection, query, sort, indexFrom, count
-            })
+                })
                 .then(
                     (result) => {
                         console.log(result);
@@ -1591,7 +1610,6 @@ describe("test select with null in mysql 1", function () {
                     }
                 );
         });
-
 
     });
 

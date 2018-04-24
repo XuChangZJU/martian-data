@@ -551,7 +551,7 @@ class SQLTransformer {
     }
 
 
-    transformSelect(name, execTree, indexFrom, count, isCounting, usedNames, forceIndex) {
+    transformSelect(name, execTree, indexFrom, count, isCounting, usedNames, forceIndex, forUpdate) {
         let sqlObj = {
             projection: "",
             from: "",
@@ -613,6 +613,10 @@ class SQLTransformer {
 
         if (indexFrom !== undefined) {
             sql += " limit " + indexFrom + ", " + count;
+        }
+
+        if (forUpdate){
+            sql += " for update";
         }
 
         return sql;

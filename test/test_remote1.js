@@ -463,7 +463,7 @@ describe("test remote 2", function () {
             )
     });
 
-    it("[tre0.3]测试mtStorage，带着useStorage进行查询时，不会实时读取远端数据", () => {
+    it("[tre0.3]测试mtStorage，带着useCache进行查询时，不会实时读取远端数据", () => {
         // 尝试增删改查
         return uda.insert({
                 name: "user",
@@ -482,7 +482,7 @@ describe("test remote 2", function () {
                                 name: 1,
                                 age: 1
                             },
-                            useStorage: true,
+                            useCache: true,
                             id
                         })
                         .then(
@@ -509,7 +509,7 @@ describe("test remote 2", function () {
                                                         name: 1,
                                                         age: 1
                                                     },
-                                                    useStorage: true,
+                                                    useCache: true,
                                                     id
                                                 })
                                                 .then(
@@ -538,7 +538,7 @@ describe("test remote 2", function () {
                                                                                 name: 1,
                                                                                 age: 1
                                                                             },
-                                                                            useStorage: true,
+                                                                            useCache: true,
                                                                             id
                                                                         })
                                                                         .then(
@@ -582,7 +582,7 @@ describe("test remote 2", function () {
                                     },
                                     indexFrom: 0,
                                     count: 10,
-                                    useStorage: true
+                                    useCache: true
                                 })
                                 .then(
                                     (users)=> {
@@ -604,7 +604,7 @@ describe("test remote 2", function () {
                                                     },
                                                     indexFrom: 0,
                                                     count: 10,
-                                                    useStorage: true
+                                                    useCache: true
                                                 }).then(
                                                     (users)=> {
                                                         expect(users.length).to.equal(1)
@@ -635,7 +635,7 @@ describe("test remote 2", function () {
                                                                         //     },
                                                                         //     indexFrom: 0,
                                                                         //     count: 10,
-                                                                        //     useStorage: true
+                                                                        //     useCache: true
                                                                         // }).then(
                                                                         //     (users)=>expect(users.length).to.equal(0)
                                                                         // )
@@ -676,7 +676,7 @@ describe("test remote 2", function () {
                                     },
                                     indexFrom: 0,
                                     count: 10,
-                                    useStorage: true
+                                    useCache: true
                                 })
                                 .then(
                                     (users)=> {
@@ -698,7 +698,7 @@ describe("test remote 2", function () {
                                                     },
                                                     indexFrom: 0,
                                                     count: 10,
-                                                    useStorage: true
+                                                    useCache: true
                                                 }).then(
                                                     (users)=> {
                                                         expect(users.length).to.equal(1)
@@ -729,7 +729,7 @@ describe("test remote 2", function () {
                                                                         //     },
                                                                         //     indexFrom: 0,
                                                                         //     count: 10,
-                                                                        //     useStorage: true
+                                                                        //     useCache: true
                                                                         // }).then(
                                                                         //     (users)=>expect(users.length).to.equal(0)
                                                                         // )
@@ -770,7 +770,7 @@ describe("test remote 2", function () {
                                     },
                                     indexFrom: 0,
                                     count: 10,
-                                    useStorage: true
+                                    useCache: true
                                 })
                                 .then(
                                     (users)=> {
@@ -792,7 +792,7 @@ describe("test remote 2", function () {
                                                     },
                                                     indexFrom: 0,
                                                     count: 10,
-                                                    useStorage: true
+                                                    useCache: true
                                                 }).then(
                                                     (users)=> {
                                                         expect(users.length).to.equal(1)
@@ -823,7 +823,7 @@ describe("test remote 2", function () {
                                                                         //     },
                                                                         //     indexFrom: 0,
                                                                         //     count: 10,
-                                                                        //     useStorage: true
+                                                                        //     useCache: true
                                                                         // }).then(
                                                                         //     (users)=>expect(users.length).to.equal(0)
                                                                         // )
@@ -864,7 +864,7 @@ describe("test remote 2", function () {
                                     },
                                     indexFrom: 0,
                                     count: 10,
-                                    useStorage: true
+                                    useCache: true
                                 })
                                 .then(
                                     (users)=> {
@@ -886,7 +886,7 @@ describe("test remote 2", function () {
                                                     },
                                                     indexFrom: 0,
                                                     count: 10,
-                                                    useStorage: true
+                                                    useCache: true
                                                 }).then(
                                                     (users)=> {
                                                         expect(users.length).to.equal(1)
@@ -917,7 +917,7 @@ describe("test remote 2", function () {
                                                                         //     },
                                                                         //     indexFrom: 0,
                                                                         //     count: 10,
-                                                                        //     useStorage: true
+                                                                        //     useCache: true
                                                                         // }).then(
                                                                         //     (users)=>expect(users.length).to.equal(0)
                                                                         // )
@@ -958,7 +958,7 @@ describe("test remote 2", function () {
                                     },
                                     indexFrom: 0,
                                     count: 10,
-                                    useStorage: true
+                                    useCache: true
                                 })
                                 .then(
                                     (users)=> {
@@ -980,7 +980,7 @@ describe("test remote 2", function () {
                                                     },
                                                     indexFrom: 0,
                                                     count: 10,
-                                                    useStorage: true
+                                                    useCache: true
                                                 }).then(
                                                     (users)=> {
                                                         expect(users.length).to.equal(1)
@@ -1011,7 +1011,7 @@ describe("test remote 2", function () {
                                                                         //     },
                                                                         //     indexFrom: 0,
                                                                         //     count: 10,
-                                                                        //     useStorage: true
+                                                                        //     useCache: true
                                                                         // }).then(
                                                                         //     (users)=>expect(users.length).to.equal(0)
                                                                         // )
@@ -1052,7 +1052,7 @@ describe("test remote 2", function () {
                                     },
                                     indexFrom: 0,
                                     count: 10,
-                                    useStorage: true
+                                    useCache: true
                                 })
                                 .then(
                                     (users)=> {
@@ -1074,7 +1074,7 @@ describe("test remote 2", function () {
                                                     },
                                                     indexFrom: 0,
                                                     count: 10,
-                                                    useStorage: true
+                                                    useCache: true
                                                 }).then(
                                                     (users)=> {
                                                         expect(users.length).to.equal(1)
@@ -1105,7 +1105,7 @@ describe("test remote 2", function () {
                                                                         //     },
                                                                         //     indexFrom: 0,
                                                                         //     count: 10,
-                                                                        //     useStorage: true
+                                                                        //     useCache: true
                                                                         // }).then(
                                                                         //     (users)=>expect(users.length).to.equal(0)
                                                                         // )
@@ -1155,7 +1155,7 @@ describe("test remote 2", function () {
                                     },
                                     indexFrom: 0,
                                     count: 10,
-                                    useStorage: true
+                                    useCache: true
                                 })
                                 .then(
                                     (users)=> {
@@ -1186,7 +1186,7 @@ describe("test remote 2", function () {
                                                     },
                                                     indexFrom: 0,
                                                     count: 10,
-                                                    useStorage: true
+                                                    useCache: true
                                                 }).then(
                                                     (users)=> {
                                                         expect(users.length).to.equal(1)
@@ -1226,7 +1226,7 @@ describe("test remote 2", function () {
                                                                         //     },
                                                                         //     indexFrom: 0,
                                                                         //     count: 10,
-                                                                        //     useStorage: true
+                                                                        //     useCache: true
                                                                         // }).then(
                                                                         //     (users)=>expect(users.length).to.equal(0)
                                                                         // )
@@ -1267,7 +1267,7 @@ describe("test remote 2", function () {
                                     },
                                     indexFrom: 0,
                                     count: 10,
-                                    useStorage: true
+                                    useCache: true
                                 })
                                 .then(
                                     (users)=> {
@@ -1289,7 +1289,7 @@ describe("test remote 2", function () {
                                                     },
                                                     indexFrom: 0,
                                                     count: 10,
-                                                    useStorage: true
+                                                    useCache: true
                                                 }).then(
                                                     (users)=> {
                                                         expect(users.length).to.equal(1)
@@ -1320,7 +1320,7 @@ describe("test remote 2", function () {
                                                                         //     },
                                                                         //     indexFrom: 0,
                                                                         //     count: 10,
-                                                                        //     useStorage: true
+                                                                        //     useCache: true
                                                                         // }).then(
                                                                         //     (users)=>expect(users.length).to.equal(0)
                                                                         // )
@@ -1370,7 +1370,7 @@ describe("test remote 2", function () {
                                     },
                                     indexFrom: 0,
                                     count: 10,
-                                    useStorage: true
+                                    useCache: true
                                 })
                                 .then(
                                     (users)=> {
@@ -1401,7 +1401,7 @@ describe("test remote 2", function () {
                                                     },
                                                     indexFrom: 0,
                                                     count: 10,
-                                                    useStorage: true
+                                                    useCache: true
                                                 }).then(
                                                     (users)=> {
                                                         expect(users.length).to.equal(1)
@@ -1441,7 +1441,7 @@ describe("test remote 2", function () {
                                                                         //     },
                                                                         //     indexFrom: 0,
                                                                         //     count: 10,
-                                                                        //     useStorage: true
+                                                                        //     useCache: true
                                                                         // }).then(
                                                                         //     (users)=>expect(users.length).to.equal(0)
                                                                         // )
@@ -1491,7 +1491,7 @@ describe("test remote 2", function () {
                                     },
                                     indexFrom: 0,
                                     count: 10,
-                                    useStorage: true
+                                    useCache: true
                                 })
                                 .then(
                                     (users)=> {
@@ -1522,7 +1522,7 @@ describe("test remote 2", function () {
                                                     },
                                                     indexFrom: 0,
                                                     count: 10,
-                                                    useStorage: true
+                                                    useCache: true
                                                 }).then(
                                                     (users)=> {
                                                         expect(users.length).to.equal(1)
@@ -1562,7 +1562,7 @@ describe("test remote 2", function () {
                                                                         //     },
                                                                         //     indexFrom: 0,
                                                                         //     count: 10,
-                                                                        //     useStorage: true
+                                                                        //     useCache: true
                                                                         // }).then(
                                                                         //     (users)=>expect(users.length).to.equal(0)
                                                                         // )
@@ -1613,7 +1613,7 @@ describe("test remote 2", function () {
                                     },
                                     indexFrom: 0,
                                     count: 10,
-                                    useStorage: true
+                                    useCache: true
                                 })
                                 .then(
                                     (users)=> {
@@ -1644,7 +1644,7 @@ describe("test remote 2", function () {
                                                     },
                                                     indexFrom: 0,
                                                     count: 10,
-                                                    useStorage: true
+                                                    useCache: true
                                                 }).then(
                                                     (users)=> {
                                                         expect(users.length).to.equal(1)
@@ -1676,7 +1676,7 @@ describe("test remote 2", function () {
                                                                 },
                                                                 indexFrom: 0,
                                                                 count: 10,
-                                                                useStorage: true
+                                                                useCache: true
                                                             }).then(
                                                                 (users)=>expect(users.length).to.equal(0)
                                                             )
@@ -1724,7 +1724,7 @@ describe("test remote 2", function () {
                                     },
                                     indexFrom: 0,
                                     count: 10,
-                                    useStorage: true
+                                    useCache: true
                                 })
                                 .then(
                                     (account)=> {
@@ -1748,7 +1748,7 @@ describe("test remote 2", function () {
                                                         },
                                                         indexFrom: 0,
                                                         count: 10,
-                                                        useStorage: true
+                                                        useCache: true
                                                     })
                                                     .then(
                                                         (account)=> {
