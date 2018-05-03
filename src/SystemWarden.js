@@ -160,6 +160,7 @@ function doTrigger(trigger, entity, txn, preEntity) {
                     query: trigger.triggerWhere(entity),
                     indexFrom,
                     count: ITER_COUNT,
+                    forUpdate: true,
                     txn
                 }
             ).then(
@@ -416,7 +417,7 @@ function execWatcher(watcher, entityId) {
                             txn, {
                                 isolationLevel: 'REPEATABLE READ'
                             }
-                            )
+                        )
                             .then(
                                 () => {
                                     return reject(err);
@@ -593,8 +594,8 @@ class SystemWarden {
         }
 
         return this.uda.insert({
-                name: name, data: entity2, txn
-            })
+            name: name, data: entity2, txn
+        })
             .then(
                 (inserted) => {
                     const promises = [];
@@ -725,8 +726,8 @@ class SystemWarden {
         }
         assert(typeof entityOrId === 'number');
         return this.uda.findById({
-                name: name, id: entityOrId, txn
-            })
+            name: name, id: entityOrId, txn
+        })
             .then(
                 (entity) => {
                     if (!entity) {
@@ -780,8 +781,8 @@ class SystemWarden {
             }
 
             return this.uda.removeOneById({
-                    name: name, id: entity2.id, txn
-                })
+                name: name, id: entity2.id, txn
+            })
                 .then(
                     (updated) => {
                         if (removeTriggers && removeTriggers.length > 0) {
@@ -810,8 +811,8 @@ class SystemWarden {
 
         assert(typeof id === 'number');
         return this.uda.findById({
-                name: name, id, txn
-            })
+            name: name, id, txn
+        })
             .then(
                 (entity) => {
                     if (!entity) {
@@ -833,13 +834,13 @@ class SystemWarden {
                 const checkTriggerInner = (indexFrom) => {
                     // 寻找dtLocalAttr不为NULL的行
                     return me.uda.find({
-                            name: trigger.entity,
-                            query: {
-                                txnState: {
-                                    $eq: 1
-                                },
-                            }, indexFrom, count: ITER_COUNT
-                        })
+                        name: trigger.entity,
+                        query: {
+                            txnState: {
+                                $eq: 1
+                            },
+                        }, indexFrom, count: ITER_COUNT
+                    })
                         .then(
                             (list) => {
                                 return Promise.every(
