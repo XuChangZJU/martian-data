@@ -760,7 +760,7 @@ function checkRightNodeQuerySatisfyNull(node, root) {
  * @description 本函数负责将当前子树的查询结果与父树或子树连接，并在需要的时候发出新的JOIN请求。
  *                  在两种情况下结束，1）当前子树的查询结果为空；2）当前子树是森林中的最后一棵查询子树
  */
-function joinNext(forest, me, result, useCache, cacheExpiredTime) {
+function joinNext(forest, me, result, useCache, cacheExpiredTime, forUpdate) {
     const nodeMe = forest[me];
     let promises = [];
     nodeMe.result = result;
@@ -830,10 +830,10 @@ function joinNext(forest, me, result, useCache, cacheExpiredTime) {
                 let connection = this.connections[this.schemas[name].source];
 
                 promises.push(
-                    connection.find(name, nodeParent, 0, result.length, false, null, null, useCache, cacheExpiredTime)
+                    connection.find(name, nodeParent, 0, result.length, false, null, null, useCache, cacheExpiredTime, forUpdate)
                         .then(
                             (result2) => {
-                                return joinNext.call(this, forest, nodeMe.referencedBy, result2, useCache, cacheExpiredTime);
+                                return joinNext.call(this, forest, nodeMe.referencedBy, result2, useCache, cacheExpiredTime, forUpdate);
                             },
                             (err) => {
                                 return Promise.reject(err);
@@ -1012,7 +1012,7 @@ function joinNext(forest, me, result, useCache, cacheExpiredTime) {
  * @param count
  * @returns {Promise.<TResult>}
  */
-function execOverSourceQuery(name, forest, indexFrom, count, txn, forceIndex, useCache, cacheExpiredTime) {
+function execOverSourceQuery(name, forest, indexFrom, count, txn, forceIndex, useCache, cacheExpiredTime, forUpdate) {
     for (let i in forest) {
         const tree = forest[i];
         if (i !== name && hasOperator(tree, "sort")) {
@@ -1027,10 +1027,10 @@ function execOverSourceQuery(name, forest, indexFrom, count, txn, forceIndex, us
     const connection = this.connections[schema.source];
     const txn2 = (txn && txn.source === schema.source) ? txn.txn : undefined;
 
-    return connection.find(name, firstRel, indexFrom, count, false, txn2, forceIndex, useCache, cacheExpiredTime)
+    return connection.find(name, firstRel, indexFrom, count, false, txn2, forceIndex, useCache, cacheExpiredTime, forUpdate)
         .then(
             (result) => {
-                return joinNext.call(this, forest, name, result, useCache, cacheExpiredTime)
+                return joinNext.call(this, forest, name, result, useCache, cacheExpiredTime, forUpdate)
                     .then(
                         () => {
                             return Promise.resolve(root.result);
@@ -1313,6 +1313,7 @@ class DataAccess extends EventEmitter {
         const forceIndex = paramObj.forceIndex;
         const useCache = paramObj.useCache;
         const cacheExpiredTime = paramObj.cacheExpiredTime;
+        const forUpdate = paramObj.forUpdate;
         if (!name || !this.schemas[name]) {
             throw new Error("查询必须输入有效表名");
         }
@@ -1325,7 +1326,7 @@ class DataAccess extends EventEmitter {
         //  若是上层是根据id查询的，下层无视deleteAt
         let execTree = destructSelect.call(this, name, projection, query, sort, null, query && query.hasOwnProperty("id"));
 
-        return this.findByExecTreeDirectly(name, execTree, indexFrom, count, false, txn, forceIndex, useCache, cacheExpiredTime)
+        return this.findByExecTreeDirectly(name, execTree, indexFrom, count, false, txn, forceIndex, useCache, cacheExpiredTime, forUpdate)
             .then(
                 (result) => {
                     assert(result instanceof Array);
@@ -1410,6 +1411,7 @@ class DataAccess extends EventEmitter {
         const txn = paramObj.txn;
         const useCache = paramObj.useCache;
         const cacheExpiredTime = paramObj.cacheExpiredTime;
+        const forUpdate = paramObj.forUpdate;
         if (!name || !this.schemas[name]) {
             throw new Error("查询必须输入有效表名");
         }
@@ -1432,7 +1434,7 @@ class DataAccess extends EventEmitter {
 
         //  若是上层是根据id查询的，下层无视deleteAt
         let execTree = destructSelect.call(this, name, projection, query, null, null, true);
-        return this.findByExecTreeDirectly(name, execTree, 0, 1, null, txn, null, useCache, cacheExpiredTime)
+        return this.findByExecTreeDirectly(name, execTree, 0, 1, null, txn, null, useCache, cacheExpiredTime, forUpdate)
             .then(
                 (result) => {
                     switch (result.length) {
@@ -1506,7 +1508,7 @@ class DataAccess extends EventEmitter {
             );
     }
 
-    findByExecTreeDirectly(name, execTree, indexFrom, count, isCounting, txn, forceIndex, useCache, cacheExpiredTime) {
+    findByExecTreeDirectly(name, execTree, indexFrom, count, isCounting, txn, forceIndex, useCache, cacheExpiredTime, forUpdate) {
         let execForest = distributeSelect.call(this, name, execTree);
 
         let trees = Object.getOwnPropertyNames(execForest);
@@ -1516,7 +1518,7 @@ class DataAccess extends EventEmitter {
                 throw new Error("当前不支持跨源的count查询");
             }
 
-            return execOverSourceQuery.call(this, name, execForest, indexFrom, count, txn, forceIndex, useCache, cacheExpiredTime);
+            return execOverSourceQuery.call(this, name, execForest, indexFrom, count, txn, forceIndex, useCache, cacheExpiredTime, forUpdate);
         }
         else {
             // 单源的查询直接PUSH给相应的数据源
@@ -1524,7 +1526,7 @@ class DataAccess extends EventEmitter {
             const connection = this.connections[schema.source];
             const txn2 = (txn && txn.source === schema.source) ? txn.txn : undefined;
 
-            return connection.find(name, execTree, indexFrom, count, isCounting, txn2, forceIndex, useCache, cacheExpiredTime);
+            return connection.find(name, execTree, indexFrom, count, isCounting, txn2, forceIndex, useCache, cacheExpiredTime, forUpdate);
         }
     }
 
