@@ -1409,14 +1409,40 @@ describe("test select with null in mysql 1", function () {
                     done(err);
                 }
             );
-
-        after((done) => {
-            uda.disconnect()
-                .then(done);
-        });
     });
 
-    it("[ts2.3] select with for update", (done) => {
+    // 要支持这个需要对整体推倒重来，代价有点大啊  by Xc 20181230
+    /*it('[ts2.3] 带join的or查询', () => {
+        const query = {
+            $or: [
+                {
+                    houseInfo: {
+                        floor: 1,
+                    },
+                },
+                {
+                    contract: {
+                        price: 1.1,
+                    },
+                }
+            ],
+        };
+        const projection = null;
+
+        const sort = {
+            houseInfo: {
+                area: 1
+            }
+        };
+        const indexFrom = 0, count = 1;
+
+        return uda.find({
+                name: "house", projection, query, sort, indexFrom, count
+            });
+    })*/
+
+
+    it("[ts2.4] select with for update", (done) => {
         const query = {
             id: 1
         };

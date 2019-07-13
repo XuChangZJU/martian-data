@@ -1061,7 +1061,14 @@ function getRidOfResult(result, projection, name) {
             switch (schema.attributes[attr].type) {
                 case "ref" :
                 {
-                    getRidOfResult.call(this, result[attr], projection[attr], schema.attributes[attr].ref);
+                    // 如果一个对象为空，则删除掉这个对象。这里注意当取一个对象时，其外面和内部的id至少要取其一
+                    // by Xc 20181230
+                    if (result[attr].id || result[`${attr}Id`]) {
+                        getRidOfResult.call(this, result[attr], projection[attr], schema.attributes[attr].ref);
+                    }
+                    else {
+                        delete result[attr];
+                    }
                     break;
                 }
                 /* case "date":
