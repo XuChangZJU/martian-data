@@ -13,6 +13,7 @@ const groupBy = require('lodash/groupBy');
 const pick = require('lodash/pick');
 const omit = require('lodash/omit');
 const values = require('lodash/values');
+const flatten = require('lodash/flatten');
 const ObjectID = require("mongodb").ObjectID;
 require("./utils/promiseUtils");
 const ITER_COUNT = 64;
@@ -934,9 +935,9 @@ class SystemWarden {
 
         return Promise.every(wtPromise.concat(vtPromise))
             .then(
-                ()=> {
-                    const size = wtPromise.length + vtPromise.length;
-                    return size;
+                (result)=> {
+                    const result2 = flatten(result);
+                    return result2;
                 }
             );
         // return Promise.every([vtPromise, wtPromise]);
