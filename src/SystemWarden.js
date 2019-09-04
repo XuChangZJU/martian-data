@@ -60,6 +60,7 @@ function emptyDtLocalAttr(trigger, entity, remoteEntity, txn) {
 
 function PromisesWithSerial(promises) {
     const RESULT = [];
+    let ErrIndex = -1;
     if (promises.length === 0) {
         return Promise.resolve([]);
     }
@@ -77,18 +78,23 @@ function PromisesWithSerial(promises) {
                     }
                     return promisesIter(idx + 1);
                 }
+            ).catch(
+                (err) => {
+                    RESULT.push(err);
+                    ErrIndex = idx;
+                    console.error(`触发器【${promises[idx].params[0].name}】发生异常，错误是${err.stack}`);
+                    return promisesIter(idx + 1);
+                }
             );
     };
 
     return promisesIter(0)
         .then(
             () => {
-                return Promise.resolve(RESULT);
-            }
-        ).catch(
-            (err) => {
-                console.error(err);
-                throw err;
+                if (ErrIndex === -1) {
+                    return RESULT;
+                }
+                throw RESULT[ErrIndex];
             }
         );
 }
@@ -875,7 +881,7 @@ class SystemWarden {
                         (err) => {
                             console.error(`状态触发器【${trigger.name}】发生异常，异常信息是：`);
                             console.error(err);
-                            return Promise.resolve();
+                            throw err;
                         }
                     );
             }
@@ -927,9 +933,10 @@ class SystemWarden {
         // ));
 
         return Promise.every(wtPromise.concat(vtPromise))
-            .catch(
+            .then(
                 ()=> {
-                    return Promise.resolve();
+                    const size = wtPromise.length + vtPromise.length;
+                    return size;
                 }
             );
         // return Promise.every([vtPromise, wtPromise]);
