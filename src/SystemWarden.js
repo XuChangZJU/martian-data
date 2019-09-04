@@ -8,7 +8,6 @@
 const assert = require('assert');
 const assign = require('lodash/assign');
 const keys = require('lodash/keys');
-const flatten = require('lodash/flatten');
 const groupBy = require('lodash/groupBy');
 const pick = require('lodash/pick');
 const omit = require('lodash/omit');
