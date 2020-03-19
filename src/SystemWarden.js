@@ -8,90 +8,59 @@
 const assert = require('assert');
 const assign = require('lodash/assign');
 const keys = require('lodash/keys');
-const flatten = require('lodash/flatten');
 const groupBy = require('lodash/groupBy');
 const pick = require('lodash/pick');
 const omit = require('lodash/omit');
 const values = require('lodash/values');
+const flatten = require('lodash/flatten');
 const ObjectID = require("mongodb").ObjectID;
 require("./utils/promiseUtils");
 const ITER_COUNT = 64;
 
-function emptyDtLocalAttr(trigger, entity, remoteEntity) {
-    return this.uda.startTransaction("mysql", {
-        isolationLevel: "SERIALIZABLE"
-    }).then(
-        (txn) => {
-            return this.uda.getSource(this.txnSource).execSql(
-                `select * from ${trigger.entity} where id = ${entity.id} for update`, true, txn.txn)
-                .then(
-                    //         ()=>{
-                    // return this.uda.findById(trigger.entity, null, entity.id, txn)
-                    //     .then(
-                    (entityInfo)=> {
-                        assert(entityInfo.length === 1);
-                        entityInfo[0][trigger.dtLocalAttr] = JSON.parse(entityInfo[0][trigger.dtLocalAttr]);
-                        if (!(entityInfo[0][trigger.dtLocalAttr] instanceof Array)) {
-                            console.log(entityInfo);
+function emptyDtLocalAttr(trigger, entity, remoteEntity, txn) {
+    return this.uda.getSource(this.txnSource).execSql(
+        `select * from ${trigger.entity} where id = ${entity.id} for update`, true, txn.txn)
+        .then(
+            (entityInfo)=> {
+                assert(entityInfo.length === 1);
+                entityInfo[0][trigger.dtLocalAttr] = JSON.parse(entityInfo[0][trigger.dtLocalAttr]);
+                if (!(entityInfo[0][trigger.dtLocalAttr] instanceof Array)) {
+                    console.log(entityInfo);
+                }
+                assert(entityInfo[0][trigger.dtLocalAttr] instanceof Array);
+                const destDtr = entityInfo[0][trigger.dtLocalAttr].find((ele)=>ele.endsWith(trigger.id));
+                const dtrIndex = entityInfo[0][trigger.dtLocalAttr].indexOf(destDtr);
+                let data = {
+                    //  执行完一个txn，清除自己的txn标记
+                    [trigger.dtLocalAttr]: dtrIndex === -1 ? entityInfo[0][trigger.dtLocalAttr] : entityInfo[0][trigger.dtLocalAttr].slice(0, dtrIndex).concat(entityInfo[0][trigger.dtLocalAttr].slice(dtrIndex + 1, entityInfo[0][trigger.dtLocalAttr].length))
+                };
+                if (data[[trigger.dtLocalAttr]].length === 0) {
+                    data = assign({}, data, {txnState: 10});
+                }
+                if (remoteEntity && trigger.hasOwnProperty('localJoinCol')) {
+                    if (trigger.localAppend) {
+                        if (!(remoteEntity instanceof Array)) {
+                            assert(remoteEntity instanceof Object);
+                            remoteEntity = [remoteEntity];
                         }
-                        assert(entityInfo[0][trigger.dtLocalAttr] instanceof Array);
-                        const destDtr = entityInfo[0][trigger.dtLocalAttr].find((ele)=>ele.endsWith(trigger.id));
-                        const dtrIndex = entityInfo[0][trigger.dtLocalAttr].indexOf(destDtr);
-                        let data = {
-                            //  执行完一个txn，清除自己的txn标记
-                            [trigger.dtLocalAttr]: dtrIndex === -1 ? entityInfo[0][trigger.dtLocalAttr] : entityInfo[0][trigger.dtLocalAttr].slice(0, dtrIndex).concat(entityInfo[0][trigger.dtLocalAttr].slice(dtrIndex + 1, entityInfo[0][trigger.dtLocalAttr].length))
-                        };
-                        if (data[[trigger.dtLocalAttr]].length === 0) {
-                            data = assign({}, data, {txnState: 10});
+                        if (!trigger.localJoinCol) {
+                            throw new Error("存在localAppend属性，必须传入【" + trigger.localJoinCol + "】");
                         }
-                        if (remoteEntity && trigger.hasOwnProperty('localJoinCol')) {
-                            if (trigger.localAppend) {
-                                if (!(remoteEntity instanceof Array)) {
-                                    assert(remoteEntity instanceof Object);
-                                    remoteEntity = [remoteEntity];
-                                }
-                                if (!trigger.localJoinCol) {
-                                    throw new Error("存在localAppend属性，必须传入【" + trigger.localJoinCol + "】");
-                                }
-                                data[trigger.localJoinCol] = entity[trigger.localJoinCol].concat(
-                                    remoteEntity.map((ele) => ele.id));
-                            }
-                            else {
-                                data[trigger.localJoinCol] = remoteEntity.id;
-                            }
-                        }
-                        return this.updateEntity(trigger.entity, data, entityInfo[0].id, txn)
-                            .then(
-                                () => {
-                                    return this.uda.commitTransaction(txn, {
-                                        isolationLevel: "REPEATABLE READ"
-                                    }).then(
-                                        () => {
-                                            return Promise.resolve();
-                                        }
-                                    );
-                                }
-                            )
+                        data[trigger.localJoinCol] = entity[trigger.localJoinCol].concat(
+                            remoteEntity.map((ele) => ele.id));
                     }
-                ).catch(
-                    (err) => {
-                        return this.uda.rollbackTransaction(
-                            txn, {
-                                isolationLevel: 'REPEATABLE READ'
-                            }
-                        ).then(
-                            () => {
-                                throw err;
-                            }
-                        );
+                    else {
+                        data[trigger.localJoinCol] = remoteEntity.id;
                     }
-                );
-        }
-    );
+                }
+                return this.updateEntity(trigger.entity, data, entityInfo[0].id, txn);
+            }
+        )
 }
 
 function PromisesWithSerial(promises) {
     const RESULT = [];
+    let errIdx = -1;
     if (!promises || promises.length === 0) {
         return Promise.resolve([]);
     }
@@ -109,18 +78,23 @@ function PromisesWithSerial(promises) {
                     }
                     return promisesIter(idx + 1);
                 }
+            ).catch(
+                (err) => {
+                    RESULT.push(err);
+                    errIdx = idx;
+                    console.error(`触发器【${promises[idx].params[0].name}】发生异常，错误是${err.stack}`);
+                    return promisesIter(idx + 1);
+                }
             );
     };
 
     return promisesIter(0)
         .then(
             () => {
-                return Promise.resolve(RESULT);
-            }
-        ).catch(
-            (err) => {
-                console.error(err);
-                throw err;
+                if (errIdx === -1) {
+                    return RESULT;
+                }
+                throw RESULT[errIdx];
             }
         );
 }
@@ -252,20 +226,18 @@ function doTrigger(trigger, entity, txn, preEntity) {
     return Promise.resolve();
 }
 
-function execTrigger(trigger, entity, txn, preEntity) {
-    if (trigger.volatile) {
-        const onTxnCommitted = (txn2) => {
-            if (txn2 === txn) {
-                this.uda.removeListener('txnCommitted', onTxnCommitted);
-
-                return doTrigger.call(this, trigger, entity, null, preEntity)
+function doVolatileLogic(trigger, entity, preEntity) {
+    return this.uda.startTransaction("mysql")
+        .then(
+            (txn) => {
+                return doTrigger.call(this, trigger, entity, txn, preEntity)
                     .then(
                         (result) => {
                             // 成功后将dtLocalAttr更新为null，若是在运行池的trigger，由运行池自身更新dtLocalAttr
                             // if (trigger.dtLocalAttr && !trigger.intoPool) {
                             if (trigger.dtLocalAttr) {
                                 // dtLocaAttr未必一定要有，如果不需要保证最终一致性，则可以不定
-                                return emptyDtLocalAttr.call(this, trigger, entity, trigger.create ? result : undefined)
+                                return emptyDtLocalAttr.call(this, trigger, entity, trigger.create ? result : undefined, txn)
                                     .then(
                                         () => {
                                             if (trigger.localJoinCol) {
@@ -278,12 +250,32 @@ function execTrigger(trigger, entity, txn, preEntity) {
                             return Promise.resolve(result);
                         }
                     )
+                    .then(
+                        (result) => this.uda.commitTransaction(txn)
+                            .then(
+                                () => result
+                            )
+                    )
                     .catch(
                         (err) => {
-                            console.warn(err);
-                            throw err;
+                            console.error(err);
+                            return this.uda.rollbackTransaction(txn)
+                                .then(
+                                    () => Promise.reject(err)
+                                );
                         }
-                    )
+                    );
+            }
+        );
+}
+
+function execTrigger(trigger, entity, txn, preEntity) {
+    if (trigger.volatile) {
+        const onTxnCommitted = (txn2) => {
+            if (txn2 === txn) {
+                this.uda.removeListener('txnCommitted', onTxnCommitted);
+
+                return doVolatileLogic.call(this, trigger, entity, preEntity);
             }
         };
 
@@ -658,6 +650,7 @@ class SystemWarden {
                     (ele) =>ele.volatile
                 );
 
+            const data2 = assign({}, data);
             if (volatileTriggers && volatileTriggers.length > 0) {
                 volatileTriggers.forEach(
                     (volatileTrigger) => {
@@ -666,15 +659,15 @@ class SystemWarden {
                                 console.error(JSON.stringify(volatileTrigger));
                                 throw new Error(`跨源事务，必须传入${volatileTrigger.dtLocalAttr}字段`);
                             }
-                            if (!data[volatileTrigger.dtLocalAttr]) {
-                                data[volatileTrigger.dtLocalAttr] = [];
+                            if (!data2[volatileTrigger.dtLocalAttr]) {
+                                data2[volatileTrigger.dtLocalAttr] = [];
                             }
                             //  todo    这里这种做法并不安全，并发情况下会出错
                             //  稍微优化，push之前先检查一遍
                             let uuid = new ObjectID().toString().concat(volatileTrigger.id);
-                            if (!data[volatileTrigger.dtLocalAttr].find((ele)=>ele === uuid)) {
-                                data.txnState = 1;
-                                data[volatileTrigger.dtLocalAttr].push(uuid);
+                            if (!data2[volatileTrigger.dtLocalAttr].find((ele)=>ele === uuid)) {
+                                data2.txnState = 1;
+                                data2[volatileTrigger.dtLocalAttr].push(uuid);
                             }
                         }
                     }
@@ -683,17 +676,17 @@ class SystemWarden {
 
             //  todo    martian-data不支持$inc算子和其他属性的一次性更新，暂时分两步
             const updateInner = () => {
-                if (data.$inc) {
+                if (data2.$inc) {
                     return this.uda.updateOneById({
                         name,
-                        data: pick(data, "$inc"),
+                        data: pick(data2, "$inc"),
                         id: entity2.id,
                         txn,
                     }).then(
                         (updated1)=> {
                             return this.uda.updateOneById({
                                 name,
-                                data: omit(data, "$inc"),
+                                data: omit(data2, "$inc"),
                                 id: entity2.id,
                                 txn,
                             }).then(
@@ -703,7 +696,7 @@ class SystemWarden {
                 }
                 return this.uda.updateOneById({
                     name,
-                    data,
+                    data: data2,
                     id: entity2.id,
                     txn,
                 });
@@ -713,27 +706,27 @@ class SystemWarden {
              * 这里因为历史原因，对于更新前的触发器，调用参数分别是(data, txn, preEntity)，对更新后的触发器，调用参数分别是(entity, txn, preEntity)
              * data是更新数据，preEntity是更新前的数据，entity是更新后的数据
              * @param triggers
-             * @param data
-             * @param entity
+             * @param dataOrEntity
+             * @param preEntity
              */
-            const execUpdateTriggers = (triggers, data, entity) => {
+            const execUpdateTriggers = (triggers, dataOrEntity, preEntity) => {
                 const promises = triggers && triggers.map(
                         ele => ({
                             fn: execTrigger,
                             me,
-                            params: [ele, data, txn, entity],
+                            params: [ele, dataOrEntity, txn, preEntity],
                         })
                     );
                 return PromisesWithSerial(promises);
             };
 
-            return execUpdateTriggers(beforeTriggers, data, entity2)
+            return execUpdateTriggers(beforeTriggers, data2, entity2)
                 .then(
                     () => updateInner()
                 )
                 .then(
                     (updated) => {
-                        const afterEntity = assign({}, entity2, data);
+                        const afterEntity = assign({}, entity2, data2);
                         return execUpdateTriggers(afterTriggers, afterEntity, entity2)
                             .then(
                                 () => updated
@@ -874,29 +867,8 @@ class SystemWarden {
                                             // 增加一个判断，只有当分布式事务的时间超过当前时间1分钟以上，才执行修补动作，这样可以避免一些重复的工作
                                             // const timeTriggerExec = parseInt(dtLocalAttr.substr(0, 8), 16);
                                             if (dtLocalAttr && now - (parseInt(dtLocalAttr.substr(0, 8), 16) * 1000) > me.volatileTriggerLatency) {
-                                                return doTrigger.call(this, trigger, ele)
-                                                    .then(
-                                                        (result) => {
-                                                            // 成功后将dtLocalAttr更新为null，运行池中的事件，等待运行完成才会更新为null
-                                                            // if (trigger.dtLocalAttr && !trigger.intoPool) {
-                                                            if (trigger.dtLocalAttr) {
-                                                                // dtLocaAttr未必一定要有，如果不需要保证最终一致性，则可以不定
-                                                                return emptyDtLocalAttr.call(this, trigger, ele,
-                                                                    trigger.create ? result : undefined)
-                                                                    .then(
-                                                                        () => {
-                                                                            if (trigger.localJoinCol) {
-                                                                                // 如果还有localJoinCol，则必然是create动作，且只有一行结果被返回（foreign id）
-                                                                                assert(trigger.create);
-                                                                                return Promise.resolve(1);
-                                                                            }
-                                                                            return Promise.resolve(result);
-                                                                        }
-                                                                    )
-                                                            }
-                                                            return Promise.resolve(result);
-                                                        }
-                                                    );
+
+                                                return doVolatileLogic.call(this, trigger, ele);
                                             }
                                             return Promise.resolve(0);
                                         }
@@ -931,7 +903,7 @@ class SystemWarden {
                         (err) => {
                             console.error(`状态触发器【${trigger.name}】发生异常，异常信息是：`);
                             console.error(err);
-                            return Promise.resolve();
+                            throw err;
                         }
                     );
             }
@@ -983,9 +955,10 @@ class SystemWarden {
         // ));
 
         return Promise.every(wtPromise.concat(vtPromise))
-            .catch(
-                ()=> {
-                    return Promise.resolve();
+            .then(
+                (result)=> {
+                    const result2 = flatten(result);
+                    return result2;
                 }
             );
         // return Promise.every([vtPromise, wtPromise]);
