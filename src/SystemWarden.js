@@ -92,7 +92,7 @@ function emptyDtLocalAttr(trigger, entity, remoteEntity) {
 
 function PromisesWithSerial(promises) {
     const RESULT = [];
-    if (promises.length === 0) {
+    if (!promises || promises.length === 0) {
         return Promise.resolve([]);
     }
 
@@ -417,7 +417,7 @@ function execWatcher(watcher, entityId) {
                             txn, {
                                 isolationLevel: 'REPEATABLE READ'
                             }
-                        )
+                            )
                             .then(
                                 () => {
                                     return reject(err);
@@ -525,6 +525,7 @@ class SystemWarden {
                 throw new Error('trigger的action属性必须是insert/update/delete之一');
         }
         assert(trigger.volatile || this.uda.schemas[trigger.entity].source === this.txnSource);
+        assert(trigger.volatile || trigger.beforeAction);
         if (trigger.volatile || this.uda.schemas[trigger.entity].source !== this.txnSource) {
             assert(!trigger.hasOwnProperty("dtLocalAttr") || trigger.hasOwnProperty("id"));  // volatile且要求warden帮助实现最终一致性的Trigger必须有id，用于处理分布式一致性
             trigger.volatile = true;
@@ -568,14 +569,17 @@ class SystemWarden {
             );
 
         let entity2 = assign({}, entity);
+        const beforeTriggers = allTriggers && allTriggers.filter(
+                ele => ele.beforeAction
+            );
+        const afterTriggers = allTriggers && allTriggers.filter(
+                ele => !ele.beforeAction
+            );
         const insertTriggers = allTriggers && allTriggers;
-        const volatileTriggers = allTriggers && allTriggers.filter(
+        const volatileTriggers = afterTriggers && afterTriggers.filter(
                 (ele) => ele.volatile
             );
 
-        // const execPoolTriggers = insertTriggers && insertTriggers.filter(
-        //         (ele) => ele.intoPool
-        //     );
         if (volatileTriggers && volatileTriggers.length > 0) {
             volatileTriggers.forEach(
                 (volatileTrigger) => {
@@ -593,32 +597,29 @@ class SystemWarden {
             );
         }
 
-        return this.uda.insert({
-            name: name, data: entity2, txn
-        })
+        const execInsertTrigger = (triggers, data) => {
+            const promises = triggers && triggers.map(
+                    ele => ({
+                        fn: execTrigger,
+                        me,
+                        params: [ele, data, txn],
+                    })
+                );
+
+            return PromisesWithSerial(promises);
+        };
+
+        return execInsertTrigger(beforeTriggers, entity2)
             .then(
-                (inserted) => {
-                    const promises = [];
-                    if (insertTriggers && insertTriggers.length > 0) {
-                        insertTriggers.forEach(
-                            (ele) => {
-                                let funMethod = {};
-                                // console.log(`触发器【${ele.name}】开始`);
-                                funMethod.fn = execTrigger;
-                                funMethod.me = me;
-                                funMethod.params = [ele, inserted, txn];
-                                promises.push(
-                                    funMethod
-                                );
-                            }
-                        );
-                        return PromisesWithSerial(promises)
-                            .then(
-                                () => Promise.resolve(inserted)
-                            )
-                    }
-                    return Promise.resolve(inserted);
-                }
+                () => this.uda.insert({
+                    name: name, data: entity2, txn
+                })
+            )
+            .then(
+                (inserted) => execInsertTrigger(afterTriggers, inserted)
+                    .then(
+                        () => inserted
+                    )
             );
 
     }
@@ -647,8 +648,13 @@ class SystemWarden {
             const updateTriggers = triggersArray && flatten(triggersArray).filter(
                     (ele) => (!ele.valueCheck || ele.valueCheck(entity2, data))
                 );
-            let data2 = assign({}, data);
-            const volatileTriggers = updateTriggers && updateTriggers.filter(
+            const beforeTriggers = updateTriggers && updateTriggers.filter(
+                    ele => ele.beforeAction
+                );
+            const afterTriggers = updateTriggers && updateTriggers.filter(
+                    ele => !ele.beforeAction
+                );
+            const volatileTriggers = afterTriggers && afterTriggers.filter(
                     (ele) =>ele.volatile
                 );
 
@@ -660,15 +666,15 @@ class SystemWarden {
                                 console.error(JSON.stringify(volatileTrigger));
                                 throw new Error(`跨源事务，必须传入${volatileTrigger.dtLocalAttr}字段`);
                             }
-                            if (!data2[volatileTrigger.dtLocalAttr]) {
-                                data2[volatileTrigger.dtLocalAttr] = [];
+                            if (!data[volatileTrigger.dtLocalAttr]) {
+                                data[volatileTrigger.dtLocalAttr] = [];
                             }
                             //  todo    这里这种做法并不安全，并发情况下会出错
                             //  稍微优化，push之前先检查一遍
                             let uuid = new ObjectID().toString().concat(volatileTrigger.id);
-                            if (!data2[volatileTrigger.dtLocalAttr].find((ele)=>ele === uuid)) {
-                                data2.txnState = 1;
-                                data2[volatileTrigger.dtLocalAttr].push(uuid);
+                            if (!data[volatileTrigger.dtLocalAttr].find((ele)=>ele === uuid)) {
+                                data.txnState = 1;
+                                data[volatileTrigger.dtLocalAttr].push(uuid);
                             }
                         }
                     }
@@ -676,47 +682,62 @@ class SystemWarden {
             }
 
             //  todo    martian-data不支持$inc算子和其他属性的一次性更新，暂时分两步
-            const updatePromise = ()=> {
-                if (data2.$inc) {
+            const updateInner = () => {
+                if (data.$inc) {
                     return this.uda.updateOneById({
-                        name: name, data: pick(data2, "$inc"), id: entity2.id, txn
+                        name,
+                        data: pick(data, "$inc"),
+                        id: entity2.id,
+                        txn,
                     }).then(
                         (updated1)=> {
                             return this.uda.updateOneById({
-                                name: name, data: omit(data2, "$inc"), id: entity2.id, txn
+                                name,
+                                data: omit(data, "$inc"),
+                                id: entity2.id,
+                                txn,
                             }).then(
-                                (updated2)=>assign({}, updated1, updated2)
+                                (updated2) => assign({}, updated1, updated2)
                             );
                         });
                 }
                 return this.uda.updateOneById({
-                    name: name, data: data2, id: entity2.id, txn
+                    name,
+                    data,
+                    id: entity2.id,
+                    txn,
                 });
             };
 
-            return updatePromise()
+            /**
+             * 这里因为历史原因，对于更新前的触发器，调用参数分别是(data, txn, preEntity)，对更新后的触发器，调用参数分别是(entity, txn, preEntity)
+             * data是更新数据，preEntity是更新前的数据，entity是更新后的数据
+             * @param triggers
+             * @param data
+             * @param entity
+             */
+            const execUpdateTriggers = (triggers, data, entity) => {
+                const promises = triggers && triggers.map(
+                        ele => ({
+                            fn: execTrigger,
+                            me,
+                            params: [ele, data, txn, entity],
+                        })
+                    );
+                return PromisesWithSerial(promises);
+            };
+
+            return execUpdateTriggers(beforeTriggers, data, entity2)
+                .then(
+                    () => updateInner()
+                )
                 .then(
                     (updated) => {
-                        if (updateTriggers && updateTriggers.length > 0) {
-                            const promises = [];
-                            updateTriggers.forEach(
-                                (ele) => {
-                                    let funMethod = {};
-                                    // console.log(`触发器【${ele.name}】开始`);
-                                    funMethod.fn = execTrigger;
-                                    funMethod.me = me;
-                                    funMethod.params = [ele, assign({}, entity2, data2), txn, entity2];
-                                    promises.push(
-                                        funMethod
-                                    );
-                                }
+                        const afterEntity = assign({}, entity2, data);
+                        return execUpdateTriggers(afterTriggers, afterEntity, entity2)
+                            .then(
+                                () => updated
                             );
-                            return PromisesWithSerial(promises)
-                                .then(
-                                    () => Promise.resolve(updated)
-                                );
-                        }
-                        return Promise.resolve(updated);
                     }
                 );
         };
@@ -726,8 +747,8 @@ class SystemWarden {
         }
         assert(typeof entityOrId === 'number');
         return this.uda.findById({
-            name: name, id: entityOrId, txn
-        })
+                name: name, id: entityOrId, txn
+            })
             .then(
                 (entity) => {
                     if (!entity) {
@@ -781,8 +802,8 @@ class SystemWarden {
             }
 
             return this.uda.removeOneById({
-                name: name, id: entity2.id, txn
-            })
+                    name: name, id: entity2.id, txn
+                })
                 .then(
                     (updated) => {
                         if (removeTriggers && removeTriggers.length > 0) {
@@ -811,8 +832,8 @@ class SystemWarden {
 
         assert(typeof id === 'number');
         return this.uda.findById({
-            name: name, id, txn
-        })
+                name: name, id, txn
+            })
             .then(
                 (entity) => {
                     if (!entity) {
@@ -834,13 +855,13 @@ class SystemWarden {
                 const checkTriggerInner = (indexFrom) => {
                     // 寻找dtLocalAttr不为NULL的行
                     return me.uda.find({
-                        name: trigger.entity,
-                        query: {
-                            txnState: {
-                                $eq: 1
-                            },
-                        }, indexFrom, count: ITER_COUNT
-                    })
+                            name: trigger.entity,
+                            query: {
+                                txnState: {
+                                    $eq: 1
+                                },
+                            }, indexFrom, count: ITER_COUNT
+                        })
                         .then(
                             (list) => {
                                 return Promise.every(
