@@ -525,7 +525,7 @@ class SystemWarden {
                 throw new Error('trigger的action属性必须是insert/update/delete之一');
         }
         assert(trigger.volatile || this.uda.schemas[trigger.entity].source === this.txnSource);
-        assert(trigger.volatile || trigger.beforeAction);
+        assert(!(trigger.volatile && trigger.beforeAction), 'trigger的volatile和beforeAction不能同是为真');
         if (trigger.volatile || this.uda.schemas[trigger.entity].source !== this.txnSource) {
             assert(!trigger.hasOwnProperty("dtLocalAttr") || trigger.hasOwnProperty("id"));  // volatile且要求warden帮助实现最终一致性的Trigger必须有id，用于处理分布式一致性
             trigger.volatile = true;
