@@ -1735,6 +1735,45 @@ describe('test groupBy', function() {
         );
     });
 
+    /**
+     *
+     * select avg(c.price) as avg, count(c.price) as count, o.name as username from contract c, user o where c.ownerId = o.id order by count asc limit 0, 10;
+     */
+    it('[ts4.3]complicated groupBy with sort', () => {
+        return uda.find({
+            name: 'contract',
+            projection: {
+                $fnCall: {
+                    $format: 'AVG(%s)',
+                    $arguments: ['price'],
+                    $as: 'avg',
+                },
+                $fnCall2: {
+                    $format: 'COUNT(%s)',
+                    $arguments: ['price'],
+                    $as: 'count',
+                },
+                owner: {
+                    name: 'username',
+                },
+            },
+            groupBy: {
+                owner: {
+                    name: 1,
+                },
+            },
+            sort: {
+                count: 2,
+            },
+            indexFrom: 0,
+            count: 10,
+        }).then(
+            (result) => {
+                console.log(JSON.stringify(result));
+                return ;
+            }
+        );
+    });
 
     after(() => {
         return uda.disconnect();

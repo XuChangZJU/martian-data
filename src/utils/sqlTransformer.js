@@ -626,14 +626,15 @@ class SQLTransformer {
                 sql += ")";
             }
         }
-        if (sqlObj.orderBy) {
-            sql += " order by ";
-            sql += sqlObj.orderBy;
-        }
 
         if (sqlObj.groupBy) {
             sql += " group by ";
             sql += sqlObj.groupBy;
+        }
+        
+        if (sqlObj.orderBy) {
+            sql += " order by ";
+            sql += sqlObj.orderBy;
         }
 
         if (indexFrom !== undefined) {
