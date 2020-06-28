@@ -122,7 +122,11 @@ function convertExecNodeToSQL(sql, node, parentName, relName, joinInfo, projecti
         else {
             sql.projection += "`" + alias + "`.`";
             sql.projection += projection + "`";
-            if (projectionPrefix) {
+            if (typeof node.projection[projection] === 'string') {
+                // 如果projection的形式是{ gender: 'sex' }， 则翻译成gender as sex
+                sql.projection += ` as ${node.projection[projection]} `;
+            }
+            else if (projectionPrefix) {
                 // sql.projection += " as '" + projectionPrefix + projection + "'"; update by wangyuef projectionPrefix 与alias 格式统一
                 sql.projection += " as '" + projectionPrefix + projection + "'";
             }
@@ -185,6 +189,21 @@ function convertExecNodeToSQL(sql, node, parentName, relName, joinInfo, projecti
             }
             sql.orderBy += node.sort[attr] > 0 ? " ASC" : " DESC";
         }
+    }
+
+    for (let attr in node.groupBy) {
+        if (sql.groupBy.length > 0) {
+            sql.groupBy += ",";
+        }
+
+        if (projectionPrefix) {
+            sql.groupBy += "`" + alias + "`.";
+        }
+        else {
+            sql.groupBy += "`" + relName + "`.";
+        }
+
+        sql.groupBy += "`" + attr + "`";
     }
 
 
@@ -557,6 +576,7 @@ class SQLTransformer {
             from: "",
             where: "",
             orderBy: "",
+            groupBy: "",
             usedNames: usedNames || {}
         };
 
@@ -609,6 +629,11 @@ class SQLTransformer {
         if (sqlObj.orderBy) {
             sql += " order by ";
             sql += sqlObj.orderBy;
+        }
+
+        if (sqlObj.groupBy) {
+            sql += " group by ";
+            sql += sqlObj.groupBy;
         }
 
         if (indexFrom !== undefined) {

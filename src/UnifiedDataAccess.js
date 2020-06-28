@@ -423,17 +423,19 @@ function formalizeProjection(schema, projection, ignoreRef, isCounting) {
  * @param sort
  * @returns {{joins: Array, projection: {}, query: {}}}
  */
-function destructSelect(name, projection, query, sort, isCounting, findDel) {
+function destructSelect(name, projection, query, sort, groupBy, isCounting, findDel) {
     let result = {
         joins: [],
         projection: {},
         query: {},
+        groupBy: {},
         sort: {}
     };
     const schema = this.schemas[name];
     projection = formalizeProjection.call(this, schema, projection, isCounting);
     query = query || {};
     sort = sort || {};
+    groupBy = groupBy || {};
 
 
     // 选取的数据要过滤掉delete的行
@@ -460,16 +462,21 @@ function destructSelect(name, projection, query, sort, isCounting, findDel) {
     for (let attr in schema.attributes) {
         const attrDef = schema.attributes[attr];
         if (attrDef.type === constants.typeReference) {
-            if (projection[attr] || query[attr] || sort[attr]) {
-                let refProjection = assign({}, projection[attr], {
+            if (projection[attr] || query[attr] || sort[attr] || groupBy[attr]) {
+                /*let refProjection = assign({}, projection[attr], {
                     [attrDef.refColumnName]: 1
-                });
+                });*/
+                /**
+                 * 为了支持groupBy，这里不能无条件加上被连接表的id，或许对其它逻辑有影响！！
+                 * by Xc 20200628
+                 */
+                const refProjection = projection[attr];
                 let join = {
                     rel: attrDef.ref,
                     attr: attr,
                     refColumnName: attrDef.refColumnName,
                     localColumnName: attrDef.localColumnName,
-                    node: destructSelect.call(this, schema.attributes[attr].ref, refProjection, query[attr], sort[attr], null, true)
+                    node: destructSelect.call(this, schema.attributes[attr].ref, refProjection, query[attr], sort[attr], groupBy[attr], null, true)
                 };
                 result.joins.push(join);
             }
@@ -483,6 +490,9 @@ function destructSelect(name, projection, query, sort, isCounting, findDel) {
             }
             if (sort.hasOwnProperty(attr)) {
                 result.sort[attr] = sort[attr];
+            }
+            if (groupBy.hasOwnProperty(attr)) {
+                result.groupBy[attr] = groupBy[attr];
             }
         }
     }
@@ -550,7 +560,7 @@ function destructSelect(name, projection, query, sort, isCounting, findDel) {
                 // exists / not exists 查询
                 result.query[i] = {
                     name: query[i].name,
-                    execTree: destructSelect.call(this, query[i].name, query[i].projection, query[i].query, null)
+                    execTree: destructSelect.call(this, query[i].name, query[i].projection, query[i].query, query[i].query, query[i].sort, query[i].groupBy),
                 };
             }
             else if (i === "$isql") {
@@ -596,14 +606,14 @@ function destructSelect(name, projection, query, sort, isCounting, findDel) {
         else if (keys(query[i])[0] === "$in" && !isArray(query[i]["$in"]) && typeof query[i]["$in"] !== "string") {
             query[i]["$in"] = {
                 name: query[i]["$in"].name,
-                execTree: destructSelect.call(this, query[i]["$in"].name, {[query[i]["$in"].projection]: 1}, query[i]["$in"].query, null)
+                execTree: destructSelect.call(this, query[i]["$in"].name, {[query[i]["$in"].projection]: 1}, query[i]["$in"].query, query[i]["$in"].sort, query[i]["$in"].groupBy)
             };
             result.query[i] = query[i];
         }
         else if (keys(query[i])[0] === "$nin" && !isArray(query[i]["$nin"]) && typeof query[i]["$nin"] !== "string") {
             query[i]["$nin"] = {
                 name: query[i]["$nin"].name,
-                execTree: destructSelect.call(this, query[i]["$nin"].name, {[query[i]["$nin"].projection]: 1}, query[i]["$nin"].query, null)
+                execTree: destructSelect.call(this, query[i]["$nin"].name, {[query[i]["$nin"].projection]: 1}, query[i]["$nin"].query, query[i]["$nin"].sort, query[i]["$nin"].groupBy),
             };
             result.query[i] = query[i];
         }
@@ -1316,6 +1326,7 @@ class DataAccess extends EventEmitter {
         const sort = paramObj.sort;
         const indexFrom = paramObj.indexFrom;
         const count = paramObj.count;
+        const groupBy = paramObj.groupBy;
         const txn = paramObj.txn;
         const forceIndex = paramObj.forceIndex;
         const useCache = paramObj.useCache;
@@ -1324,14 +1335,14 @@ class DataAccess extends EventEmitter {
         if (!name || !this.schemas[name]) {
             throw new Error("查询必须输入有效表名");
         }
-        if (indexFrom === undefined || !count) {
+        if (!groupBy && (indexFrom === undefined || !count)) {
             throw new Error("查询列表必须带indexFrom和count参数");
         }
         if (txn) {
             this.checkTransactionValid(txn);
         }
         //  若是上层是根据id查询的，下层无视deleteAt
-        let execTree = destructSelect.call(this, name, projection, query, sort, null, query && query.hasOwnProperty("id"));
+        let execTree = destructSelect.call(this, name, projection, query, sort, groupBy, null, query && query.hasOwnProperty("id"));
 
         return this.findByExecTreeDirectly(name, execTree, indexFrom, count, false, txn, forceIndex, useCache, cacheExpiredTime, forUpdate)
             .then(
@@ -1385,7 +1396,7 @@ class DataAccess extends EventEmitter {
             this.checkTransactionValid(txn);
         }
 
-        let execTree = destructSelect.call(this, name, null, query, null, true);
+        let execTree = destructSelect.call(this, name, null, query, null, null, true);
         return this.findByExecTreeDirectly(name, execTree, undefined, undefined, true, txn, forceIndex);
 
     }
@@ -1440,7 +1451,7 @@ class DataAccess extends EventEmitter {
         query[pKeyColumn] = id;
 
         //  若是上层是根据id查询的，下层无视deleteAt
-        let execTree = destructSelect.call(this, name, projection, query, null, null, true);
+        let execTree = destructSelect.call(this, name, projection, query, null, null, null, true);
         return this.findByExecTreeDirectly(name, execTree, 0, 1, null, txn, null, useCache, cacheExpiredTime, forUpdate)
             .then(
                 (result) => {

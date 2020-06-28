@@ -1636,12 +1636,107 @@ describe("test select with null in mysql 1", function () {
                     }
                 );
         });
-
     });
-
 
     after((done) => {
         uda.disconnect()
             .then(done);
+    });
+});
+
+describe('test groupBy', function() {
+    const houses = JSON.parse(JSON.stringify(g_houses));
+    const users = JSON.parse(JSON.stringify(g_users));
+    const houseInfos = JSON.parse(JSON.stringify(g_houseInfos));
+    this.timeout(8000);
+
+    before(() => {
+        return uda.connect(dataSource)
+            .then(
+                (result) => {
+                    let _schema4 = JSON.parse(JSON.stringify(schema4));
+                    return uda.setSchemas(_schema4)
+                        .then(
+                            () => {
+                                return initData(uda, users, houses, houseInfos);
+                            }
+                        );
+                }
+            ).then(
+                () => Promise.resolve()
+            );
+    });
+
+    /**
+     *
+     * select max(floor), id from houseInfo group by id;
+     */
+    it('[ts4.1]simple groupBy', () => {
+        return uda.find({
+            name: 'houseInfo',
+            projection: {
+                id: 1,
+                $fnCall: {
+                    $format: 'MAX(%s)',
+                    $arguments: ['floor'],
+                    $as: 'maxFloor',
+                },
+            },
+            groupBy: {
+                id: 1,
+            }
+        }).then(
+            (result) => {
+                console.log(JSON.stringify(result));
+                return ;
+            }
+        );
+    });
+
+    /**
+     *
+     * select avg(c.price), count(c.price), o.name as username from contract c, user o where c.ownerId = o.id and o.age > 18;
+     */
+    it('[ts4.2]complicated groupBy', () => {
+        return uda.find({
+            name: 'contract',
+            projection: {
+                $fnCall: {
+                    $format: 'AVG(%s)',
+                    $arguments: ['price'],
+                    $as: 'avg',
+                },
+                $fnCall2: {
+                    $format: 'COUNT(%s)',
+                    $arguments: ['price'],
+                    $as: 'count',
+                },
+                owner: {
+                    name: 'username',
+                },
+            },
+            groupBy: {
+                owner: {
+                    name: 1,
+                },
+            },
+            query: {
+                owner: {
+                    age: {
+                        $gt: 8,
+                    },
+                },
+            },
+        }).then(
+            (result) => {
+                console.log(JSON.stringify(result));
+                return ;
+            }
+        );
+    });
+
+
+    after(() => {
+        return uda.disconnect();
     });
 });
