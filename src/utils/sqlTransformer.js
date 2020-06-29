@@ -124,7 +124,7 @@ function convertExecNodeToSQL(sql, node, parentName, relName, joinInfo, projecti
             sql.projection += projection + "`";
             if (typeof node.projection[projection] === 'string') {
                 // 如果projection的形式是{ gender: 'sex' }， 则翻译成gender as sex
-                sql.projection += ` as ${node.projection[projection]} `;
+                sql.projection += ` as '${node.projection[projection]}' `;
             }
             else if (projectionPrefix) {
                 // sql.projection += " as '" + projectionPrefix + projection + "'"; update by wangyuef projectionPrefix 与alias 格式统一
