@@ -560,7 +560,7 @@ function destructSelect(name, projection, query, sort, groupBy, isCounting, find
                 // exists / not exists 查询
                 result.query[i] = {
                     name: query[i].name,
-                    execTree: destructSelect.call(this, query[i].name, query[i].projection, query[i].query, query[i].query, query[i].sort, query[i].groupBy),
+                    execTree: destructSelect.call(this, query[i].name, query[i].projection, query[i].query, query[i].sort, query[i].groupBy),
                 };
             }
             else if (i === "$isql") {
