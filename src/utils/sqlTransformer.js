@@ -631,7 +631,7 @@ class SQLTransformer {
             sql += " group by ";
             sql += sqlObj.groupBy;
         }
-        
+
         if (sqlObj.orderBy) {
             sql += " order by ";
             sql += sqlObj.orderBy;
