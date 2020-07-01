@@ -196,11 +196,17 @@ function convertExecNodeToSQL(sql, node, parentName, relName, joinInfo, projecti
             sql.groupBy += ",";
         }
 
-        if (projectionPrefix) {
-            sql.groupBy += "`" + alias + "`.";
-        }
-        else {
-            sql.groupBy += "`" + relName + "`.";
+        if (typeof node.groupBy[attr] === 'number') {
+            /**
+             * 如果是数字（1），代表这是对象的键值，否则是as出来的属性，不能加relName
+             * by Xc 20200701
+             */
+            if (projectionPrefix) {
+                sql.groupBy += "`" + alias + "`.";
+            }
+            else {
+                sql.groupBy += "`" + relName + "`.";
+            }
         }
 
         sql.groupBy += "`" + attr + "`";

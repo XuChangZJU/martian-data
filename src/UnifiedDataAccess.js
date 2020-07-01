@@ -515,7 +515,7 @@ function destructSelect(name, projection, query, sort, groupBy, isCounting, find
     for (let attr in groupBy) {
         if (!result.groupBy.hasOwnProperty(attr)) {
             if (typeof groupBy[attr] === "number") {
-                result.groupBy[attr] = groupBy[attr];
+                result.groupBy[attr] = 'fnCall';        // 代表这个不是对象的属性，是函数as出来的
             }
         }
     }
