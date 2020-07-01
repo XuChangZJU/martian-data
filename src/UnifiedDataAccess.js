@@ -512,6 +512,14 @@ function destructSelect(name, projection, query, sort, groupBy, isCounting, find
         }
     }
 
+    for (let attr in groupBy) {
+        if (!result.groupBy.hasOwnProperty(attr)) {
+            if (typeof groupBy[attr] === "number") {
+                result.groupBy[attr] = groupBy[attr];
+            }
+        }
+    }
+
     function checkQueryIsNoRef(query, attributes) {
         let noRef = true;
         for (let i in query) {
