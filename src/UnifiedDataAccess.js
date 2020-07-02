@@ -1343,8 +1343,19 @@ class DataAccess extends EventEmitter {
         if (!name || !this.schemas[name]) {
             throw new Error("查询必须输入有效表名");
         }
-        if (!groupBy && (indexFrom === undefined || !count)) {
-            throw new Error("查询列表必须带indexFrom和count参数");
+        if (indexFrom === undefined || !count) {
+            // 没有限制行数，只能进行统计查询
+            if (!groupBy) {
+                assert(projection);
+                keys(projection).forEach(
+                    ele => {
+                        assert(ele.toLowerCase().startsWith('$fncall'));
+                        const fnName = projection[ele].$format.toLowerCase();
+                        assert(fnName.startsWith('count') || fnName.startsWith('max')
+                            || fnName.startsWith('min') || fnName.startsWith('sum') || fnName.startsWith('avg') );
+                    }
+                );
+            }
         }
         if (txn) {
             this.checkTransactionValid(txn);
