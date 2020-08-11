@@ -395,13 +395,13 @@ function formalizeQueryValue(value) {
     return value;
 }
 
-function formalizeProjection(schema, projection, ignoreRef, isCounting) {
-    if (projection && typeof projection === "object") {
-        return projection;
+function formalizeProjection(schema, projection, ignoreRef, noExpanding) {
+    if (projection && typeof projection === "object" || noExpanding) {
+        return projection || {};
     }
     let proj2 = {};
     for (let i in schema.attributes) {
-        if (schema.attributes[i].type === constants.typeReference && !isCounting) {
+        if (schema.attributes[i].type === constants.typeReference) {
             // 这里如果去将自己的ref全取出来，在自己ref自己的情况下会造成无限递归
             // 更新，这里上层需求取一层出来
             if (!ignoreRef) {
@@ -423,7 +423,7 @@ function formalizeProjection(schema, projection, ignoreRef, isCounting) {
  * @param sort
  * @returns {{joins: Array, projection: {}, query: {}}}
  */
-function destructSelect(name, projection, query, sort, groupBy, isCounting, findDel) {
+function destructSelect(name, projection, query, sort, groupBy, noExpanding, findDel) {
     let result = {
         joins: [],
         projection: {},
@@ -432,7 +432,7 @@ function destructSelect(name, projection, query, sort, groupBy, isCounting, find
         sort: {}
     };
     const schema = this.schemas[name];
-    projection = formalizeProjection.call(this, schema, projection, isCounting);
+    projection = formalizeProjection.call(this, schema, projection, false, noExpanding);
     query = query || {};
     sort = sort || {};
     groupBy = groupBy || {};
@@ -476,7 +476,7 @@ function destructSelect(name, projection, query, sort, groupBy, isCounting, find
                     attr: attr,
                     refColumnName: attrDef.refColumnName,
                     localColumnName: attrDef.localColumnName,
-                    node: destructSelect.call(this, schema.attributes[attr].ref, refProjection, query[attr], sort[attr], groupBy[attr], null, true)
+                    node: destructSelect.call(this, schema.attributes[attr].ref, refProjection, query[attr], sort[attr], groupBy[attr], noExpanding, true)
                 };
                 result.joins.push(join);
             }
@@ -614,14 +614,14 @@ function destructSelect(name, projection, query, sort, groupBy, isCounting, find
         else if (keys(query[i])[0] === "$in" && !isArray(query[i]["$in"]) && typeof query[i]["$in"] !== "string") {
             query[i]["$in"] = {
                 name: query[i]["$in"].name,
-                execTree: destructSelect.call(this, query[i]["$in"].name, {[query[i]["$in"].projection]: 1}, query[i]["$in"].query, query[i]["$in"].sort, query[i]["$in"].groupBy)
+                execTree: destructSelect.call(this, query[i]["$in"].name, {[query[i]["$in"].projection]: 1}, query[i]["$in"].query, query[i]["$in"].sort, query[i]["$in"].groupBy, noExpanding)
             };
             result.query[i] = query[i];
         }
         else if (keys(query[i])[0] === "$nin" && !isArray(query[i]["$nin"]) && typeof query[i]["$nin"] !== "string") {
             query[i]["$nin"] = {
                 name: query[i]["$nin"].name,
-                execTree: destructSelect.call(this, query[i]["$nin"].name, {[query[i]["$nin"].projection]: 1}, query[i]["$nin"].query, query[i]["$nin"].sort, query[i]["$nin"].groupBy),
+                execTree: destructSelect.call(this, query[i]["$nin"].name, {[query[i]["$nin"].projection]: 1}, query[i]["$nin"].query, query[i]["$nin"].sort, query[i]["$nin"].groupBy, noExpanding),
             };
             result.query[i] = query[i];
         }
@@ -1361,7 +1361,7 @@ class DataAccess extends EventEmitter {
             this.checkTransactionValid(txn);
         }
         //  若是上层是根据id查询的，下层无视deleteAt
-        let execTree = destructSelect.call(this, name, projection, query, sort, groupBy, null, query && query.hasOwnProperty("id"));
+        let execTree = destructSelect.call(this, name, projection, query, sort, groupBy, !!groupBy, query && query.hasOwnProperty("id"));
 
         return this.findByExecTreeDirectly(name, execTree, indexFrom, count, false, txn, forceIndex, useCache, cacheExpiredTime, forUpdate)
             .then(
