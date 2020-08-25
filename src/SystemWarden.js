@@ -777,9 +777,6 @@ class SystemWarden {
                 // }
                 volatileTriggers.forEach(
                     (volatileTrigger) => {
-                        if (!entity2[volatileTrigger.dtLocalAttr]) {
-                            throw new Error(`跨源事务，必须传入${volatileTrigger.dtLocalAttr}字段`);
-                        }
                         if (volatileTrigger.dtLocalAttr) {
                             if (!entity2[volatileTrigger.dtLocalAttr]) {
                                 entity2[volatileTrigger.dtLocalAttr] = [];
