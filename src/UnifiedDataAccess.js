@@ -1081,7 +1081,12 @@ function getRidOfResult(result, projection, name) {
                 {
                     // 如果一个对象为空，则删除掉这个对象。这里注意当取一个对象时，其外面和内部的id至少要取其一
                     // by Xc 20181230
-                    if (result[attr].id || result[`${attr}Id`]) {
+                    // if (result[attr].id || result[`${attr}Id`]) {
+                        // getRidOfResult.call(this, result[attr], projection[attr], schema.attributes[attr].ref);
+                    //}
+                    // 修改，有统计查询不一定会返回id，调用者要正确处理
+                    // by Xc 20201022
+                    if (keys(result[attr]).length > 0) {
                         getRidOfResult.call(this, result[attr], projection[attr], schema.attributes[attr].ref);
                     }
                     else {
