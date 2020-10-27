@@ -20,6 +20,8 @@ const MtStorage = require("../utils/mtStorage");
 function convertTypeDefToDbFormat(typeDef) {
     if (typeof typeDef === "object") {
         switch (typeDef.type) {
+            case 'longText':
+            case 'mediumText':
             case "text":
                 return typeDef.type;
             case "string":
@@ -211,6 +213,8 @@ function convertValueToDbFormat(value, type) {
     switch (type) {
         case "string":
         case "text":
+        case "longText":
+        case "mediumText":
         case "enum":
         case "file":
         case "image":
