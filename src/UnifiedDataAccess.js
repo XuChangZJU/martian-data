@@ -1086,11 +1086,8 @@ function getRidOfResult(result, projection, name) {
                     //}
                     // 修改，有统计查询不一定会返回id，调用者要正确处理
                     // by Xc 20201022
-                    if (keys(result[attr]).filter(ele => result[attr][ele] !== null).length > 0) {
+                    if (result[attr]) {
                         getRidOfResult.call(this, result[attr], projection[attr], schema.attributes[attr].ref);
-                    }
-                    else {
-                        delete result[attr];
                     }
                     break;
                 }

@@ -174,7 +174,7 @@ function checkResult1(result) {
 
 describe("test select with joins in mysql 1", function () {
 
-    this.timeout(5000);
+    this.timeout(10000);
     const houses = JSON.parse(JSON.stringify(g_houses));
     const users = JSON.parse(JSON.stringify(g_users));
     const houseInfos = JSON.parse(JSON.stringify(g_houseInfos));
@@ -437,7 +437,9 @@ describe("test select with joins in mysql 1", function () {
             id: 1,
             buildAt: 1,
             status: 1,
+            contractId: 1,
             contract: {
+                ownerId: 1,
                 owner: {
                     name: 1
                 },
@@ -460,6 +462,7 @@ describe("test select with joins in mysql 1", function () {
             })
             .then(
                 (result) => {
+                    console.log(JSON.stringify(result));
                     expect(result).to.be.an("array");
                     expect(result).to.have.length(0);
                     done();
@@ -1209,7 +1212,7 @@ describe("test select with null in mysql 1", function () {
     const houseInfos = JSON.parse(JSON.stringify(g_houseInfos));
 
 
-    this.timeout(5000);
+    this.timeout(10000);
 
     before((done) => {
         uda.connect(dataSource)
@@ -1302,7 +1305,7 @@ describe("test select with null in mysql 1", function () {
             })
             .then(
                 (result) => {
-                    console.log(result);
+                    console.log(JSON.stringify(result));
                     expect(result).to.be.an("array");
                     expect(result).to.have.length(1);
                     checkResult1(result[0]);
@@ -1779,3 +1782,55 @@ describe('test groupBy', function() {
         return uda.disconnect();
     });
 });
+
+describe('test left join empty', function() {
+
+    const houses = JSON.parse(JSON.stringify(g_houses));
+    const users = JSON.parse(JSON.stringify(g_users));
+    const houseInfos = JSON.parse(JSON.stringify(g_houseInfos));
+    this.timeout(8000);
+
+    before(() => {
+        return uda.connect(dataSource)
+            .then(
+                (result) => {
+                    let _schema3 = JSON.parse(JSON.stringify(schema3));
+                    return uda.setSchemas(_schema3)
+                        .then(
+                            () => {
+                                const house = {
+                                    buildAt: new Date('1990-01-01'),
+                                    status: 'offline',
+                                };
+
+                                return uda.remove({
+                                    name: 'house',
+                                }).then(
+                                    () => uda.insert({
+                                        name: 'house',
+                                        data: house
+                                    })
+                                );
+                            }
+                        );
+                }
+            ).then(
+                () => Promise.resolve()
+            );
+    });
+
+    it('[ts5.1] join empty', () => {
+        return uda.find({
+            name: 'house',
+            indexFrom: 0,
+            count: 1,
+        }).then(
+            (result) => {
+                console.log(JSON.stringify(result));
+
+                return Promise.resolve();
+            }
+        );
+    })
+
+})

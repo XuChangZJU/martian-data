@@ -22,6 +22,25 @@ function resolveAttribute(result, attr, value) {
 }
 
 
+function formalizeNullObject(result) {
+    let allowFormalize = true;
+    for (let attr in result) {
+        if (typeof result[attr] === 'object'){
+            if(formalizeNullObject(result[attr])) {
+                result[attr] = null;
+            }
+            else {
+                allowFormalize = false;
+            }
+        }
+        else if (result[attr] !== null) {
+            allowFormalize = false;
+        }
+    }
+
+    return allowFormalize;
+}
+
 
 function transformResultObject(result) {
     let result2 = {};
@@ -30,6 +49,7 @@ function transformResultObject(result) {
         resolveAttribute(result2, attr, value);
     }
 
+    formalizeNullObject(result2);
     return result2;
 }
 
