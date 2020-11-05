@@ -476,7 +476,7 @@ function destructSelect(name, projection, query, sort, groupBy, noExpanding, fin
                     attr: attr,
                     refColumnName: attrDef.refColumnName,
                     localColumnName: attrDef.localColumnName,
-                    node: destructSelect.call(this, schema.attributes[attr].ref, refProjection, query[attr], sort[attr], groupBy[attr], noExpanding)
+                    node: destructSelect.call(this, schema.attributes[attr].ref, refProjection, query[attr], sort[attr], groupBy[attr], noExpanding, findDel)
                 };
                 result.joins.push(join);
             }
@@ -568,7 +568,7 @@ function destructSelect(name, projection, query, sort, groupBy, noExpanding, fin
                 // exists / not exists 查询
                 result.query[i] = {
                     name: query[i].name,
-                    execTree: destructSelect.call(this, query[i].name, query[i].projection, query[i].query, query[i].sort, query[i].groupBy),
+                    execTree: destructSelect.call(this, query[i].name, query[i].projection, query[i].query, query[i].sort, query[i].groupBy, findDel),
                 };
             }
             else if (i === "$isql") {
@@ -614,14 +614,14 @@ function destructSelect(name, projection, query, sort, groupBy, noExpanding, fin
         else if (keys(query[i])[0] === "$in" && !isArray(query[i]["$in"]) && typeof query[i]["$in"] !== "string") {
             query[i]["$in"] = {
                 name: query[i]["$in"].name,
-                execTree: destructSelect.call(this, query[i]["$in"].name, {[query[i]["$in"].projection]: 1}, query[i]["$in"].query, query[i]["$in"].sort, query[i]["$in"].groupBy, true)
+                execTree: destructSelect.call(this, query[i]["$in"].name, {[query[i]["$in"].projection]: 1}, query[i]["$in"].query, query[i]["$in"].sort, query[i]["$in"].groupBy, findDel)
             };
             result.query[i] = query[i];
         }
         else if (keys(query[i])[0] === "$nin" && !isArray(query[i]["$nin"]) && typeof query[i]["$nin"] !== "string") {
             query[i]["$nin"] = {
                 name: query[i]["$nin"].name,
-                execTree: destructSelect.call(this, query[i]["$nin"].name, {[query[i]["$nin"].projection]: 1}, query[i]["$nin"].query, query[i]["$nin"].sort, query[i]["$nin"].groupBy, true),
+                execTree: destructSelect.call(this, query[i]["$nin"].name, {[query[i]["$nin"].projection]: 1}, query[i]["$nin"].query, query[i]["$nin"].sort, query[i]["$nin"].groupBy, findDel),
             };
             result.query[i] = query[i];
         }
