@@ -442,7 +442,7 @@ function destructSelect(name, projection, query, sort, groupBy, noExpanding, fin
     const settings = this.dataSources[schema.source].settings;
     //  增加新需求，根据id的查询，无视deleteAt
     if (!findDel) {
-        if (((!settings || !settings.disableDeleteAt) && !query.hasOwnProperty("id"))) {
+        if (((!settings || !settings.disableDeleteAt) /*&& !query.hasOwnProperty("id")*/)) {
             if (!query[constants.deleteAtColumn]) {
                 query[constants.deleteAtColumn] = {
                     $exists: false
@@ -476,7 +476,7 @@ function destructSelect(name, projection, query, sort, groupBy, noExpanding, fin
                     attr: attr,
                     refColumnName: attrDef.refColumnName,
                     localColumnName: attrDef.localColumnName,
-                    node: destructSelect.call(this, schema.attributes[attr].ref, refProjection, query[attr], sort[attr], groupBy[attr], noExpanding, true)
+                    node: destructSelect.call(this, schema.attributes[attr].ref, refProjection, query[attr], sort[attr], groupBy[attr], noExpanding)
                 };
                 result.joins.push(join);
             }
@@ -614,14 +614,14 @@ function destructSelect(name, projection, query, sort, groupBy, noExpanding, fin
         else if (keys(query[i])[0] === "$in" && !isArray(query[i]["$in"]) && typeof query[i]["$in"] !== "string") {
             query[i]["$in"] = {
                 name: query[i]["$in"].name,
-                execTree: destructSelect.call(this, query[i]["$in"].name, {[query[i]["$in"].projection]: 1}, query[i]["$in"].query, query[i]["$in"].sort, query[i]["$in"].groupBy, noExpanding)
+                execTree: destructSelect.call(this, query[i]["$in"].name, {[query[i]["$in"].projection]: 1}, query[i]["$in"].query, query[i]["$in"].sort, query[i]["$in"].groupBy, true)
             };
             result.query[i] = query[i];
         }
         else if (keys(query[i])[0] === "$nin" && !isArray(query[i]["$nin"]) && typeof query[i]["$nin"] !== "string") {
             query[i]["$nin"] = {
                 name: query[i]["$nin"].name,
-                execTree: destructSelect.call(this, query[i]["$nin"].name, {[query[i]["$nin"].projection]: 1}, query[i]["$nin"].query, query[i]["$nin"].sort, query[i]["$nin"].groupBy, noExpanding),
+                execTree: destructSelect.call(this, query[i]["$nin"].name, {[query[i]["$nin"].projection]: 1}, query[i]["$nin"].query, query[i]["$nin"].sort, query[i]["$nin"].groupBy, true),
             };
             result.query[i] = query[i];
         }
@@ -1363,7 +1363,7 @@ class DataAccess extends EventEmitter {
             this.checkTransactionValid(txn);
         }
         //  若是上层是根据id查询的，下层无视deleteAt
-        let execTree = destructSelect.call(this, name, projection, query, sort, groupBy, !!groupBy, query && query.hasOwnProperty("id"));
+        let execTree = destructSelect.call(this, name, projection, query, sort, groupBy, !!groupBy/*, query && query.hasOwnProperty("id")*/);
 
         return this.findByExecTreeDirectly(name, execTree, indexFrom, count, false, txn, forceIndex, useCache, cacheExpiredTime, forUpdate)
             .then(
@@ -1500,6 +1500,7 @@ class DataAccess extends EventEmitter {
     }
 
     findById2(name, projection, id, txn) {
+        throw new Error('本方法已弃用');
         if (!name || !this.schemas[name]) {
             throw new Error("查询必须输入有效表名");
         }

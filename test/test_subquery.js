@@ -1002,6 +1002,12 @@ describe("test subquery", function () {
                                                 id: {
                                                     $gte: 0
                                                 },
+                                                // 加上这个可以测query中有连接子树，但结果就是0行了。by Xc 20201105
+                                                /*owner: {
+                                                    name: {
+                                                        $exists: true,
+                                                    },
+                                                },*/
                                                 "_deleteAt_": {
                                                     $exists: false
                                                 }
@@ -1009,7 +1015,7 @@ describe("test subquery", function () {
                                         }
                                     },
                                     "_deleteAt_": {
-                                        $exists: false
+                                        $exists: false,     // 用id作为query的条件，则不会过滤deleteAt的行
                                     }
                                 },
                                 indexFrom: 0,
