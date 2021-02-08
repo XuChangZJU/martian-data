@@ -99,7 +99,7 @@ function PromisesWithSerial(promises) {
         );
 }
 
-function doTrigger(trigger, entity, txn, preEntity) {
+function doTrigger(trigger, entity, txn, preEntity, context) {
     //  因为现在一条数据由txnUuid一个任务队列完成，需要定位到触发器对应的txn
     let dtr = entity[trigger.dtLocalAttr] && entity[trigger.dtLocalAttr].find((ele)=>ele.endsWith(trigger.id));
     if (trigger.create) {
@@ -115,7 +115,7 @@ function doTrigger(trigger, entity, txn, preEntity) {
             }).then(
                 (result) => {
                     if (!result || result.length === 0) {
-                        return trigger.create(entity, txn, preEntity);
+                        return trigger.create(entity, txn, preEntity, context);
                     }
                     //  todo    这里存在问题，local的一个txnId对应于远端的一个operation。而不是一个entity。这里可能会有多个。暂且先返回第一个，代码中规避
                     // assert(result.length === 1);
@@ -123,7 +123,7 @@ function doTrigger(trigger, entity, txn, preEntity) {
                 }
             );
         }
-        return trigger.create(entity, txn, preEntity);
+        return trigger.create(entity, txn, preEntity, context);
     }
     else if (trigger.update || trigger.remove) {
         const fn = trigger.update || trigger.remove;
@@ -144,7 +144,7 @@ function doTrigger(trigger, entity, txn, preEntity) {
                         promise = Promise.resolve(0);
                     }
                     else if (trigger.hasOwnProperty('inGroup') && trigger.inGroup === true) {
-                        promise = fn(entity, list, txn, preEntity);
+                        promise = fn(entity, list, txn, preEntity, context);
                     }
                     else {
                         /**
@@ -157,7 +157,7 @@ function doTrigger(trigger, entity, txn, preEntity) {
                             if (indexFrom2 === list.length) {
                                 return Promise.resolve(count);
                             }
-                            return fn(entity, list[indexFrom2], txn, preEntity)
+                            return fn(entity, list[indexFrom2], txn, preEntity, context)
                                 .then(
                                     (count2) => {
                                         count += count2;
@@ -269,13 +269,13 @@ function doVolatileLogic(trigger, entity, preEntity) {
         );
 }
 
-function execTrigger(trigger, entity, txn, preEntity) {
+function execTrigger(trigger, entity, txn, preEntity, context) {
     if (trigger.volatile) {
         const onTxnCommitted = (txn2) => {
             if (txn2 === txn) {
                 this.uda.removeListener('txnCommitted', onTxnCommitted);
 
-                return doVolatileLogic.call(this, trigger, entity, preEntity);
+                return doVolatileLogic.call(this, trigger, entity, preEntity, context);
             }
         };
 
@@ -283,7 +283,7 @@ function execTrigger(trigger, entity, txn, preEntity) {
         return Promise.resolve(0);
     }
     else {
-        return doTrigger.call(this, trigger, entity, txn, preEntity)
+        return doTrigger.call(this, trigger, entity, txn, preEntity, context)
     }
 }
 
@@ -429,6 +429,7 @@ class SystemWarden {
         this.itMap = new Map();     // insert triggers
         this.utMap = new Map();     // update triggers
         this.rtMap = new Map();     // remove triggers
+        this.gtMap = new Map();     // get triggers
         // this.execPool = new Map();     // 运行池
         this.volatileArray = [];    // volatile triggers
         this.wtArray = [];          // watchers
@@ -513,6 +514,17 @@ class SystemWarden {
                 }
                 break;
             }
+            case 'get': 
+            {
+                const entityTriggers = this.gtMap.get(trigger.entity);
+                if (entityTriggers) {
+                    entityTriggers.push(trigger);
+                }
+                else {
+                    this.gtMap.set(trigger.entity, [trigger]);
+                }
+                break;
+            }
             default:
                 throw new Error('trigger的action属性必须是insert/update/delete之一');
         }
@@ -547,20 +559,75 @@ class SystemWarden {
     }
 
     /**
+     * find带触发器
+     * @param {*}} name 
+     * @param {*} options 
+     * @param {*} txn 
+     * @param {*} context 
+     */
+    async getEntity(name, options, txn, context) {
+        const entities = await this.uda.find({
+            name,
+            ...options,
+            txn,
+        });
+
+        const triggers = this.gtMap.get(name);
+        for (let entity in entities) {
+            const validTriggers = triggers.filter(
+                ele => (!ele.valueCheck || ele.valueCheck(entity))
+            );
+    
+            for (let trigger in triggers) {
+                await execTrigger.call(this, trigger, entity, txn, null, context);
+            }
+        }
+        return entities;
+    }
+
+    /**
+     * findById带触发器
+     * @param {*} name 
+     * @param {*} projection 
+     * @param {*} id 
+     * @param {*} txn 
+     * @param {*} context 
+     */
+    async getEntityByIds(name, projection, id, txn, context) {
+        const entity = await this.uda.findById({
+            name,
+            projection,
+            id,
+            txn,
+        });
+
+        const triggers = this.gtMap.get(name);
+        const validTriggers = triggers.filter(
+            ele => (!ele.valueCheck || ele.valueCheck(entity))
+        );
+
+        for (let trigger in triggers) {
+            await execTrigger.call(this, trigger, enttiy, txn, null, context);
+        }
+
+        return entity;
+    }
+
+    /**
      * 插入一个对象
      * @param name
-     * @param entity
+     * @param data
      * @param txn
      * @returns {*}
      */
-    insertEntity(name, entity, txn) {
+    insertEntity(name, data, txn, context) {
         assert(txn);
         const me = this;
         const allTriggers = this.itMap.get(name) && this.itMap.get(name).filter(
-                (ele) => (!ele.valueCheck || ele.valueCheck(entity))
+                (ele) => (!ele.valueCheck || ele.valueCheck(data))
             );
 
-        let entity2 = assign({}, entity);
+        let entity2 = assign({}, data);
         const beforeTriggers = allTriggers && allTriggers.filter(
                 ele => ele.beforeAction
             );
@@ -594,7 +661,7 @@ class SystemWarden {
                     ele => ({
                         fn: execTrigger,
                         me,
-                        params: [ele, data, txn],
+                        params: [ele, data, txn, context],
                     })
                 );
 
@@ -714,7 +781,7 @@ class SystemWarden {
                         ele => ({
                             fn: execTrigger,
                             me,
-                            params: [ele, dataOrEntity, txn, preEntity],
+                            params: [ele, dataOrEntity, txn, preEntity, context],
                         })
                     );
                 return PromisesWithSerial(promises);
@@ -804,7 +871,7 @@ class SystemWarden {
                                     // console.log(`触发器【${ele.name}】开始`);
                                     funMethod.fn = execTrigger;
                                     funMethod.me = me;
-                                    funMethod.params = [ele, assign({}, entity2), txn];
+                                    funMethod.params = [ele, assign({}, entity2), txn, context];
                                     promises.push(
                                         funMethod
                                     );

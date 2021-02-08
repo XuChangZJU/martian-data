@@ -6,7 +6,13 @@
 const dataSources = {
     mysql : {
         type: "mysql",
-        url: "mysql://root@localhost:3306/testorm",
+        url: {
+            host: 'localhost',
+            user: 'root',
+            database: 'testOrm',
+            charset: 'utf8mb4_general_ci',
+            connectionLimit: 30,
+        },
         settings: {
             "connection.pool": true,
             disableUpdateAt: false,
@@ -16,7 +22,7 @@ const dataSources = {
     },
     mysql2 : {
         type: "mysql",
-        url: "mysql://root@localhost:3306/testorm2",
+        url: "mysql://root@localhost:3306/testOrm2",
         settings: {
             disableUpdateAt: false,
             disableCreateAt: false,

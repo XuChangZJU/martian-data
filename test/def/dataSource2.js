@@ -8,7 +8,7 @@ const dataSources = {
         type: "mysql",
         url: {
             host: "localhost",
-            database: 'testorm',
+            database: 'testOrm',
             user: 'root',
             connectionLimit: 20,
         },
