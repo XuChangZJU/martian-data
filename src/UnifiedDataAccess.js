@@ -1500,7 +1500,7 @@ class DataAccess extends EventEmitter {
                 const projection2 = formalizeProjection.call(this, schema, projection);
                 const cached = txn.cache.load(name, projection2, id);
                 if (cached) {
-                    return cached;
+                    return Promise.resolve(cached);
                 }
             }
         }
