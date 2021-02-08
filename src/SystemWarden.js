@@ -691,7 +691,7 @@ class SystemWarden {
      * @param txn
      * @returns {*}
      */
-    updateEntity(name, data, entityOrId, txn) {
+    updateEntity(name, data, entityOrId, txn, context) {
         assert(txn);
         const me = this;
         const entityMap = this.utMap.get(name);
@@ -822,7 +822,7 @@ class SystemWarden {
             );
     }
 
-    removeEntity(name, id, entity, txn) {
+    removeEntity(name, id, entity, txn, context) {
         assert(txn);
         const me = this;
         const entityMap = this.rtMap.get(name);
