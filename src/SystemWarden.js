@@ -574,12 +574,14 @@ class SystemWarden {
 
         const triggers = this.gtMap.get(name);
         for (let entity in entities) {
-            const validTriggers = triggers.filter(
+            const validTriggers = triggers && triggers.filter(
                 ele => (!ele.valueCheck || ele.valueCheck(entity))
             );
     
-            for (let trigger in triggers) {
-                await execTrigger.call(this, trigger, entity, txn, null, context);
+            if (validTriggers) {
+                for (let trigger in validTriggers) {
+                    await execTrigger.call(this, trigger, entity, txn, null, context);
+                }
             }
         }
         return entities;
@@ -602,12 +604,14 @@ class SystemWarden {
         });
 
         const triggers = this.gtMap.get(name);
-        const validTriggers = triggers.filter(
+        const validTriggers = triggers && triggers.filter(
             ele => (!ele.valueCheck || ele.valueCheck(entity))
         );
 
-        for (let trigger in triggers) {
-            await execTrigger.call(this, trigger, enttiy, txn, null, context);
+        if (validTriggers) {
+            for (let trigger in validTriggers) {
+                await execTrigger.call(this, trigger, enttiy, txn, null, context);
+            }
         }
 
         return entity;
