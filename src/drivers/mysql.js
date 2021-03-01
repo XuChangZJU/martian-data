@@ -16,7 +16,6 @@ const resultTransformer = require("./../utils/resultTransformer");
 const _DEBUG_SQL = process.env.DEBUG;
 
 const MtStorage = require("../utils/mtStorage");
-const TxnCache = require('../utils/txnCache');
 
 function convertTypeDefToDbFormat(typeDef) {
     if (typeof typeDef === "object") {

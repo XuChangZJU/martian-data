@@ -207,9 +207,12 @@ function convertExecNodeToSQL(sql, node, parentName, relName, joinInfo, projecti
             else {
                 sql.groupBy += "`" + relName + "`.";
             }
+            sql.groupBy += "`" + attr + "`";
+        }
+        else {
+            sql.groupBy += "`" + node.groupBy[attr] + "`";
         }
 
-        sql.groupBy += "`" + attr + "`";
     }
 
 
