@@ -841,7 +841,7 @@ class SystemWarden {
             const beforeTriggers = removeTriggers && removeTriggers.filter(
                     ele => ele.beforeAction
                 );
-            const afterTriggers = updateTriggers && updateTriggers.filter(
+            const afterTriggers = removeTriggers && removeTriggers.filter(
                     ele => !ele.beforeAction
                 );
             const volatileTriggers = afterTriggers && afterTriggers.filter(
