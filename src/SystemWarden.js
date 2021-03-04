@@ -461,6 +461,7 @@ class SystemWarden {
                remove: (entity, triggerEntity, txn) => {},
                dtLocalAttr: 'orderTxnUuid',
                dtRemoteAttr: 'txnUuid',
+               beforeAction: true,                      // 操作前触发
                volatile: true,                         // 这个域可以不填写，warden根据TxnSource来决定是否同源，但如果标识为non-volatile，则必须要同源！
                triggerEntity: 'order',
                triggerWhere: (entity) => {},            // update only
@@ -468,6 +469,7 @@ class SystemWarden {
            }
      */
     registerTrigger(trigger) {
+        assert(!trigger.volatile && !trigger.beforeAction); // 一个trigger不可能同时是volatile和beforeAction
         switch (trigger.action) {
             case 'insert':
             {
@@ -765,10 +767,15 @@ class SystemWarden {
 
         const deleteInner = (entity2) => {
             const removeTriggers = allTriggers;
-            const volatileTriggers = allTriggers && allTriggers.filter(
+            const beforeTriggers = removeTriggers && removeTriggers.filter(
+                    ele => ele.beforeAction
+                );
+            const afterTriggers = updateTriggers && updateTriggers.filter(
+                    ele => !ele.beforeAction
+                );
+            const volatileTriggers = afterTriggers && afterTriggers.filter(
                     (ele) => ele.volatile
                 );
-
             if (volatileTriggers && volatileTriggers.length > 0) {
                 // const triggersBySameDtr = values(groupBy(volatileTriggers.filter((ele)=>ele.dtLocalAttr), (ele)=>ele.dtLocalAttr));
                 // if (triggersBySameDtr.some((triggersGourpByDtr)=>triggersGourpByDtr.length >= 2)) {
@@ -791,7 +798,30 @@ class SystemWarden {
                 );
             }
 
-            return this.uda.removeOneById({
+            const execRemoveTriggers = (triggers, entity) => {
+                const promises = triggers && triggers.map(
+                        ele => ({
+                            fn: execTrigger,
+                            me,
+                            params: [ele, assign({}, entity2), txn],
+                        })
+                    );
+                return PromisesWithSerial(promises);
+            };
+
+
+            return execRemoveTriggers(beforeTriggers, entity2)
+                .then(
+                    () => this.uda.removeOneById({
+                        name: name, id: entity2.id, txn
+                    })
+                ),then(
+                (deleted) => execRemoveTriggers(afterTriggers, entity2)
+                    .then(
+                        () => deleted
+                    )
+            );
+           /* return this.uda.removeOneById({
                     name: name, id: entity2.id, txn
                 })
                 .then(
@@ -817,7 +847,7 @@ class SystemWarden {
                         }
                         return Promise.resolve(updated);
                     }
-                );
+                );*/
         };
 
         assert(typeof id === 'number');

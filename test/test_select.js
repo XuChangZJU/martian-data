@@ -1685,7 +1685,7 @@ describe('test groupBy', function() {
                     $as: 'maxFloor',
                 },
             },
-            groupBy: {
+            : {
                 id: 1,
             }
         }).then(
