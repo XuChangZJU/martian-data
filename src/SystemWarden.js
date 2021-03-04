@@ -470,7 +470,7 @@ class SystemWarden {
            }
      */
     registerTrigger(trigger) {
-        assert(!trigger.volatile && !trigger.beforeAction); // 一个trigger不可能同时是volatile和beforeAction
+        assert(!trigger.volatile || !trigger.beforeAction); // 一个trigger不可能同时是volatile和beforeAction
         switch (trigger.action) {
             case 'insert':
             {
