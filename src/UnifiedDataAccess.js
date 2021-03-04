@@ -21,6 +21,9 @@ const uniq = require("lodash/uniq");
 
 const constants = require("./constants");
 const events = require("./events");
+
+const TxnCache = require('./utils/txnCache');
+const { typeReference } = require("./constants");
 require('isomorphic-fetch');
 
 function isArray(object) {
@@ -568,7 +571,7 @@ function destructSelect(name, projection, query, sort, groupBy, noExpanding, fin
                 // exists / not exists 查询
                 result.query[i] = {
                     name: query[i].name,
-                    execTree: destructSelect.call(this, query[i].name, query[i].projection, query[i].query, query[i].sort, query[i].groupBy, findDel),
+                    execTree: destructSelect.call(this, query[i].name, query[i].projection, query[i].query, query[i].sort, query[i].groupBy, null, findDel),
                 };
             }
             else if (i === "$isql") {
@@ -1298,7 +1301,22 @@ class DataAccess extends EventEmitter {
             );
         }
 
-        return connection.insert(name, data2, schema, txn && txn.txn);
+        return connection.insert(name, data2, schema, txn && txn.txn)
+            .then(
+                (result) => {
+                    if (txn) {
+                        if (result instanceof Array) {
+                            result.forEach(
+                                ele => txn.cache.save(name, ele)
+                            );
+                        }
+                        else {
+                            txn.cache.save(name, result);
+                        }
+                    }
+                    return result;
+                }
+            );
     }
 
     insert2(name, data, txn) {
@@ -1372,14 +1390,18 @@ class DataAccess extends EventEmitter {
                     result.forEach(
                         (ele, idx) => {
                             getRidOfResult.call(this, ele, projection, name);
+                            if (txn) {
+                                txn.cache.save(name, ele);
+                            }
                         }
                     );
-                    return Promise.resolve(result);
+                    return result;
                 }
             );
     }
 
     find2(name, projection, query, sort, indexFrom, count, txn, forceIndex) {
+        throw new Error('本方法也废弃');
         if (!name || !this.schemas[name]) {
             throw new Error("查询必须输入有效表名");
         }
@@ -1461,6 +1483,26 @@ class DataAccess extends EventEmitter {
 
         if (txn) {
             this.checkTransactionValid(txn);
+            const schemas = this.schemas;
+            const schema = schemas[name];
+            const { attributes } = schema;
+            let canUseCache = true;
+
+            // 只要引用了连接对象，就不能使用cache
+           for (let attr in attributes) {
+                const { type } = attributes[attr];
+                if (type === typeReference && (!projection || projection.hasOwnProperty(attr))) {
+                    canUseCache = false;
+                    break;
+                }
+            }
+            if (canUseCache) {
+                const projection2 = formalizeProjection.call(this, schema, projection);
+                const cached = txn.cache.load(name, projection2, id);
+                if (cached) {
+                    return Promise.resolve(cached);
+                }
+            }
         }
 
         let schema = this.schemas[name];
@@ -1485,6 +1527,9 @@ class DataAccess extends EventEmitter {
                         {
                             let row = result[0];
                             getRidOfResult.call(this, row, projection, name);
+                            if (txn) {
+                                txn.cache.save(name, row);
+                            }
                             return Promise.resolve(row);
                         }
                         case 2:
@@ -1643,11 +1688,19 @@ class DataAccess extends EventEmitter {
 
         const data2 = formalizeDataForUpdate(data, schema, 'update', omitTsColumn);
 
-        return connection.updateOneById(name, data2, id, schema, txn && txn.txn);
-
+        return connection.updateOneById(name, data2, id, schema, txn && txn.txn)
+            .then(
+                (result) => {
+                    if (txn) {
+                        txn.cache.save(name, result);
+                    }
+                    return result;
+                }
+            );
     }
 
     updateOneById2(name, data, id, txn) {
+        throw new Error('不再支持');
         if (typeof id !== "number" && typeof id !== "string" && !(id instanceof ObjectId)) {
             throw new Error("查询必须输入有效id")
         }
@@ -1689,14 +1742,31 @@ class DataAccess extends EventEmitter {
             query[constants.deleteAtColumn] = {
                 $exists: false
             };
-            return connection.update(name, data, query, txn && txn.txn);
+            return connection.update(name, data, query, txn && txn.txn)
+                .then(
+                    (result) => {
+                        if (txn) {
+                            txn.cache.clearEntity(name);
+                        }
+                        return result;
+                    }
+                );
         }
         else {
-            return connection.remove(name, query, txn && txn.txn);
+            return connection.remove(name, query, txn && txn.txn)
+                .then(
+                    (result) => {
+                        if (txn) {
+                            txn.cache.clearEntity(name);
+                        }
+                        return result;
+                    }
+                );
         }
     }
 
     remove2(name, query, txn) {
+        throw new Error('不再支持');
         if (txn) {
             this.checkTransactionValid(txn);
         }
@@ -1741,14 +1811,31 @@ class DataAccess extends EventEmitter {
                     [constants.deleteAtColumn]: Date.now()
                 }
             };
-            return connection.updateOneById(name, data, id, schema, txn && txn.txn);
+            return connection.updateOneById(name, data, id, schema, txn && txn.txn)
+                .then(
+                    (result) => {
+                        if (txn) {
+                            txn.cache.clearEntity(name, id);
+                        }
+                        return result;
+                    }
+                );
         }
         else {
-            return connection.removeOneById(name, id, schema, txn && txn.txn);
+            return connection.removeOneById(name, id, schema, txn && txn.txn)
+                .then(
+                    (result) => {
+                        if (txn) {
+                            txn.cache.clearEntity(name, id);
+                        }
+                        return result;
+                    }
+                );
         }
     }
 
     removeOneById2(name, id, txn) {
+        throw new Error('不再支持');
         if (typeof id !== "number" && typeof id !== "string" && !(id instanceof ObjectId)) {
             throw new Error("查询必须输入有效id")
         }
@@ -1807,7 +1894,8 @@ class DataAccess extends EventEmitter {
                         const transaction = {
                             txn,
                             source,
-                            state: 'active'
+                            state: 'active',
+                            cache: new TxnCache(),
                         };
                         return Promise.resolve(transaction);
                     }

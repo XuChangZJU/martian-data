@@ -381,7 +381,7 @@ class Mysql {
 
     find(name, execTree, indexFrom, count, isCounting, con, forceIndex, useCache, cacheExpiredTime, forUpdate) {
         const sql = this.sqlTransformer.transformSelect(name, execTree, indexFrom, count, isCounting, null, forceIndex, forUpdate);
-        if (useCache && execTree.query) {
+        /* if (useCache && execTree.query) {
             //  先去mtStorage中查询，若是没有符合条件的，再去查询
             const entities = this.mtStorage.getEntities(name, execTree.query);
             if (entities.length === 0) {
@@ -409,7 +409,7 @@ class Mysql {
                     )
             }
             return Promise.resolve(entities);
-        }
+        } */
 
         return queryToPromise(con || this.db, sql, true)
             .then(
