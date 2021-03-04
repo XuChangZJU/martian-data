@@ -1305,14 +1305,14 @@ class DataAccess extends EventEmitter {
             .then(
                 (result) => {
                     if (txn) {
-                        if (result instanceof Array) {
+                        /* if (result instanceof Array) {
                             result.forEach(
                                 ele => txn.cache.save(name, ele)
                             );
                         }
                         else {
                             txn.cache.save(name, result);
-                        }
+                        } */
                     }
                     return result;
                 }
@@ -1391,7 +1391,7 @@ class DataAccess extends EventEmitter {
                         (ele, idx) => {
                             getRidOfResult.call(this, ele, projection, name);
                             if (txn) {
-                                txn.cache.save(name, ele);
+                                // txn.cache.save(name, ele);
                             }
                         }
                     );
@@ -1486,7 +1486,7 @@ class DataAccess extends EventEmitter {
             const schemas = this.schemas;
             const schema = schemas[name];
             const { attributes } = schema;
-            let canUseCache = true;
+            let canUseCache = false;
 
             // 只要引用了连接对象，就不能使用cache
            for (let attr in attributes) {
@@ -1496,13 +1496,13 @@ class DataAccess extends EventEmitter {
                     break;
                 }
             }
-            if (canUseCache) {
+            /* if (canUseCache) {
                 const projection2 = formalizeProjection.call(this, schema, projection);
                 const cached = txn.cache.load(name, projection2, id);
                 if (cached) {
                     return Promise.resolve(cached);
                 }
-            }
+            } */
         }
 
         let schema = this.schemas[name];
@@ -1527,9 +1527,9 @@ class DataAccess extends EventEmitter {
                         {
                             let row = result[0];
                             getRidOfResult.call(this, row, projection, name);
-                            if (txn) {
+                            /* if (txn) {
                                 txn.cache.save(name, row);
-                            }
+                            } */
                             return Promise.resolve(row);
                         }
                         case 2:
@@ -1691,9 +1691,9 @@ class DataAccess extends EventEmitter {
         return connection.updateOneById(name, data2, id, schema, txn && txn.txn)
             .then(
                 (result) => {
-                    if (txn) {
+                    /* if (txn) {
                         txn.cache.save(name, result);
-                    }
+                    } */
                     return result;
                 }
             );
@@ -1745,9 +1745,9 @@ class DataAccess extends EventEmitter {
             return connection.update(name, data, query, txn && txn.txn)
                 .then(
                     (result) => {
-                        if (txn) {
+                        /* if (txn) {
                             txn.cache.clearEntity(name);
-                        }
+                        } */
                         return result;
                     }
                 );
@@ -1756,9 +1756,9 @@ class DataAccess extends EventEmitter {
             return connection.remove(name, query, txn && txn.txn)
                 .then(
                     (result) => {
-                        if (txn) {
+                        /* if (txn) {
                             txn.cache.clearEntity(name);
-                        }
+                        } */
                         return result;
                     }
                 );
@@ -1815,7 +1815,7 @@ class DataAccess extends EventEmitter {
                 .then(
                     (result) => {
                         if (txn) {
-                            txn.cache.clearEntity(name, id);
+                            // txn.cache.clearEntity(name, id);
                         }
                         return result;
                     }
@@ -1826,7 +1826,7 @@ class DataAccess extends EventEmitter {
                 .then(
                     (result) => {
                         if (txn) {
-                            txn.cache.clearEntity(name, id);
+                            // txn.cache.clearEntity(name, id);
                         }
                         return result;
                     }
@@ -1895,7 +1895,7 @@ class DataAccess extends EventEmitter {
                             txn,
                             source,
                             state: 'active',
-                            cache: new TxnCache(),
+                            // cache: new TxnCache(),
                         };
                         return Promise.resolve(transaction);
                     }
