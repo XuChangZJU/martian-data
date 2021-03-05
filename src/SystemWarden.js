@@ -886,7 +886,7 @@ class SystemWarden {
                     () => this.uda.removeOneById({
                         name: name, id: entity2.id, txn
                     })
-                ),then(
+                ).then(
                 (deleted) => execRemoveTriggers(afterTriggers, entity2)
                     .then(
                         () => deleted
