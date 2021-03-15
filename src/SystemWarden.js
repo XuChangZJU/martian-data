@@ -667,7 +667,7 @@ class SystemWarden {
                     ele => ({
                         fn: execTrigger,
                         me,
-                        params: [ele, data, txn, context],
+                        params: [ele, data, txn, null, context],
                     })
                 );
 
@@ -874,7 +874,7 @@ class SystemWarden {
                         ele => ({
                             fn: execTrigger,
                             me,
-                            params: [ele, assign({}, entity2), txn],
+                            params: [ele, assign({}, entity2), txn, null, context],
                         })
                     );
                 return PromisesWithSerial(promises);
