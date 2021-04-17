@@ -296,7 +296,7 @@ function execTrigger(trigger, entity, txn, preEntity, context) {
  */
 async function execWatcher(watcher, entityId) {
     const { where, projection, entity, forceIndex, forUpdate, name,
-        trigger, inGroup, maxCount, singleton, beginsAt } = watcher;
+        trigger, inGroup, maxCount, singletone, beginsAt } = watcher;
     const query = where();
     if (entityId !== null && entityId !== undefined) {
         assign(where, { id: entityId });
@@ -305,7 +305,7 @@ async function execWatcher(watcher, entityId) {
     let myBeginsAt = Date.now();
     if (beginsAt) {
         console.warn(`watcher「${name}」发生了重叠性运行，请注意`);
-        if (singleton) {
+        if (singletone) {
             console.warn(`watcher「${name}」只允许单实例执行，故中止`);
             return 0;
         }
