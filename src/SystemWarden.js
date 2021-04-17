@@ -13,6 +13,8 @@ const pick = require('lodash/pick');
 const omit = require('lodash/omit');
 const values = require('lodash/values');
 const flatten = require('lodash/flatten');
+const unset = require('lodash/unset');
+const e = require('express');
 const ObjectID = require("mongodb").ObjectID;
 require("./utils/promiseUtils");
 const ITER_COUNT = 64;
@@ -287,139 +289,69 @@ function execTrigger(trigger, entity, txn, preEntity, context) {
     }
 }
 
-function execWatcher(watcher, entityId) {
-    let where = watcher.where();
+/**
+ * 新的execWatcher，作了简化以及singltone的处理，去掉了超时判断（可能会有问题）
+ * @param {*} watcher 
+ * @param {*} entityId 
+ */
+async function execWatcher(watcher, entityId) {
+    const { where, projection, entity, forceIndex, forUpdate, name,
+        trigger, inGroup, maxCount, singleton, beginsAt } = watcher;
+    const query = where();
     if (entityId !== null && entityId !== undefined) {
-        where = assign({}, where, {id: entityId});
+        assign(where, { id: entityId });
     }
-    const checkWatcherInner = (indexFrom, txn) => {
-        return this.uda.find({
-            name: watcher.entity,
-            projection: watcher.projection,
-            query: where,
-            indexFrom,
-            count: ITER_COUNT,
-            forceIndex: watcher.forceIndex,
-            txn
-        }).then(
-            (list) => {
-                if (list.length === 0) {
-                    return Promise.resolve(0);
-                }
-                let promise;
-                if (watcher.hasOwnProperty('inGroup') && watcher.inGroup === true) {
-                    promise = watcher.trigger(list, txn);
-                    this.wtArray.find((wt)=>wt.name === watcher.name).executeAt = Date.now();
-                }
-                else {
-                    /**
-                     * 这里最好不要用Promise.every，因为这是同一个事务，可能触发幻象读
-                     */
-                    const execWatcherInner = (index) => {
-                        if (index === list.length) {
-                            return Promise.resolve();
-                        }
-                        this.wtArray.find((wt)=>wt.name === watcher.name).executeAt = Date.now();
-                        return watcher.trigger(list[index], txn)
-                            .then(
-                                () => {
-                                    return execWatcherInner(index + 1)
-                                }
-                            );
-                    };
 
-                    promise = execWatcherInner(0);
-                    /*promise = Promise.every(
-                     list.map(
-                     (ele) => {
-                     return watcher.trigger(ele, txn)
-                     }
-                     )
-                     );*/
-                }
-                return promise.then(
-                    () => {
-                        // if (list.length === ITER_COUNT) {
-                        //     return checkWatcherInner(indexFrom + ITER_COUNT, txn)
-                        //         .then(
-                        //             (count) => Promise.resolve(count + ITER_COUNT)
-                        //         )
-                        // }
-                        return Promise.resolve(list.length);
-                    }
-                );
-            }
-        );
-    };
-    let end = false;
-    // console.log(`状态监听器【${watcher.name}】开始`);
-    return new Promise(
-        (resolve, reject) => {
-            return this.uda.startTransaction(this.txnSource, {
-                isolationLevel: 'REPEATABLE READ'
-            }).then(
-                (txn) => {
-                    try {
-                        setTimeout(() => {
-                            if (!end) {
-                                console.error(`状态监听器【${watcher.name}】超时`);
-                                return reject(new Error(`状态监听器【${watcher.name}】超时`));
-                            }
-                        }, 5000);
-                        // console.log(`状态监听器【${watcher.name}】开始`);
-                        return checkWatcherInner(0, txn)
-                            .then(
-                                (count) => {
-                                    end = true;
-                                    // console.log(`状态监听器【${watcher.name}】结束`);
-                                    if (count > 0) {
-                                        console.log(`状态监听器【${watcher.name}】恢复了【${count}】条数据到一致状态`);
-                                    }
-                                    return this.uda.commitTransaction(txn, {
-                                        isolationLevel: 'REPEATABLE READ'
-                                    }).then(
-                                        () => {
-                                            return resolve(count);
-                                        }
-                                    );
-                                }
-                            )
-                            .catch(
-                                (err) => {
-                                    end = true;
-                                    console.error(`状态监听器【${watcher.name}】发生异常，异常信息是：`);
-                                    console.error(err);
-                                    return this.uda.rollbackTransaction(
-                                        txn, {
-                                            isolationLevel: 'REPEATABLE READ'
-                                        }
-                                    ).then(
-                                        () => {
-                                            return reject(err);
-                                        }
-                                    );
-                                }
-                            );
-                    }
-                    catch (err) {
-                        end = true;
-                        console.error(`状态监听器【${watcher.name}】发生异常，异常信息是：`);
-                        console.error(err);
-                        return this.uda.rollbackTransaction(
-                            txn, {
-                                isolationLevel: 'REPEATABLE READ'
-                            }
-                            )
-                            .then(
-                                () => {
-                                    return reject(err);
-                                }
-                            )
-                    }
-                }
-            );
+    let myBeginsAt = Date.now();
+    if (beginsAt) {
+        console.warn(`watcher「${name}」发生了重叠性运行，请注意`);
+        if (singleton) {
+            console.warn(`watcher「${name}」只允许单实例执行，故中止`);
+            return 0;
         }
-    );
+    }
+    else {
+        assign(watcher, { beginsAt: myBeginsAt });
+    }
+
+    const txn = await this.uda.startTransaction(this.txnSource);
+    let count;
+    try {
+        const rows = await this.uda.find({
+            name: entity,
+            projection,
+            query,
+            indexFrom : 0,
+            count: maxCount | 1024,
+            forceIndex: forceIndex,
+            forUpdate,
+            txn,
+        });
+
+        count = rows.length;
+        if (rows.length > 0) {
+            if (inGroup) {
+                await trigger(rows, txn);
+            }
+            else {
+                for (let row of rows) {
+                    await trigger(row, txn);
+                }
+            } 
+        }
+
+        await this.uda.commitTransaction(txn);
+    }
+    catch(err) {
+        await this.uda.rollbackTransaction(txn);
+        throw err;
+    }
+
+    if (watcher.beginsAt === myBeginsAt) {
+        unset(watcher, 'beginsAt');
+    }
+    console.log(`状态监听器【${name}】恢复了【${count}】条数据到一致状态，耗时${Date.now() - myBeginsAt}毫秒`);
+    return count;
 }
 
 class SystemWarden {
