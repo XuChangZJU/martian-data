@@ -1247,8 +1247,12 @@ class DataAccess extends EventEmitter {
                 throw new Error("寻找不到相应的数据源" + schemaDef.source);
             }
             else {
-
-                promises.push(connection.createSchema(schemaDef, schema));
+                if (!schemaDef.view) {
+                    promises.push(connection.createSchema(schemaDef, schema));
+                }
+                else {
+                    console.log(`对象${schema}标识是视图，请手动创建`);
+                }
             }
         }
         return Promise.all(promises);
@@ -1265,7 +1269,7 @@ class DataAccess extends EventEmitter {
             }
             else {
                 // 这里增加需求，可以指定某张表在Drop时不删除，可能有问题  by xc!
-                if (!schemaDef.static) {
+                if (!schemaDef.static && !schemaDef.view) {
                     promises.push(connection.dropSchema(schemaDef, schema));
                 }
             }
