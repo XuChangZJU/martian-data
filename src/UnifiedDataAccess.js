@@ -52,6 +52,7 @@ function formalizeSchemasDefinition(schemas) {
             let schemasPromises = [];
             for (let schema in schemas) {
                 const schemaDef = schemas[schema];
+                const { view } = schemaDef;
                 const connection = connections[schemaDef.source];
                 if (!connection) {
                     throw new Error("寻找不到相应的数据源" + schemaDef.source);
@@ -169,7 +170,7 @@ function formalizeSchemasDefinition(schemas) {
                                         }
                                     }
 
-                                    if (!isMainKeyDefined) {
+                                    if (!isMainKeyDefined && !view) {
                                         keyTypePromises.push(
                                             connection.getDefaultKeyType(schema)
                                                 .then(
@@ -187,7 +188,7 @@ function formalizeSchemasDefinition(schemas) {
                                         );
                                     }
 
-                                    if (!isSettingTrueStrictly(dataSources[schemaDef.source].settings, "disableCreateAt")) {
+                                    if (!view && !isSettingTrueStrictly(dataSources[schemaDef.source].settings, "disableCreateAt")) {
                                         // 增加_createAt_
                                         schemaDef.attributes[constants.createAtColumn] = {
                                             type: "date",
@@ -203,7 +204,7 @@ function formalizeSchemasDefinition(schemas) {
                                         schemaDef.indexes = indexes;
                                     }
 
-                                    if (!isSettingTrueStrictly(dataSources[schemaDef.source].settings, "disableUpdateAt")) {
+                                    if (!view && !isSettingTrueStrictly(dataSources[schemaDef.source].settings, "disableUpdateAt")) {
                                         // 增加_updateAt_
                                         schemaDef.attributes[constants.updateAtColumn] = {
                                             type: "date"
@@ -218,7 +219,7 @@ function formalizeSchemasDefinition(schemas) {
                                         schemaDef.indexes = indexes;
                                     }
 
-                                    if (!isSettingTrueStrictly(dataSources[schemaDef.source].settings, "disableDeleteAt")) {
+                                    if (!view && !isSettingTrueStrictly(dataSources[schemaDef.source].settings, "disableDeleteAt")) {
                                         // 增加_deleteAt_
                                         schemaDef.attributes[constants.deleteAtColumn] = {
                                             type: "date"
