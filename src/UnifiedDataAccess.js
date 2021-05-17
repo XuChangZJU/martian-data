@@ -170,7 +170,7 @@ function formalizeSchemasDefinition(schemas) {
                                         }
                                     }
 
-                                    if (!isMainKeyDefined && !view) {
+                                    if (!isMainKeyDefined) {
                                         keyTypePromises.push(
                                             connection.getDefaultKeyType(schema)
                                                 .then(
