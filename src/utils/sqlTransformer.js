@@ -529,6 +529,15 @@ class SQLTransformer {
                 sql += " != ";
                 sql += alias ? `\`${alias}\`.\`${where.$inNe}\`` : `\`${where.$inNe}\``;
             }
+            else if (where.hasOwnProperty('$text')) {
+                // 为了支持vendue的线上版本加的代码，支持MySQL全文检索
+                const { $match,  $against } = where.$text;
+                const columns2 = $match.map(
+                    ({ name }) => `${alias}.${name}`
+                );
+
+                sql += ` match(${columns2.join(',')}) against ('${$against}' in natural language mode)`;
+            }
             else if (where.hasOwnProperty("$isql")) {
                 while (where.$isql.format.indexOf("${") !== -1) {
                     let numStr = where.$isql.format.match(/\$\{[0-9]*\}/)[0];
